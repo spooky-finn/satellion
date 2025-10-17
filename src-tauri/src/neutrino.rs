@@ -1,6 +1,12 @@
 use crate::app_state::AppState;
-use bip157::chain::BlockHeaderChanges;
+use crate::db::Block;
+use crate::schema;
+use bip157::chain::{BlockHeaderChanges, IndexedHeader};
 use bip157::{Builder, Event, TrustedPeer};
+use diesel::SqliteConnection;
+use diesel::prelude::*;
+use diesel::r2d2::ConnectionManager;
+use r2d2::Pool;
 use std::net::SocketAddrV4;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -32,9 +38,14 @@ impl Neutrino {
 }
 
 /// Handle incoming neutrino events and update shared state
-pub async fn handle_chain_updates(mut client: bip157::Client, app_state: Arc<AppState>) {
+pub async fn handle_chain_updates(
+    mut client: bip157::Client,
+    app_state: Arc<AppState>,
+    db_pool: Pool<ConnectionManager<SqliteConnection>>,
+) {
     let block_height = app_state.chain_height.clone();
     let sync_completed = app_state.sync_completed.clone();
+    let mut conn = db_pool.get().expect("Error getting connection from pool");
 
     while let Some(event) = client.event_rx.recv().await {
         match event {
@@ -45,7 +56,12 @@ pub async fn handle_chain_updates(mut client: bip157::Client, app_state: Arc<App
             }
             Event::ChainUpdate(changes) => {
                 let new_height = match changes {
-                    BlockHeaderChanges::Connected(header) => Some(header.height),
+                    BlockHeaderChanges::Connected(header) => {
+                        if let Err(e) = save_block_header(&mut conn, header) {
+                            eprintln!("Error inserting block: {e:?}");
+                        }
+                        Some(header.height)
+                    }
                     BlockHeaderChanges::Reorganized { accepted, .. } => {
                         accepted.last().map(|h| h.height)
                     }
@@ -63,12 +79,22 @@ pub async fn handle_chain_updates(mut client: bip157::Client, app_state: Arc<App
                     }
                 }
             }
-            Event::Block(block) => {
-                println!("Block event: {block:?}");
-            }
-            Event::IndexedFilter(filter) => {
-                println!("Indexed filter event: {filter:?}");
-            }
+            Event::Block(_block) => {}
+            Event::IndexedFilter(_filter) => {}
         }
     }
+}
+
+fn save_block_header(
+    conn: &mut SqliteConnection,
+    block_header: IndexedHeader,
+) -> Result<usize, diesel::result::Error> {
+    diesel::insert_into(schema::blocks::table)
+        .values(&Block {
+            height: block_header.height as i32,
+            merkle_root: block_header.header.merkle_root.to_string(),
+            prev_blockhash: block_header.header.prev_blockhash.to_string(),
+            time: block_header.header.time as i64,
+        })
+        .execute(conn)
 }
