@@ -32,11 +32,14 @@ impl Neutrino {
 }
 
 /// Handle incoming neutrino events and update shared state
-pub async fn handle_chain_updates(mut client: bip157::Client, app_state: Arc<AppState>) {
+pub async fn handle_chain_updates(
+    mut event_rx: bip157::UnboundedReceiver<Event>,
+    app_state: Arc<AppState>,
+) {
     let block_height = app_state.chain_height.clone();
     let sync_completed = app_state.sync_completed.clone();
 
-    while let Some(event) = client.event_rx.recv().await {
+    while let Some(event) = event_rx.recv().await {
         match event {
             Event::FiltersSynced(sync_update) => {
                 *block_height.lock().unwrap() = sync_update.tip.height;
@@ -64,10 +67,10 @@ pub async fn handle_chain_updates(mut client: bip157::Client, app_state: Arc<App
                 }
             }
             Event::Block(block) => {
-                println!("Block event: {block:?}");
+                // println!("Block event: {block:?}");
             }
             Event::IndexedFilter(filter) => {
-                println!("Indexed filter event: {filter:?}");
+                // println!("Indexed filter event: {filter:?}");
             }
         }
     }
