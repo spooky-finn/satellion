@@ -2,32 +2,33 @@ mod app_state;
 mod commands;
 mod neutrino;
 
-use crate::neutrino::Neutrino;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+
+use crate::neutrino::Neutrino;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let block_height = Arc::new(RwLock::new(None));
-    let height_clone = block_height.clone();
-
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .manage(app_state::AppState::new())
-        .setup(move |_app| {
+        .manage(Arc::new(app_state::AppState::new()))
+        .setup(move |app| {
+            let state = app.state::<Arc<app_state::AppState>>();
+
             match Neutrino::connect_regtest() {
                 Ok(neutrino) => {
                     let (node, client) = (neutrino.node, neutrino.client);
 
-                    // Spawn the node to run in the background
                     tauri::async_runtime::spawn(async move {
                         if let Err(e) = node.run().await {
                             eprintln!("Neutrino node error: {}", e);
                         }
                     });
 
-                    // Spawn the event handler
-                    tauri::async_runtime::spawn(neutrino::handle_events(client, height_clone));
+                    tauri::async_runtime::spawn(neutrino::handle_chain_updates(
+                        client,
+                        state.inner().clone(),
+                    ));
                 }
                 Err(e) => {
                     eprintln!("Failed to connect to regtest: {}", e);
@@ -35,10 +36,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            commands::greet,
-            commands::get_block_height
-        ])
+        .invoke_handler(tauri::generate_handler![commands::chain_status])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

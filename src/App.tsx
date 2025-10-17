@@ -1,49 +1,23 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import { invoke } from "@tauri-apps/api/core"
+import { useEffect, useState } from "react"
+import type { SyncStatus } from "./types"
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  useEffect(() => {
+    // request block height every 1 second
+    const interval = setInterval(async () => {
+      const status = await invoke<SyncStatus>("chain_status");
+      setSyncStatus(status);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
+      <p>Block height: {syncStatus?.height ?? "Loading..."}</p>
+      <p>Sync completed: {syncStatus?.sync_completed ? "Chain is up to date" : "Syncing..."}</p>
     </main>
   );
 }

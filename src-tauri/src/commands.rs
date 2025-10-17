@@ -1,13 +1,25 @@
 use crate::app_state::AppState;
+use std::sync::Arc;
 
-#[tauri::command]
-pub async fn greet(state: tauri::State<'_, AppState>) -> Result<u32, String> {
-    let height = state.chain_height.read().await;
-    height.ok_or_else(|| "Block height not available yet".to_string())
+#[derive(serde::Serialize)]
+pub struct SyncStatus {
+    pub height: u32,
+    pub sync_completed: bool,
 }
 
 #[tauri::command]
-pub async fn get_block_height(state: tauri::State<'_, AppState>) -> Result<u32, String> {
-    let height = state.chain_height.read().await;
-    height.ok_or_else(|| "Block height not available yet".to_string())
+pub async fn chain_status(state: tauri::State<'_, Arc<AppState>>) -> Result<SyncStatus, String> {
+    let height = state
+        .chain_height
+        .lock()
+        .map_err(|_| "Failed to lock chain height".to_string())?;
+    let sync_completed = state
+        .sync_completed
+        .lock()
+        .map_err(|_| "Failed to lock sync completed".to_string())?;
+
+    Ok(SyncStatus {
+        height: *height,
+        sync_completed: *sync_completed,
+    })
 }

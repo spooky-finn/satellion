@@ -1,8 +1,10 @@
+use crate::app_state::AppState;
+use bip157::chain::BlockHeaderChanges;
 use bip157::{Builder, Event, TrustedPeer};
 use std::net::SocketAddrV4;
 use std::str::FromStr;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use std::time::Duration;
 
 const REGTEST_PEER: &str = "127.0.0.1:18444";
 
@@ -23,21 +25,25 @@ impl Neutrino {
         let (node, client) = Builder::new(bip157::Network::Regtest)
             .required_peers(1)
             .add_peers(vec![peer])
+            .response_timeout(Duration::from_secs(10))
             .build();
         Ok(Self { node, client })
     }
 }
 
 /// Handle incoming neutrino events and update shared state
-pub async fn handle_events(mut client: bip157::Client, block_height: Arc<RwLock<Option<u32>>>) {
+pub async fn handle_chain_updates(mut client: bip157::Client, app_state: Arc<AppState>) {
+    let block_height = app_state.chain_height.clone();
+    let sync_completed = app_state.sync_completed.clone();
+
     while let Some(event) = client.event_rx.recv().await {
         match event {
             Event::FiltersSynced(sync_update) => {
-                *block_height.write().await = Some(sync_update.tip.height);
+                *block_height.lock().unwrap() = sync_update.tip.height;
+                *sync_completed.lock().unwrap() = true;
                 println!("Synced to height: {}", sync_update.tip.height);
             }
             Event::ChainUpdate(changes) => {
-                use bip157::chain::BlockHeaderChanges;
                 let new_height = match changes {
                     BlockHeaderChanges::Connected(header) => Some(header.height),
                     BlockHeaderChanges::Reorganized { accepted, .. } => {
@@ -45,12 +51,24 @@ pub async fn handle_events(mut client: bip157::Client, block_height: Arc<RwLock<
                     }
                     BlockHeaderChanges::ForkAdded(_) => None,
                 };
-                if let Some(h) = new_height {
-                    *block_height.write().await = Some(h);
-                    println!("Height updated: {}", h);
+
+                match new_height {
+                    Some(h) => {
+                        *block_height.lock().unwrap() = h;
+                        *sync_completed.lock().unwrap() = false;
+                    }
+                    None => {
+                        eprintln!("Chain error: no new height");
+                        *sync_completed.lock().unwrap() = true;
+                    }
                 }
             }
-            _ => {}
+            Event::Block(block) => {
+                println!("Block event: {block:?}");
+            }
+            Event::IndexedFilter(filter) => {
+                println!("Indexed filter event: {filter:?}");
+            }
         }
     }
 }
