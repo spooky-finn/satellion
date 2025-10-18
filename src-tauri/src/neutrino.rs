@@ -1,5 +1,5 @@
 use crate::app_state::AppState;
-use crate::db::Block;
+use crate::db::BlockHeader;
 use crate::schema;
 use bip157::chain::{BlockHeaderChanges, IndexedHeader};
 use bip157::{Builder, Event, TrustedPeer};
@@ -89,12 +89,15 @@ fn save_block_header(
     conn: &mut SqliteConnection,
     block_header: IndexedHeader,
 ) -> Result<usize, diesel::result::Error> {
-    diesel::insert_into(schema::blocks::table)
-        .values(&Block {
+    diesel::insert_into(schema::block_headers::table)
+        .values(&BlockHeader {
             height: block_header.height as i32,
             merkle_root: block_header.header.merkle_root.to_string(),
             prev_blockhash: block_header.header.prev_blockhash.to_string(),
-            time: block_header.header.time as i64,
+            time: block_header.header.time as i32,
+            version: block_header.header.version.to_consensus(),
+            bits: block_header.header.bits.to_consensus() as i32,
+            nonce: block_header.header.nonce as i32,
         })
         .execute(conn)
 }

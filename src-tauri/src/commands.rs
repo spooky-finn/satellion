@@ -1,6 +1,6 @@
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 
-use crate::{app_state::AppState, db::Block, schema};
+use crate::{app_state::AppState, db::BlockHeader, schema};
 use std::sync::Arc;
 
 #[derive(serde::Serialize)]
@@ -24,10 +24,10 @@ pub async fn chain_status(
         .lock()
         .map_err(|_| "Failed to lock sync completed".to_string())?;
 
-    let last_block = schema::blocks::table
-        .select(schema::blocks::all_columns)
-        .order(schema::blocks::height.desc())
-        .first::<Block>(&mut conn)
+    let last_block = schema::block_headers::table
+        .select(schema::block_headers::all_columns)
+        .order(schema::block_headers::height.desc())
+        .first::<BlockHeader>(&mut conn)
         .map_err(|_| "Error getting last block height".to_string())?;
 
     Ok(SyncStatus {

@@ -4,7 +4,6 @@ mod db;
 mod neutrino;
 mod schema;
 
-use crate::neutrino::Neutrino;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
 use std::sync::Arc;
@@ -21,7 +20,7 @@ pub fn run() {
         .setup(move |app| {
             let state = app.state::<Arc<app_state::AppState>>();
 
-            match Neutrino::connect_regtest() {
+            match neutrino::Neutrino::connect_regtest() {
                 Ok(neutrino) => {
                     let (node, client) = (neutrino.node, neutrino.client);
 

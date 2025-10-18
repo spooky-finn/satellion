@@ -1,10 +1,13 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
-    blocks (height) {
+    block_headers (height) {
         height -> Integer,
         merkle_root -> Text,
         prev_blockhash -> Text,
-        time -> BigInt,
+        time -> Integer,
+        version -> Integer,
+        bits -> Integer,
+        nonce -> Integer,
     }
 }
