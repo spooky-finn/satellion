@@ -2,6 +2,7 @@ mod app_state;
 mod commands;
 mod db;
 mod neutrino;
+mod repository;
 mod schema;
 
 use diesel::prelude::*;
@@ -9,9 +10,12 @@ use diesel::r2d2::{ConnectionManager, Pool};
 use std::sync::Arc;
 use tauri::Manager;
 
+use crate::repository::Repository;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let db_pool = establish_pool();
+    let repository = Repository::new(db_pool.clone());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -33,7 +37,7 @@ pub fn run() {
                     tauri::async_runtime::spawn(neutrino::handle_chain_updates(
                         client,
                         state.inner().clone(),
-                        db_pool.clone(),
+                        repository,
                     ));
                 }
                 Err(e) => {
