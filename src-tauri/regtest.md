@@ -1,18 +1,22 @@
-starting the regrest bitcoin node 
-
+## 1. Starting the regtest bitcoin node
+```bash
 bitcoind \
   -regtest \
   -server \
   -txindex \
   -blockfilterindex=1 \
   -peerblockfilters
+```
 
-
-1. load/create wallet
+## 2. Load/create wallet
+```bash
 bitcoin-cli -regtest loadwallet test
-  
-1. generate blocks
+```
+
+## 3. Generate blocks
+```bash
 bitcoin-cli \
   -regtest \
-    -rpcport=18443 \
+  -rpcport=18443 \
   generatetoaddress 101 $(bitcoin-cli -regtest -rpcport=18443 getnewaddress)
+```

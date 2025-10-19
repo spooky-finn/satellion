@@ -17,6 +17,8 @@ pub fn run() {
     let db_pool = establish_pool();
     let repository = Repository::new(db_pool.clone());
 
+    let block_headers = repository.load_block_headers(10).unwrap();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(Arc::new(app_state::AppState::new()))
@@ -24,7 +26,7 @@ pub fn run() {
         .setup(move |app| {
             let state = app.state::<Arc<app_state::AppState>>();
 
-            match neutrino::Neutrino::connect_regtest() {
+            match neutrino::Neutrino::connect_regtest(block_headers) {
                 Ok(neutrino) => {
                     let (node, client) = (neutrino.node, neutrino.client);
 

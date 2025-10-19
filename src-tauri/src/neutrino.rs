@@ -1,7 +1,10 @@
 use crate::app_state::AppState;
+use crate::db::BlockHeader;
 use crate::repository::Repository;
-use bip157::chain::BlockHeaderChanges;
-use bip157::{Builder, Event, TrustedPeer};
+use bip157::chain::{BlockHeaderChanges, ChainState, IndexedHeader};
+use bip157::{BlockHash, Builder, Event, Header, TrustedPeer};
+use bitcoin::blockdata::block::{TxMerkleNode, Version};
+use bitcoin::pow::CompactTarget;
 use std::net::SocketAddrV4;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -15,7 +18,7 @@ pub struct Neutrino {
 }
 
 impl Neutrino {
-    pub fn connect_regtest() -> Result<Self, String> {
+    pub fn connect_regtest(block_headers: Vec<BlockHeader>) -> Result<Self, String> {
         let socket_addr = match SocketAddrV4::from_str(REGTEST_PEER) {
             Ok(addr) => addr,
             Err(e) => {
@@ -23,8 +26,25 @@ impl Neutrino {
             }
         };
         let peer = TrustedPeer::from_socket_addr(socket_addr);
+        let indexed_headers = block_headers
+            .iter()
+            .map(|h| IndexedHeader {
+                height: h.height as u32,
+                header: Header {
+                    merkle_root: TxMerkleNode::from_str(&h.merkle_root).unwrap(),
+                    prev_blockhash: BlockHash::from_str(&h.prev_blockhash).unwrap(),
+                    time: h.time as u32,
+                    version: Version::from_consensus(h.version as i32),
+                    bits: CompactTarget::from_consensus(h.bits as u32),
+                    nonce: h.nonce as u32,
+                },
+            })
+            .collect();
+        let chain_state = ChainState::Snapshot(indexed_headers);
+
         let (node, client) = Builder::new(bip157::Network::Regtest)
             .required_peers(1)
+            .chain_state(chain_state)
             .add_peers(vec![peer])
             .response_timeout(Duration::from_secs(10))
             .build();

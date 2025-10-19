@@ -3257,6 +3257,7 @@ name = "satellion"
 version = "0.1.0"
 dependencies = [
  "bip157",
+ "bitcoin",
  "diesel",
  "r2d2",
  "serde",

@@ -46,10 +46,15 @@ impl Repository {
             .execute(&mut conn)
     }
 
-    pub fn load_all_block_headers(&self) -> Result<Vec<BlockHeader>, diesel::result::Error> {
+    pub fn load_block_headers(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<BlockHeader>, diesel::result::Error> {
         let mut conn = self.get_conn()?;
         schema::block_headers::table
             .select(schema::block_headers::all_columns)
+            .limit(limit)
+            .order(schema::block_headers::height.desc())
             .load::<BlockHeader>(&mut conn)
     }
 }
