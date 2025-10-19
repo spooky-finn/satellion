@@ -1,7 +1,7 @@
 mod app_state;
+mod bitcoin;
 mod commands;
 mod db;
-mod neutrino;
 mod repository;
 mod schema;
 
@@ -26,7 +26,7 @@ pub fn run() {
         .setup(move |app| {
             let state = app.state::<Arc<app_state::AppState>>();
 
-            match neutrino::Neutrino::connect_regtest(block_headers) {
+            match bitcoin::Neutrino::connect_regtest(block_headers) {
                 Ok(neutrino) => {
                     let (node, client) = (neutrino.node, neutrino.client);
 
@@ -36,7 +36,7 @@ pub fn run() {
                         }
                     });
 
-                    tauri::async_runtime::spawn(neutrino::handle_chain_updates(
+                    tauri::async_runtime::spawn(bitcoin::handle_chain_updates(
                         client,
                         state.inner().clone(),
                         repository,
