@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core"
 import { useEffect, useState } from "react"
 import type { SyncStatus } from "./types"
 
-function App() {
+export const BitcoinSync = () => {
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
 
   useEffect(() => {
@@ -22,4 +22,3 @@ function App() {
   );
 }
 
-export default App;

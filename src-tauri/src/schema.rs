@@ -1,7 +1,8 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
-    block_headers (height) {
+    #[sql_name = "bitcoin.block_headers"]
+    bitcoin_block_headers (height) {
         height -> Integer,
         merkle_root -> Text,
         prev_blockhash -> Text,
@@ -11,3 +12,13 @@ diesel::table! {
         nonce -> Integer,
     }
 }
+
+diesel::table! {
+    keys (id) {
+        id -> Integer,
+        prk -> Text,
+        created_at -> Timestamp,
+    }
+}
+
+diesel::allow_tables_to_appear_in_same_query!(bitcoin_block_headers, keys,);

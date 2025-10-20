@@ -1,3 +1,4 @@
+use crate::db;
 use crate::db::BlockHeader;
 use crate::schema;
 use bip157::chain::IndexedHeader;
@@ -33,7 +34,7 @@ impl Repository {
         block_header: IndexedHeader,
     ) -> Result<usize, diesel::result::Error> {
         let mut conn = self.get_conn()?;
-        diesel::insert_into(schema::block_headers::table)
+        diesel::insert_into(schema::bitcoin_block_headers::table)
             .values(&BlockHeader {
                 height: block_header.height as i32,
                 merkle_root: block_header.header.merkle_root.to_string(),
@@ -51,10 +52,31 @@ impl Repository {
         limit: i64,
     ) -> Result<Vec<BlockHeader>, diesel::result::Error> {
         let mut conn = self.get_conn()?;
-        schema::block_headers::table
-            .select(schema::block_headers::all_columns)
+        schema::bitcoin_block_headers::table
+            .select(schema::bitcoin_block_headers::all_columns)
             .limit(limit)
-            .order(schema::block_headers::height.desc())
+            .order(schema::bitcoin_block_headers::height.desc())
             .load::<BlockHeader>(&mut conn)
+    }
+
+    pub fn wallet_exist(&self) -> Result<bool, diesel::result::Error> {
+        let mut conn = self.get_conn()?;
+        schema::keys::table
+            .select(diesel::dsl::count(schema::keys::id))
+            .first::<i64>(&mut conn)
+            .map_err(|_| diesel::result::Error::NotFound)
+            .map(|count| count > 0)
+    }
+
+    pub fn save_key(&self, key: String) -> Result<usize, diesel::result::Error> {
+        let mut conn = self.get_conn()?;
+        let key = db::Key {
+            id: None,
+            prk: key,
+            created_at: chrono::Utc::now().to_string(),
+        };
+        diesel::insert_into(schema::keys::table)
+            .values(&key)
+            .execute(&mut conn)
     }
 }

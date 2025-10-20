@@ -26,6 +26,8 @@ rand = "0.9.2"
 bip157 = "0.3.3"
 bitcoin = "0.32.7"
 tokio = "1.48.0"
-diesel = { version = "2.2.12", features = ["sqlite", "r2d2", "returning_clauses_for_sqlite_3_35"] }
+diesel = { version = "2.2.12", features = ["sqlite", "r2d2", "returning_clauses_for_sqlite_3_35", "chrono"] }
 r2d2 = "0.8"
+alloy-signer-local = {version = "1.0.41", features = ["mnemonic"] }
+chrono = "0.4.42"
 
