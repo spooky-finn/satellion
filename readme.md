@@ -4,7 +4,7 @@
 
 We will develop a lightweight, secure, and transparent Bitcoin wallet featuring a friendly, step-by-step ask-and-confirm interaction model. The project is non-profit and aimed primarily at experienced users who want straightforward, trustworthy self-custody without trading functions or unnecessary complexity.
 
-The initial release will support Bitcoin only, then Ethereum will be added. Consideration of other assets will be deferred until much later, and only after careful evaluation.
+The initial release will support Bitcoin and Ethereum. Consideration of other assets will be deferred until much later, and only after careful evaluation.
 
 ## Principles
 
