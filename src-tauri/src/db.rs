@@ -9,6 +9,7 @@ pub type Pool = r2d2::Pool<diesel::r2d2::ConnectionManager<diesel::SqliteConnect
 #[diesel(table_name = schema::keys)]
 pub struct Key {
     pub id: Option<i32>,
+    pub name: Option<String>,
     pub prk: String,
     pub created_at: String,
 }

@@ -13,6 +13,7 @@ CREATE UNIQUE INDEX idx_bitcoin_blocks_hash ON "bitcoin.block_headers" (merkle_r
 
 CREATE TABLE "keys" (
   id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  name TEXT,
   prk TEXT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

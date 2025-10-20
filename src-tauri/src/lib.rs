@@ -60,6 +60,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::wallet_exists,
+            commands::generate_mnemonic,
+            commands::save_mnemonic,
             commands::chain_status
         ])
         .run(tauri::generate_context!())

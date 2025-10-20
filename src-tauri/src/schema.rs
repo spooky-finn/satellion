@@ -16,6 +16,7 @@ diesel::table! {
 diesel::table! {
     keys (id) {
         id -> Integer,
+        name -> Nullable<Text>,
         prk -> Text,
         created_at -> Timestamp,
     }

@@ -68,10 +68,15 @@ impl Repository {
             .map(|count| count > 0)
     }
 
-    pub fn save_key(&self, key: String) -> Result<usize, diesel::result::Error> {
+    pub fn save_private_key(
+        &self,
+        key: String,
+        name: String,
+    ) -> Result<usize, diesel::result::Error> {
         let mut conn = self.get_conn()?;
         let key = db::Key {
             id: None,
+            name: Some(name),
             prk: key,
             created_at: chrono::Utc::now().to_string(),
         };

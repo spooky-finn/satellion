@@ -53,10 +53,11 @@ pub async fn generate_mnemonic() -> Result<String, String> {
 pub async fn save_mnemonic(
     mnemonic: String,
     passphrase: String,
+    name: String,
     repository: tauri::State<'_, Repository>,
 ) -> Result<(), String> {
     let private_key = mnemonic + " " + &passphrase;
-    let result = repository.save_key(private_key);
+    let result = repository.save_private_key(private_key, name);
     if result.is_err() {
         return Err(result.err().unwrap().to_string());
     }
