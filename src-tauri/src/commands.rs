@@ -1,6 +1,6 @@
-use crate::mnemonic;
-use crate::repository::Repository;
+use crate::repository::{AvailableWallet, Repository};
 use crate::{app_state::AppState, db::BlockHeader, schema};
+use crate::{mnemonic, wallet_storage};
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use std::sync::Arc;
 
@@ -35,31 +35,43 @@ pub async fn chain_status(
 }
 
 #[tauri::command]
-pub async fn wallet_exists(repository: tauri::State<'_, Repository>) -> Result<bool, String> {
-    let exist = repository.wallet_exist();
-    if exist.is_err() {
-        return Err("wallet dose not exist".to_string());
-    }
-    Ok(exist.unwrap())
-}
-
-#[tauri::command]
 pub async fn generate_mnemonic() -> Result<String, String> {
     let mnemonic = mnemonic::generate_random(12);
     Ok(mnemonic.join(" "))
 }
 
 #[tauri::command]
-pub async fn save_mnemonic(
+pub async fn create_wallet(
     mnemonic: String,
     passphrase: String,
     name: String,
     repository: tauri::State<'_, Repository>,
 ) -> Result<(), String> {
-    let private_key = mnemonic + " " + &passphrase;
-    let result = repository.save_private_key(private_key, name);
-    if result.is_err() {
-        return Err(result.err().unwrap().to_string());
-    }
+    let wallet = wallet_storage::create_encrypted_wallet(mnemonic, passphrase, name)
+        .map_err(|e| e.to_string())?;
+    repository
+        .insert_wallet(wallet)
+        .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_available_wallets(
+    repository: tauri::State<'_, Repository>,
+) -> Result<Vec<AvailableWallet>, String> {
+    let wallets_info = repository.available_wallets().map_err(|e| e.to_string())?;
+    Ok(wallets_info)
+}
+
+#[tauri::command]
+pub async fn unlock_wallet(
+    wallet_id: i32,
+    passphrase: String,
+    repository: tauri::State<'_, Repository>,
+) -> Result<String, String> {
+    let wallet = repository
+        .get_wallet_by_id(wallet_id)
+        .map_err(|e| format!("Failed to get wallet: {}", e))?;
+    let decrypted = wallet_storage::decrypt_wallet(&wallet, passphrase)?;
+    Ok(decrypted.mnemonic)
 }

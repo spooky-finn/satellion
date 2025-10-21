@@ -5,12 +5,15 @@ use diesel::prelude::*;
 // https://kotiri.com/2018/01/31/postgresql-diesel-rust-types.html
 pub type Pool = r2d2::Pool<diesel::r2d2::ConnectionManager<diesel::SqliteConnection>>;
 
-#[derive(Insertable, Queryable, Debug, PartialEq)]
-#[diesel(table_name = schema::keys)]
-pub struct Key {
-    pub id: Option<i32>,
+#[derive(Insertable, Queryable, Selectable, Debug, PartialEq)]
+#[diesel(table_name = schema::wallets)]
+pub struct Wallet {
+    pub id: i32,
     pub name: Option<String>,
-    pub prk: String,
+    pub encrypted_key: Vec<u8>,
+    pub key_wrapped: Vec<u8>,
+    pub kdf_salt: Vec<u8>,
+    pub version: i32,
     pub created_at: String,
 }
 

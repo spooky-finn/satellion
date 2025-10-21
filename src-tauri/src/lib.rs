@@ -2,10 +2,13 @@ mod app_state;
 mod bitcoin;
 mod commands;
 mod db;
+mod envelope_encryption;
 mod ethereum;
 mod mnemonic;
+mod models;
 mod repository;
 mod schema;
+mod wallet_storage;
 
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
@@ -27,15 +30,14 @@ pub fn run() {
         .manage(db_pool.clone())
         .manage(Repository::new(db_pool.clone()))
         .setup(move |app| {
-            #[cfg(debug_assertions)]
-            {
-                let window = app.get_webview_window("main").unwrap();
-                window.open_devtools();
-                window.close_devtools();
-            }
+            // #[cfg(debug_assertions)]
+            // {
+            //     let window = app.get_webview_window("main").unwrap();
+            //     window.open_devtools();
+            //     window.close_devtools();
+            // }
 
             let state = app.state::<Arc<app_state::AppState>>();
-
             match bitcoin::Neutrino::connect_regtest(block_headers) {
                 Ok(neutrino) => {
                     let (node, client) = (neutrino.node, neutrino.client);
@@ -59,10 +61,11 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::wallet_exists,
             commands::generate_mnemonic,
-            commands::save_mnemonic,
-            commands::chain_status
+            commands::create_wallet,
+            commands::chain_status,
+            commands::get_available_wallets,
+            commands::unlock_wallet
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

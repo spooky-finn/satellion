@@ -11,9 +11,12 @@ CREATE TABLE "bitcoin.block_headers" (
 
 CREATE UNIQUE INDEX idx_bitcoin_blocks_hash ON "bitcoin.block_headers" (merkle_root);
 
-CREATE TABLE "keys" (
+CREATE TABLE "wallets" (
   id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
   name TEXT,
-  prk TEXT NOT NULL,
+  encrypted_key BLOB NOT NULL,
+  key_wrapped BLOB NOT NULL,
+  kdf_salt BLOB NOT NULL,
+  version INTEGER NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

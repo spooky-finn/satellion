@@ -12,6 +12,14 @@ pub struct Repository {
     pub db_pool: Pool<ConnectionManager<SqliteConnection>>,
 }
 
+type Error = diesel::result::Error;
+
+#[derive(serde::Serialize)]
+pub struct AvailableWallet {
+    pub id: i32,
+    pub name: Option<String>,
+}
+
 impl Repository {
     pub fn new(db_pool: Pool<ConnectionManager<SqliteConnection>>) -> Self {
         Self { db_pool }
@@ -19,20 +27,29 @@ impl Repository {
 
     fn get_conn(
         &self,
-    ) -> Result<PooledConnection<ConnectionManager<diesel::SqliteConnection>>, diesel::result::Error>
-    {
+    ) -> Result<PooledConnection<ConnectionManager<diesel::SqliteConnection>>, Error> {
         self.db_pool.get().map_err(|e| {
-            diesel::result::Error::DatabaseError(
+            Error::DatabaseError(
                 diesel::result::DatabaseErrorKind::UnableToSendCommand,
                 Box::new(e.to_string()),
             )
         })
     }
 
-    pub fn save_block_header(
-        &self,
-        block_header: IndexedHeader,
-    ) -> Result<usize, diesel::result::Error> {
+    pub fn available_wallets(&self) -> Result<Vec<AvailableWallet>, Error> {
+        let mut conn = self.get_conn()?;
+        let wallets = schema::wallets::table
+            .select((schema::wallets::id, schema::wallets::name))
+            .load::<(i32, Option<String>)>(&mut conn)?;
+
+        let result = wallets
+            .into_iter()
+            .map(|(id, name)| AvailableWallet { id, name })
+            .collect();
+        Ok(result)
+    }
+
+    pub fn save_block_header(&self, block_header: IndexedHeader) -> Result<usize, Error> {
         let mut conn = self.get_conn()?;
         diesel::insert_into(schema::bitcoin_block_headers::table)
             .values(&BlockHeader {
@@ -47,10 +64,7 @@ impl Repository {
             .execute(&mut conn)
     }
 
-    pub fn load_block_headers(
-        &self,
-        limit: i64,
-    ) -> Result<Vec<BlockHeader>, diesel::result::Error> {
+    pub fn load_block_headers(&self, limit: i64) -> Result<Vec<BlockHeader>, Error> {
         let mut conn = self.get_conn()?;
         schema::bitcoin_block_headers::table
             .select(schema::bitcoin_block_headers::all_columns)
@@ -59,29 +73,28 @@ impl Repository {
             .load::<BlockHeader>(&mut conn)
     }
 
-    pub fn wallet_exist(&self) -> Result<bool, diesel::result::Error> {
+    pub fn wallet_exist(&self) -> Result<bool, Error> {
         let mut conn = self.get_conn()?;
-        schema::keys::table
-            .select(diesel::dsl::count(schema::keys::id))
+        schema::wallets::table
+            .select(diesel::dsl::count(schema::wallets::id))
             .first::<i64>(&mut conn)
-            .map_err(|_| diesel::result::Error::NotFound)
+            .map_err(|_| Error::NotFound)
             .map(|count| count > 0)
     }
 
-    pub fn save_private_key(
-        &self,
-        key: String,
-        name: String,
-    ) -> Result<usize, diesel::result::Error> {
+    pub fn insert_wallet(&self, wallet: db::Wallet) -> Result<usize, Error> {
         let mut conn = self.get_conn()?;
-        let key = db::Key {
-            id: None,
-            name: Some(name),
-            prk: key,
-            created_at: chrono::Utc::now().to_string(),
-        };
-        diesel::insert_into(schema::keys::table)
-            .values(&key)
+        diesel::insert_into(schema::wallets::table)
+            .values(&wallet)
             .execute(&mut conn)
+    }
+
+    pub fn get_wallet_by_id(&self, wallet_id: i32) -> Result<db::Wallet, Error> {
+        let mut conn = self.get_conn()?;
+        let wallet = schema::wallets::table
+            .filter(schema::wallets::id.eq(wallet_id))
+            .select(schema::wallets::all_columns)
+            .first::<db::Wallet>(&mut conn)?;
+        Ok(wallet)
     }
 }

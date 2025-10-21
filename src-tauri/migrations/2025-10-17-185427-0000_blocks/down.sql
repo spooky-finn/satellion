@@ -1,2 +1,2 @@
 DROP TABLE "bitcoin.block_headers";
-DROP TABLE "keys";
+DROP TABLE "wallets";

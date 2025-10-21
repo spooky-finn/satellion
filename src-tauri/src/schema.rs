@@ -14,12 +14,15 @@ diesel::table! {
 }
 
 diesel::table! {
-    keys (id) {
+    wallets (id) {
         id -> Integer,
         name -> Nullable<Text>,
-        prk -> Text,
+        encrypted_key -> Binary,
+        key_wrapped -> Binary,
+        kdf_salt -> Binary,
+        version -> Integer,
         created_at -> Timestamp,
     }
 }
 
-diesel::allow_tables_to_appear_in_same_query!(bitcoin_block_headers, keys,);
+diesel::allow_tables_to_appear_in_same_query!(bitcoin_block_headers, wallets,);

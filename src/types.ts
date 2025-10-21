@@ -4,7 +4,11 @@
  */
 
 export interface SyncStatus {
-  height: number;
-  sync_completed: boolean;
+  height: number
+  sync_completed: boolean
 }
 
+export interface AvailableWallet {
+  id: number
+  name: string
+}
