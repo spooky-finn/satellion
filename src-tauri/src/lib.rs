@@ -5,7 +5,6 @@ mod db;
 mod envelope_encryption;
 mod ethereum;
 mod mnemonic;
-mod models;
 mod repository;
 mod schema;
 mod wallet_storage;
@@ -30,12 +29,12 @@ pub fn run() {
         .manage(db_pool.clone())
         .manage(Repository::new(db_pool.clone()))
         .setup(move |app| {
-            // #[cfg(debug_assertions)]
-            // {
-            //     let window = app.get_webview_window("main").unwrap();
-            //     window.open_devtools();
-            //     window.close_devtools();
-            // }
+            #[cfg(debug_assertions)]
+            {
+                let window = app.get_webview_window("main").unwrap();
+                window.open_devtools();
+                window.close_devtools();
+            }
 
             let state = app.state::<Arc<app_state::AppState>>();
             match bitcoin::Neutrino::connect_regtest(block_headers) {
@@ -65,7 +64,8 @@ pub fn run() {
             commands::create_wallet,
             commands::chain_status,
             commands::get_available_wallets,
-            commands::unlock_wallet
+            commands::unlock_wallet,
+            commands::delete_wallets
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

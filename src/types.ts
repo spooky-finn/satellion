@@ -12,3 +12,9 @@ export interface AvailableWallet {
   id: number
   name: string
 }
+
+export interface UnlockMsg {
+  ethereum: {
+    address: string
+  }
+}

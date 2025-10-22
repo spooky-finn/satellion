@@ -73,15 +73,6 @@ impl Repository {
             .load::<BlockHeader>(&mut conn)
     }
 
-    pub fn wallet_exist(&self) -> Result<bool, Error> {
-        let mut conn = self.get_conn()?;
-        schema::wallets::table
-            .select(diesel::dsl::count(schema::wallets::id))
-            .first::<i64>(&mut conn)
-            .map_err(|_| Error::NotFound)
-            .map(|count| count > 0)
-    }
-
     pub fn insert_wallet(&self, wallet: db::Wallet) -> Result<usize, Error> {
         let mut conn = self.get_conn()?;
         diesel::insert_into(schema::wallets::table)
@@ -96,5 +87,10 @@ impl Repository {
             .select(schema::wallets::all_columns)
             .first::<db::Wallet>(&mut conn)?;
         Ok(wallet)
+    }
+
+    pub fn delete_wallets(&self) -> Result<usize, Error> {
+        let mut conn = self.get_conn()?;
+        diesel::delete(schema::wallets::table).execute(&mut conn)
     }
 }

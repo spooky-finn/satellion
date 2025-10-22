@@ -1,10 +1,9 @@
-use alloy_signer_local::coins_bip39::{English, Wordlist};
-use rand::Rng;
+use alloy_signer_local::coins_bip39::{self, English};
+use bitcoin::secp256k1::rand::rngs::OsRng;
 
-pub fn generate_random(word_count: usize) -> Vec<&'static str> {
-    let words = English::get_all();
-    let mut rng = rand::rng();
-    (0..word_count)
-        .map(|_| words[rng.random_range(0..words.len())])
-        .collect()
+pub fn new() -> String {
+    let mut rng = OsRng;
+    coins_bip39::Mnemonic::<English>::new_with_count(&mut rng, 12)
+        .unwrap()
+        .to_phrase()
 }

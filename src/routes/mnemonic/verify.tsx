@@ -12,6 +12,8 @@ const VerifyMnemonic = observer(() => {
         <Row>
           <P>{index + 1}</P>
           <Input
+            autoComplete="off"
+            autoCorrect="false"
             key={index}
             value={store.verificationWords[index]}
             onChange={e => {

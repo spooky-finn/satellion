@@ -1,6 +1,9 @@
 import { Button } from '@mui/joy'
+import { invoke } from '@tauri-apps/api/core'
 import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
+import { useNavigate } from 'react-router'
+import { route } from '../routes'
 import { Row } from '../shortcuts'
 import { PassphraseInput } from './mnemonic/create_passphrase'
 import { root_store } from './store/root'
@@ -8,13 +11,19 @@ import { root_store } from './store/root'
 const UnlockWallet = () => {
   const { unlock } = root_store
 
+  const navigate = useNavigate()
+
   useEffect(() => {
-    unlock.loadAvailableWallets()
+    unlock.loadAvailableWallets().then(wallets => {
+      if (wallets.length === 0) {
+        navigate(route.create_wallet)
+      }
+    })
   }, [])
 
   return (
     <div>
-      <h1>Satellion Wallet</h1>
+      <h1>Unlock Wallet</h1>
       {unlock.availableWallets.map(key => (
         <Button
           key={key.id}
@@ -24,7 +33,7 @@ const UnlockWallet = () => {
           {key.name}
         </Button>
       ))}
-      {unlock.unlockWallet && (
+      {unlock.walletToUnlock && (
         <Row>
           <PassphraseInput
             placeholder="Passphrase"
@@ -32,12 +41,25 @@ const UnlockWallet = () => {
             onChange={e => unlock.setUnlockPassphrase(e.target.value)}
           />
           <Button
-            disabled={unlock.unlockWallet === null}
+            disabled={unlock.walletToUnlock === null}
             onClick={() => {
-              unlock.unlockWalletAction()
+              unlock.unlockWalletAction(root_store.wallet).then(() => {
+                navigate(route.home)
+              })
             }}
           >
-            Unlock {unlock.unlockWallet.name}
+            Unlock {unlock.walletToUnlock.name}
+          </Button>
+          <Button
+            color="danger"
+            size="sm"
+            onClick={() => {
+              invoke('delete_wallets').then(() => {
+                navigate(route.create_wallet)
+              })
+            }}
+          >
+            Delete Wallets
           </Button>
         </Row>
       )}

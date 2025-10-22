@@ -1,19 +1,21 @@
 import { invoke } from '@tauri-apps/api/core'
 import { makeAutoObservable } from 'mobx'
-import { AvailableWallet } from '../../types'
+import { AvailableWallet, UnlockMsg } from '../../types'
+import { Wallet } from './wallet'
 
 export class Unlock {
   constructor() {
     makeAutoObservable(this)
   }
+
   unlocked: boolean = false
   setUnlocked(c: boolean) {
     this.unlocked = c
   }
 
-  unlockWallet: AvailableWallet | null = null
+  walletToUnlock: AvailableWallet | null = null
   setUnlockWallet(w: AvailableWallet) {
-    this.unlockWallet = w
+    this.walletToUnlock = w
   }
   unlockPassphrase: string = ''
   setUnlockPassphrase(p: string) {
@@ -31,15 +33,20 @@ export class Unlock {
     if (walletsInfo.length === 1) {
       this.setUnlockWallet(walletsInfo[0])
     }
+    return walletsInfo
   }
 
-  async unlockWalletAction() {
-    const result = await invoke('unlock_wallet', {
-      wallet: this.unlockWallet,
+  async unlockWalletAction(walletStrore: Wallet) {
+    if (!this.walletToUnlock) {
+      throw new Error('No wallet selected to unlock')
+    }
+    const result = await invoke<UnlockMsg>('unlock_wallet', {
+      walletId: this.walletToUnlock.id,
       passphrase: this.unlockPassphrase
     })
     if (result) {
-      this.unlockWallet = null
+      walletStrore.init(result)
+      this.walletToUnlock = null
       this.setUnlocked(true)
     }
   }

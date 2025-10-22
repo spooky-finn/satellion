@@ -3,7 +3,7 @@
 //! This module provides wallet-specific wrappers around the generic
 //! envelope encryption module for storing cryptocurrency mnemonics.
 
-use crate::{db, envelope_encryption, models};
+use crate::{db, envelope_encryption};
 use chrono::Utc;
 
 pub fn create_encrypted_wallet(
@@ -23,7 +23,7 @@ pub fn create_encrypted_wallet(
     };
     Ok(wallet)
 }
-pub fn decrypt_wallet(wallet: &db::Wallet, passphrase: String) -> Result<models::Wallet, String> {
+pub fn decrypt_wallet(wallet: &db::Wallet, passphrase: String) -> Result<String, String> {
     let encrypted = envelope_encryption::EncryptedData {
         ciphertext: wallet.encrypted_key.clone(),
         wrapped_key: wallet.key_wrapped.clone(),
@@ -32,13 +32,8 @@ pub fn decrypt_wallet(wallet: &db::Wallet, passphrase: String) -> Result<models:
     let mnemonic_bytes = envelope_encryption::decrypt(&encrypted, passphrase.as_bytes())?;
     let mnemonic =
         String::from_utf8(mnemonic_bytes).map_err(|_| "Invalid UTF-8 in decrypted mnemonic")?;
-    let decrypted_wallet = models::Wallet {
-        id: wallet.id,
-        name: wallet.name.clone(),
-        mnemonic,
-        passphrase,
-    };
-    Ok(decrypted_wallet)
+
+    Ok(mnemonic)
 }
 
 #[cfg(test)]
@@ -53,7 +48,7 @@ mod tests {
             create_encrypted_wallet(mnemonic.to_string(), passphrase.to_string(), wallet_name)
                 .unwrap();
         let decrypted = decrypt_wallet(&encrypted_wallet, passphrase.to_string()).unwrap();
-        assert_eq!(decrypted.mnemonic, mnemonic);
+        assert_eq!(decrypted, mnemonic);
     }
     #[test]
     fn test_wallet_wrong_passphrase() {

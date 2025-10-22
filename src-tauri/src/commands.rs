@@ -1,6 +1,6 @@
 use crate::repository::{AvailableWallet, Repository};
 use crate::{app_state::AppState, db::BlockHeader, schema};
-use crate::{mnemonic, wallet_storage};
+use crate::{ethereum, mnemonic, wallet_storage};
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use std::sync::Arc;
 
@@ -36,8 +36,7 @@ pub async fn chain_status(
 
 #[tauri::command]
 pub async fn generate_mnemonic() -> Result<String, String> {
-    let mnemonic = mnemonic::generate_random(12);
-    Ok(mnemonic.join(" "))
+    Ok(mnemonic::new())
 }
 
 #[tauri::command]
@@ -63,15 +62,46 @@ pub async fn get_available_wallets(
     Ok(wallets_info)
 }
 
+#[derive(serde::Serialize)]
+pub struct EthereumData {
+    address: String,
+}
+
+#[derive(serde::Serialize)]
+pub struct UnlockMsg {
+    ethereum: EthereumData,
+}
+
 #[tauri::command]
 pub async fn unlock_wallet(
     wallet_id: i32,
     passphrase: String,
     repository: tauri::State<'_, Repository>,
-) -> Result<String, String> {
+) -> Result<UnlockMsg, String> {
     let wallet = repository
         .get_wallet_by_id(wallet_id)
-        .map_err(|e| format!("Failed to get wallet: {}", e))?;
-    let decrypted = wallet_storage::decrypt_wallet(&wallet, passphrase)?;
-    Ok(decrypted.mnemonic)
+        .map_err(|e| e.to_string())?;
+
+    let mnemonic = wallet_storage::decrypt_wallet(&wallet, passphrase.clone());
+    let mnemonic = match mnemonic {
+        Ok(mnemonic) => mnemonic,
+        Err(e) => return Err(e.to_string()),
+    };
+
+    let signer =
+        ethereum::construct_private_key(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
+    let address = signer.address();
+
+    let res = UnlockMsg {
+        ethereum: EthereumData {
+            address: address.to_string(),
+        },
+    };
+    Ok(res)
+}
+
+#[tauri::command]
+pub fn delete_wallets(repository: tauri::State<'_, Repository>) -> Result<(), String> {
+    repository.delete_wallets().map_err(|e| e.to_string())?;
+    Ok(())
 }
