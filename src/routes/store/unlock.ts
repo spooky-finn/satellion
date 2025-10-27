@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { makeAutoObservable } from 'mobx'
 import { AvailableWallet, UnlockMsg } from '../../types'
+import { notifier } from './notifier'
 import { Wallet } from './wallet'
 
 export class Unlock {
@@ -43,10 +44,13 @@ export class Unlock {
     const result = await invoke<UnlockMsg>('unlock_wallet', {
       walletId: this.walletToUnlock.id,
       passphrase: this.unlockPassphrase
+    }).catch((error: string) => {
+      notifier.err(error)
+      throw error
     })
+
     if (result) {
       walletStrore.init(result)
-      this.walletToUnlock = null
       this.setUnlocked(true)
     }
   }

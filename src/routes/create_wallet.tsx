@@ -7,10 +7,8 @@ const CreateWallet = observer(() => {
   const navigate = useNavigate()
 
   return (
-    <Stack gap={3} alignItems={'center'}>
-      <P level="h2" color="primary">
-        Add wallet
-      </P>
+    <Stack gap={3}>
+      <P level="h2">Add wallet</P>
       <Row sx={{ width: 'min-content' }}>
         <Button>Import</Button>
         <Button onClick={() => navigate(route.gen_mnemonic)}>Generate</Button>

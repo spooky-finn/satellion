@@ -1,10 +1,10 @@
-import { Button } from '@mui/joy'
-import { invoke } from '@tauri-apps/api/core'
+import { Button, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { route } from '../routes'
-import { Row } from '../shortcuts'
+import { P, Row } from '../shortcuts'
+import CreateWallet from './create_wallet'
 import { PassphraseInput } from './mnemonic/create_passphrase'
 import { root_store } from './store/root'
 
@@ -22,21 +22,23 @@ const UnlockWallet = () => {
   }, [])
 
   return (
-    <div>
-      <h1>Unlock Wallet</h1>
-      {unlock.availableWallets.map(key => (
-        <Button
-          key={key.id}
-          onClick={() => unlock.setUnlockWallet(key)}
-          variant="plain"
-        >
-          {key.name}
-        </Button>
-      ))}
+    <Stack spacing={2}>
+      <P level="h2">Unlock Wallet</P>
+      <Stack spacing={1} width={'fit-content'}>
+        {unlock.availableWallets.map(key => (
+          <Button
+            key={key.id}
+            onClick={() => unlock.setUnlockWallet(key)}
+            variant={unlock.walletToUnlock?.id === key.id ? 'soft' : 'plain'}
+          >
+            {key.name}
+          </Button>
+        ))}
+      </Stack>
       {unlock.walletToUnlock && (
         <Row>
           <PassphraseInput
-            placeholder="Passphrase"
+            placeholder={`Passphrase`}
             value={unlock.unlockPassphrase}
             onChange={e => unlock.setUnlockPassphrase(e.target.value)}
           />
@@ -48,22 +50,12 @@ const UnlockWallet = () => {
               })
             }}
           >
-            Unlock {unlock.walletToUnlock.name}
-          </Button>
-          <Button
-            color="danger"
-            size="sm"
-            onClick={() => {
-              invoke('delete_wallets').then(() => {
-                navigate(route.create_wallet)
-              })
-            }}
-          >
-            Delete Wallets
+            Unlock
           </Button>
         </Row>
       )}
-    </div>
+      <CreateWallet />
+    </Stack>
   )
 }
 

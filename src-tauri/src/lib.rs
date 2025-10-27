@@ -66,7 +66,7 @@ pub fn run() {
             commands::chain_status,
             commands::get_available_wallets,
             commands::unlock_wallet,
-            commands::delete_wallets,
+            commands::forget_wallet,
             ethereum::commands::eth_chain_info,
         ])
         .run(tauri::generate_context!())

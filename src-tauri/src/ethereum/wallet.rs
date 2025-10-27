@@ -9,6 +9,10 @@ pub fn create_private_key(
     let signer = MnemonicBuilder::<English>::default()
         .phrase(mnemonic)
         .password(passphrase)
+        .derivation_path("m/44'/60'/0'/0")
+        .unwrap()
+        .index(0)
+        .unwrap()
         .build()?;
     Ok(signer)
 }

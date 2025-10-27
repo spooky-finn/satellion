@@ -7,13 +7,14 @@ use crate::{db, envelope_encryption};
 use chrono::Utc;
 
 pub fn create_encrypted_wallet(
+    id: i32,
     mnemonic: String,
     passphrase: String,
     wallet_name: String,
 ) -> Result<db::Wallet, String> {
     let encrypted = envelope_encryption::encrypt(mnemonic.as_bytes(), passphrase.as_bytes())?;
     let wallet = db::Wallet {
-        id: 0,
+        id,
         name: Some(wallet_name),
         encrypted_key: encrypted.ciphertext,
         key_wrapped: encrypted.wrapped_key,
@@ -23,6 +24,7 @@ pub fn create_encrypted_wallet(
     };
     Ok(wallet)
 }
+
 pub fn decrypt_wallet(wallet: &db::Wallet, passphrase: String) -> Result<String, String> {
     let encrypted = envelope_encryption::EncryptedData {
         ciphertext: wallet.encrypted_key.clone(),
@@ -45,7 +47,7 @@ mod tests {
         let passphrase = "my_secure_passphrase";
         let wallet_name = "Test Wallet".to_string();
         let encrypted_wallet =
-            create_encrypted_wallet(mnemonic.to_string(), passphrase.to_string(), wallet_name)
+            create_encrypted_wallet(0, mnemonic.to_string(), passphrase.to_string(), wallet_name)
                 .unwrap();
         let decrypted = decrypt_wallet(&encrypted_wallet, passphrase.to_string()).unwrap();
         assert_eq!(decrypted, mnemonic);
@@ -56,7 +58,7 @@ mod tests {
         let passphrase = "correct";
         let wallet_name = "Test".to_string();
         let encrypted_wallet =
-            create_encrypted_wallet(mnemonic.to_string(), passphrase.to_string(), wallet_name)
+            create_encrypted_wallet(0, mnemonic.to_string(), passphrase.to_string(), wallet_name)
                 .unwrap();
         let result = decrypt_wallet(&encrypted_wallet, "wrong".to_string());
         assert!(result.is_err());

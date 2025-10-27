@@ -46,8 +46,20 @@ pub async fn create_wallet(
     name: String,
     repository: tauri::State<'_, Repository>,
 ) -> Result<(), String> {
-    let wallet = wallet_storage::create_encrypted_wallet(mnemonic, passphrase, name)
-        .map_err(|e| e.to_string())?;
+    let last_wallet_id = repository.last_wallet_id().map_err(|e| e.to_string())?;
+    let mut wallet_name = name;
+    if wallet_name.is_empty() {
+        wallet_name = format!("Wallet {}", last_wallet_id + 1);
+    }
+
+    let wallet = wallet_storage::create_encrypted_wallet(
+        last_wallet_id + 1,
+        mnemonic,
+        passphrase,
+        wallet_name,
+    )
+    .map_err(|e| e.to_string())?;
+
     repository
         .insert_wallet(wallet)
         .map_err(|e| e.to_string())?;
@@ -69,6 +81,7 @@ pub struct EthereumData {
 
 #[derive(serde::Serialize)]
 pub struct UnlockMsg {
+    wallet_id: i32,
     ethereum: EthereumData,
 }
 
@@ -93,6 +106,7 @@ pub async fn unlock_wallet(
     let address = signer.address();
 
     let res = UnlockMsg {
+        wallet_id,
         ethereum: EthereumData {
             address: address.to_string(),
         },
@@ -101,7 +115,12 @@ pub async fn unlock_wallet(
 }
 
 #[tauri::command]
-pub fn delete_wallets(repository: tauri::State<'_, Repository>) -> Result<(), String> {
-    repository.delete_wallets().map_err(|e| e.to_string())?;
+pub async fn forget_wallet(
+    wallet_id: i32,
+    repository: tauri::State<'_, Repository>,
+) -> Result<(), String> {
+    repository
+        .delete_wallet(wallet_id)
+        .map_err(|e| e.to_string())?;
     Ok(())
 }

@@ -1,4 +1,5 @@
-import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router"
+import { Links, Meta, Outlet, Scripts, ScrollRestoration } from 'react-router'
+import { NotifierOverlay } from './notification_overlay'
 
 export default function Root() {
   return (
@@ -11,6 +12,7 @@ export default function Root() {
       </head>
       <body>
         <Outlet />
+        <NotifierOverlay />
         <ScrollRestoration />
         <Scripts />
       </body>

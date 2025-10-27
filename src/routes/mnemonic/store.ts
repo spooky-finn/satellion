@@ -1,11 +1,11 @@
 import { invoke } from '@tauri-apps/api/core'
 import { makeAutoObservable } from 'mobx'
+import { notifier } from '../store/notifier'
 
 class PassphraseStore {
   constructor() {
     makeAutoObservable(this)
   }
-  error: string | null = null
   passphrase: string = ''
   repeatPassphrase: string = ''
   setPassphrase(passphrase: string) {
@@ -16,20 +16,23 @@ class PassphraseStore {
   }
   verifyPassphrase() {
     if (this.passphrase !== this.repeatPassphrase) {
-      this.error = 'Passphrases do not match'
-      return false
+      const msg = 'Passphrases do not match'
+      notifier.err(msg)
+      throw Error(msg)
     }
-    this.error = null
-    return true
   }
 }
 
 class MnemonicStore {
   walletCreated: boolean = false
-  error: string | null = null
   readonly passphraseStore = new PassphraseStore()
   constructor() {
     makeAutoObservable(this)
+  }
+
+  walletName: string = ''
+  setWalletName(walletName: string) {
+    this.walletName = walletName
   }
 
   mnemonic: string[] = []
@@ -77,18 +80,18 @@ class MnemonicStore {
     return status
   }
 
-  createWallet() {
-    return invoke('create_wallet', {
-      mnemonic: this.mnemonic.join(' '),
-      passphrase: this.passphraseStore.passphrase,
-      name: 'My Wallet'
-    })
-      .then(() => {
-        this.walletCreated = true
+  async createWallet() {
+    try {
+      await invoke('create_wallet', {
+        mnemonic: this.mnemonic.join(' '),
+        passphrase: this.passphraseStore.passphrase,
+        name: this.walletName
       })
-      .catch(error => {
-        this.error = error.message
-      })
+      this.walletCreated = true
+    } catch (error: any) {
+      notifier.err(error)
+      throw error
+    }
   }
 }
 

@@ -89,8 +89,18 @@ impl Repository {
         Ok(wallet)
     }
 
-    pub fn delete_wallets(&self) -> Result<usize, Error> {
+    pub fn delete_wallet(&self, wallet_id: i32) -> Result<usize, Error> {
         let mut conn = self.get_conn()?;
-        diesel::delete(schema::wallets::table).execute(&mut conn)
+        diesel::delete(schema::wallets::table.filter(schema::wallets::id.eq(wallet_id)))
+            .execute(&mut conn)
+    }
+
+    pub fn last_wallet_id(&self) -> Result<i32, Error> {
+        let mut conn = self.get_conn()?;
+        let wallet_id = schema::wallets::table
+            .select(schema::wallets::id)
+            .order(schema::wallets::id.desc())
+            .first::<i32>(&mut conn)?;
+        Ok(wallet_id)
     }
 }

@@ -9,11 +9,11 @@ const VerifyMnemonic = observer(() => {
   return (
     <Stack gap={3}>
       {store.verificationIndices.map(index => (
-        <Row>
+        <Row key={index}>
           <P>{index + 1}</P>
           <Input
-            autoComplete="off"
-            autoCorrect="false"
+            autoComplete="chrome-off"
+            autoCorrect="off"
             key={index}
             value={store.verificationWords[index]}
             onChange={e => {

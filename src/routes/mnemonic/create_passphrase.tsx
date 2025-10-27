@@ -19,6 +19,12 @@ const CreatePassphrase = observer(() => {
   const navigate = useNavigate()
   return (
     <Stack gap={1}>
+      <Input
+        sx={{ width: '200px' }}
+        placeholder="Wallet name"
+        value={store.walletName}
+        onChange={e => store.setWalletName(e.target.value)}
+      />
       <PassphraseInput
         placeholder="Passphrase"
         value={store.passphraseStore.passphrase}

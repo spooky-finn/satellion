@@ -55,8 +55,7 @@ pub fn decrypt(encrypted: &EncryptedData, passphrase: &[u8]) -> Result<Vec<u8>, 
     let kek_nonce: [u8; NONCE_SIZE] = kek_nonce_slice
         .try_into()
         .map_err(|_| "Invalid KEK nonce")?;
-    let dek_bytes = aes_decrypt(&kek, &kek_nonce, wrapped_dek)
-        .map_err(|_| "Invalid passphrase or corrupted wrapped key")?;
+    let dek_bytes = aes_decrypt(&kek, &kek_nonce, wrapped_dek).map_err(|_| "Invalid passphrase")?;
     let dek: [u8; KEY_SIZE] = dek_bytes
         .as_slice()
         .try_into()
