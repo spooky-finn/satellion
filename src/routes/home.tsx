@@ -19,6 +19,7 @@ const Home = () => {
     <Box>
       <P level="h2" color="primary">
         Ethereum Wallet {root_store.wallet.eth.address}
+        CHAIN INFO: {JSON.stringify(root_store.wallet.eth.chainInfo, null, 2)}
       </P>
     </Box>
   )

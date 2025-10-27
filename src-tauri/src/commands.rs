@@ -89,7 +89,7 @@ pub async fn unlock_wallet(
     };
 
     let signer =
-        ethereum::construct_private_key(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
+        ethereum::wallet::create_private_key(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
     let address = signer.address();
 
     let res = UnlockMsg {

@@ -1,3 +1,3 @@
-mod wallet;
-
-pub use wallet::*;
+pub mod client;
+pub mod commands;
+pub mod wallet;

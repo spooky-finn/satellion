@@ -18,3 +18,9 @@ export interface UnlockMsg {
     address: string
   }
 }
+
+export interface EthereumChainInfo {
+  block_number: number
+  block_hash: string
+  base_fee_per_gas: number | null
+}

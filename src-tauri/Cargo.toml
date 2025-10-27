@@ -32,4 +32,7 @@ alloy-signer-local = {version = "1.0.41", features = ["mnemonic"] }
 chrono = "0.4.42"
 argon2 = "0.5.3"
 aes-gcm = "0.10.3"
+alloy-provider = "1.0.41"
+alloy-eips = "1.0.41"
+alloy-primitives = "1.4.1"
 

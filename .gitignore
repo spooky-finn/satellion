@@ -25,3 +25,4 @@ dist-ssr
 *.db
 .env
 .react-router/
+target/rust-analyzer/flycheck0/*
