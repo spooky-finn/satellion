@@ -1,5 +1,13 @@
+import { CssVarsProvider, Sheet } from '@mui/joy'
+import { extendTheme } from '@mui/joy/styles'
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from 'react-router'
 import { NotifierOverlay } from './components/notifier/notification_overlay'
+
+const theme = extendTheme({
+  cssVarPrefix: 'mode-toggle',
+  // @ts-ignore
+  colorSchemeSelector: '.demo_mode-toggle-%s'
+})
 
 export default function Root() {
   return (
@@ -10,12 +18,20 @@ export default function Root() {
         <Meta />
         <Links />
       </head>
-      <body>
-        <Outlet />
-        <NotifierOverlay />
-        <ScrollRestoration />
-        <Scripts />
-      </body>
+      <CssVarsProvider theme={theme}>
+        <body
+          style={{
+            backgroundColor: 'var(--mode-toggle-palette-background-surface)'
+          }}
+        >
+          <Sheet>
+            <Outlet />
+            <NotifierOverlay />
+            <ScrollRestoration />
+            <Scripts />
+          </Sheet>
+        </body>
+      </CssVarsProvider>
     </html>
   )
 }
