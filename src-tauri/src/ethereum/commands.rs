@@ -1,4 +1,7 @@
+use std::str::FromStr;
+
 use alloy_eips::{BlockId, BlockNumberOrTag};
+use alloy_primitives::{Address, Uint};
 use alloy_provider::{Provider, RootProvider};
 
 #[derive(serde::Serialize)]
@@ -27,4 +30,17 @@ pub async fn eth_chain_info(client: tauri::State<'_, RootProvider>) -> Result<Ch
         block_hash: block.header.hash.to_string(),
         base_fee_per_gas: block.header.base_fee_per_gas,
     })
+}
+
+#[tauri::command]
+pub async fn eth_get_balance(
+    client: tauri::State<'_, RootProvider>,
+    address: String,
+) -> Result<Uint<256, 4>, String> {
+    let address = Address::from_str(&address).expect("Invalid Ethereum address");
+    let balance = client
+        .get_balance(address)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(balance)
 }

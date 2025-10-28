@@ -22,6 +22,7 @@ export class Wallet {
     this.initialized = true
 
     this.eth.getChainInfo()
+    this.eth.getBalance()
   }
 
   async forget() {

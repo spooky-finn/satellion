@@ -68,6 +68,7 @@ pub fn run() {
             commands::unlock_wallet,
             commands::forget_wallet,
             ethereum::commands::eth_chain_info,
+            ethereum::commands::eth_get_balance,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
