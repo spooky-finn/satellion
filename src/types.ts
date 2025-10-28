@@ -18,6 +18,9 @@ export interface UnlockMsg {
   ethereum: {
     address: string
   }
+  bitcoin: {
+    address: string
+  }
 }
 
 export interface EthereumChainInfo {

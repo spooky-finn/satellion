@@ -1,31 +1,13 @@
 import { invoke } from '@tauri-apps/api/core'
 import { makeAutoObservable } from 'mobx'
-import { notifier } from '../components/notifier'
-import { EthereumChainInfo, UnlockMsg } from '../types'
-
-class EthereumWallet {
-  constructor() {
-    makeAutoObservable(this)
-  }
-
-  address!: string
-  chainInfo!: EthereumChainInfo
-  setChainInfo(c: EthereumChainInfo) {
-    this.chainInfo = c
-  }
-
-  async getChainInfo() {
-    this.setChainInfo(
-      await invoke<EthereumChainInfo>('eth_chain_info').catch((e: string) => {
-        notifier.err(e)
-        throw e
-      })
-    )
-  }
-}
+import { UnlockMsg } from '../types'
+import { BitcoinWallet } from './bitcoin'
+import { EthereumWallet } from './ethereum'
 
 export class Wallet {
   readonly eth = new EthereumWallet()
+  readonly btc = new BitcoinWallet()
+
   id!: number
   constructor() {
     makeAutoObservable(this)
@@ -35,6 +17,7 @@ export class Wallet {
 
   init(unlockmsg: UnlockMsg) {
     this.eth.address = unlockmsg.ethereum.address
+    this.btc.address = unlockmsg.bitcoin.address
     this.id = unlockmsg.walletId
     this.initialized = true
 

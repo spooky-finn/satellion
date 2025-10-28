@@ -1,22 +1,20 @@
 import { Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
+import { Address } from '../components/address'
 import { Navbar } from '../components/navbar'
 import { P } from '../shortcuts'
 import { root_store } from '../stores/root'
 
 const Ethereum = () => {
   return (
-    <Stack>
+    <Stack gap={1}>
       <Navbar />
       <P level="h3" color="primary">
         Ethereum
       </P>
       {root_store.wallet.eth && (
         <>
-          <P>Address: </P>
-          <P fontWeight="bold">
-            {root_store.wallet.eth.address?.toLowerCase()}
-          </P>
+          <Address addr={root_store.wallet.eth.address} />
           <Stack py={2}>
             <P>Chain</P>
             <P>Block Height: {root_store.wallet.eth.chainInfo?.block_number}</P>

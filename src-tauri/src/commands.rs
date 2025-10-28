@@ -1,3 +1,4 @@
+use crate::bitcoin;
 use crate::repository::{AvailableWallet, Repository};
 use crate::{app_state::AppState, db::BlockHeader, schema};
 use crate::{ethereum, mnemonic, wallet_storage};
@@ -80,9 +81,15 @@ pub struct EthereumData {
 }
 
 #[derive(serde::Serialize)]
+pub struct BitcoinData {
+    address: String,
+}
+
+#[derive(serde::Serialize)]
 pub struct UnlockMsg {
     wallet_id: i32,
     ethereum: EthereumData,
+    bitcoin: BitcoinData,
 }
 
 #[tauri::command]
@@ -101,14 +108,24 @@ pub async fn unlock_wallet(
         Err(e) => return Err(e.to_string()),
     };
 
-    let signer =
+    let network = bitcoin::wallet::Network::Bitcoin;
+    let eth_prk =
         ethereum::wallet::create_private_key(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
-    let address = signer.address();
+
+    let bitcoin_xprv = bitcoin::wallet::create_private_key(network, &mnemonic, &passphrase)
+        .map_err(|e| e.to_string())?;
+
+    let (_, bitcoin_main_receive_address) =
+        bitcoin::wallet::derive_main_receive_taproot_address(&bitcoin_xprv, network)
+            .map_err(|e| e.to_string())?;
 
     let res = UnlockMsg {
         wallet_id,
         ethereum: EthereumData {
-            address: address.to_string(),
+            address: eth_prk.address().to_string(),
+        },
+        bitcoin: BitcoinData {
+            address: bitcoin_main_receive_address.to_string(),
         },
     };
     Ok(res)

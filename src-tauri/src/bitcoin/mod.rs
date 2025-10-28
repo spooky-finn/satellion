@@ -1,3 +1,2 @@
-mod neutrino;
-
-pub use neutrino::*;
+pub mod neutrino;
+pub mod wallet;
