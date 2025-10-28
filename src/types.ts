@@ -14,7 +14,7 @@ export interface AvailableWallet {
 }
 
 export interface UnlockMsg {
-  walletId: number
+  wallet_id: number
   ethereum: {
     address: string
   }

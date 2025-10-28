@@ -16,9 +16,9 @@ export class Wallet {
   initialized: boolean = false
 
   init(unlockmsg: UnlockMsg) {
+    this.id = unlockmsg.wallet_id
     this.eth.address = unlockmsg.ethereum.address
     this.btc.address = unlockmsg.bitcoin.address
-    this.id = unlockmsg.walletId
     this.initialized = true
 
     this.eth.getChainInfo()
@@ -26,6 +26,9 @@ export class Wallet {
   }
 
   async forget() {
+    if (this.id == null) {
+      throw new Error('Wallet not initialized')
+    }
     await invoke('forget_wallet', { walletId: this.id })
     this.initialized = false
   }

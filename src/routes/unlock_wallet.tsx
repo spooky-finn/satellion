@@ -10,8 +10,19 @@ import { PassphraseInput } from './mnemonic/create_passphrase'
 
 const UnlockWallet = () => {
   const { unlock } = root_store
-
   const navigate = useNavigate()
+
+  function handleUnlockWallet() {
+    unlock.unlockWalletAction(root_store.wallet).then(() => {
+      navigate(route.home)
+    })
+  }
+
+  function handleEnterDown(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      handleUnlockWallet()
+    }
+  }
 
   useEffect(() => {
     unlock.loadAvailableWallets().then(wallets => {
@@ -19,6 +30,11 @@ const UnlockWallet = () => {
         navigate(route.create_wallet)
       }
     })
+
+    window.addEventListener('keydown', handleEnterDown)
+    return () => {
+      window.removeEventListener('keydown', handleEnterDown)
+    }
   }, [])
 
   return (
@@ -44,11 +60,7 @@ const UnlockWallet = () => {
           />
           <Button
             disabled={unlock.walletToUnlock === null}
-            onClick={() => {
-              unlock.unlockWalletAction(root_store.wallet).then(() => {
-                navigate(route.home)
-              })
-            }}
+            onClick={handleUnlockWallet}
           >
             Unlock
           </Button>
