@@ -9,6 +9,11 @@ use bitcoin::{
 
 pub use bitcoin::network::Network;
 
+pub enum AddressPurpose {
+    Receive,
+    Change,
+}
+
 pub fn create_private_key(
     network: Network,
     mnemonic: &str,
@@ -21,31 +26,48 @@ pub fn create_private_key(
     Ok(xprv)
 }
 
-pub fn derive_main_receive_taproot_address(
+pub fn create_diriviation_path(
+    network: Network,
+    purpose: AddressPurpose,
+    address_index: u32,
+) -> DerivationPath {
+    let coin_type = match network {
+        Network::Bitcoin => 0,
+        _ => 1,
+    };
+
+    let change = match purpose {
+        AddressPurpose::Receive => 0,
+        AddressPurpose::Change => 1,
+    };
+
+    let account = 0;
+    let path = format!("m/86'/{coin_type}'/{account}'/{change}/{address_index}");
+    DerivationPath::from_str(&path).expect("Derivation path is creation failed")
+}
+
+pub fn derive_taproot_address(
     xprv: &Xpriv,
     network: Network,
+    purpose: AddressPurpose,
+    address_index: u32,
 ) -> Result<(Keypair, Address), String> {
     let secp = Secp256k1::new();
-
-    // BIP86 (Taproot): m/86'/0'/0'/0/0
-    let path = DerivationPath::from_str("m/86'/0'/0'/0/0")
-        .map_err(|e| format!("Invalid derivation path: {}", e))?;
+    let path = create_diriviation_path(network, purpose, address_index);
 
     // derive child private key
-    let child_xprv = xprv
+    let keypair = xprv
         .derive_priv(&secp, &path)
-        .map_err(|e| format!("Derivation error: {}", e))?;
-
-    // convert to keypair (needed for taproot tweak)
-    let keypair = Keypair::from_secret_key(&secp, &child_xprv.private_key);
+        .map_err(|e| format!("Derivation error: {}", e))?
+        .to_keypair(&secp);
 
     // x-only pubkey for taproot
     let (xonly_pk, _parity) = keypair.x_only_public_key();
 
     // Create taproot address (BIP341 tweak is done automatically by rust-bitcoin)
     let address = Address::p2tr(
-        &secp, xonly_pk, None,    // no script tree = BIP86 key-path spend
-        network, // or Network::Testnet
+        &secp, xonly_pk, None, // no script tree = BIP86 key-path spend
+        network,
     );
 
     Ok((keypair, address))

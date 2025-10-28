@@ -1,4 +1,5 @@
 use crate::bitcoin;
+use crate::bitcoin::wallet::AddressPurpose;
 use crate::repository::{AvailableWallet, Repository};
 use crate::{app_state::AppState, db::BlockHeader, schema};
 use crate::{ethereum, mnemonic, wallet_storage};
@@ -116,7 +117,7 @@ pub async fn unlock_wallet(
         .map_err(|e| e.to_string())?;
 
     let (_, bitcoin_main_receive_address) =
-        bitcoin::wallet::derive_main_receive_taproot_address(&bitcoin_xprv, network)
+        bitcoin::wallet::derive_taproot_address(&bitcoin_xprv, network, AddressPurpose::Receive, 0)
             .map_err(|e| e.to_string())?;
 
     let res = UnlockMsg {
