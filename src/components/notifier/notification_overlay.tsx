@@ -1,6 +1,6 @@
 import { Alert, Box, Container, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
-import { notifier } from './routes/store/notifier'
+import { notifier } from './notifier'
 
 export const NotifierOverlay = observer(() => {
   return (

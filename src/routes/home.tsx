@@ -1,10 +1,10 @@
-import { Alert, Button, Card, Stack } from '@mui/joy'
+import { Button, Card, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { route } from '../routes'
 import { P } from '../shortcuts'
-import { root_store } from './store/root'
+import { root_store } from '../stores/root'
 
 const EthereumWalletInfo = observer(() => {
   return (
@@ -48,9 +48,6 @@ const Home = () => {
 
   return (
     <Stack spacing={2}>
-      {root_store.wallet.eth.err && (
-        <Alert color="danger">{root_store.wallet.eth.err}</Alert>
-      )}
       <EthereumWalletInfo />
       <Button
         sx={{ width: 'fit-content' }}

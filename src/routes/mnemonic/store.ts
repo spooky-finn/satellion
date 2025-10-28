@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { makeAutoObservable } from 'mobx'
-import { notifier } from '../store/notifier'
+import { notifier } from '../../components/notifier/notifier'
 
 class PassphraseStore {
   constructor() {

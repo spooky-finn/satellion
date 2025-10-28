@@ -1,5 +1,5 @@
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from 'react-router'
-import { NotifierOverlay } from './notification_overlay'
+import { NotifierOverlay } from './components/notifier/notification_overlay'
 
 export default function Root() {
   return (

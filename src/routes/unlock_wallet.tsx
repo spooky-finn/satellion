@@ -4,9 +4,9 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { route } from '../routes'
 import { P, Row } from '../shortcuts'
+import { root_store } from '../stores/root'
 import CreateWallet from './create_wallet'
 import { PassphraseInput } from './mnemonic/create_passphrase'
-import { root_store } from './store/root'
 
 const UnlockWallet = () => {
   const { unlock } = root_store

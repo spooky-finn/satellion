@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { makeAutoObservable } from 'mobx'
-import { EthereumChainInfo, UnlockMsg } from '../../types'
-import { notifier } from './notifier'
+import { notifier } from '../components/notifier'
+import { EthereumChainInfo, UnlockMsg } from '../types'
 
 class EthereumWallet {
   constructor() {
