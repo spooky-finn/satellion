@@ -1,19 +1,10 @@
-import { IconButton, Stack } from '@mui/joy'
+import { Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
-import { Address } from '../components/address'
-import { RefreshIcon } from '../components/icons/refresh.icon'
-import { Navbar } from '../components/navbar'
-import { P, Row } from '../shortcuts'
-import { root_store } from '../stores/root'
-
-const Balance = observer(() => (
-  <Row alignItems={'center'}>
-    <P>Balance: {root_store.wallet.eth.balance} ETH</P>
-    <IconButton onClick={() => root_store.wallet.eth.getBalance()}>
-      <RefreshIcon />
-    </IconButton>
-  </Row>
-))
+import { Address } from '../../components/address'
+import { Navbar } from '../../components/navbar'
+import { P } from '../../shortcuts'
+import { root_store } from '../../stores/root'
+import { Balances } from './balances'
 
 const Ethereum = () => {
   return (
@@ -25,7 +16,7 @@ const Ethereum = () => {
       {root_store.wallet.eth && (
         <>
           <Address addr={root_store.wallet.eth.address} />
-          <Balance />
+          <Balances />
           <Stack py={2}>
             <P>Chain</P>
             <P>Block Height: {root_store.wallet.eth.chainInfo?.block_number}</P>

@@ -1,11 +1,10 @@
-import { Button, Stack } from '@mui/joy'
+import { Button, Divider, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { route } from '../routes'
-import { P, Row } from '../shortcuts'
+import { P } from '../shortcuts'
 import { root_store } from '../stores/root'
-import CreateWallet from './create_wallet'
 import { PassphraseInput } from './mnemonic/create_passphrase'
 
 const UnlockWallet = () => {
@@ -14,7 +13,7 @@ const UnlockWallet = () => {
 
   function handleUnlockWallet() {
     unlock.unlockWalletAction(root_store.wallet).then(() => {
-      navigate(route.home)
+      navigate(route.ethereum)
     })
   }
 
@@ -38,35 +37,48 @@ const UnlockWallet = () => {
   }, [])
 
   return (
-    <Stack spacing={2}>
-      <P level="h2">Unlock Wallet</P>
+    <Stack
+      spacing={2}
+      alignItems={'center'}
+      width={'fit-content'}
+      margin={'auto'}
+    >
+      <P level="h2">Unlock Satellion</P>
+      <Divider />
       <Stack spacing={1} width={'fit-content'}>
         {unlock.availableWallets.map(key => (
           <Button
             key={key.id}
+            color="neutral"
             onClick={() => unlock.setUnlockWallet(key)}
-            variant={unlock.walletToUnlock?.id === key.id ? 'soft' : 'plain'}
+            variant={
+              unlock.walletToUnlock?.id === key.id ? 'solid' : 'outlined'
+            }
           >
             {key.name}
           </Button>
         ))}
       </Stack>
       {unlock.walletToUnlock && (
-        <Row>
-          <PassphraseInput
-            placeholder={`Passphrase`}
-            value={unlock.unlockPassphrase}
-            onChange={e => unlock.setUnlockPassphrase(e.target.value)}
-          />
-          <Button
-            disabled={unlock.walletToUnlock === null}
-            onClick={handleUnlockWallet}
-          >
-            Unlock
-          </Button>
-        </Row>
+        <PassphraseInput
+          autoFocus
+          placeholder={`Passphrase`}
+          value={unlock.unlockPassphrase}
+          onChange={e => unlock.setUnlockPassphrase(e.target.value)}
+        />
       )}
-      <CreateWallet />
+      <Divider />
+      <Button
+        size="sm"
+        sx={{ width: 'min-content' }}
+        variant="soft"
+        color="neutral"
+        onClick={() => {
+          navigate(route.create_wallet)
+        }}
+      >
+        Add
+      </Button>
     </Stack>
   )
 }

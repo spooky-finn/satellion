@@ -9,16 +9,15 @@ mod repository;
 mod schema;
 mod wallet_storage;
 
+use crate::repository::Repository;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
 use std::sync::Arc;
 use tauri::Manager;
 
-use crate::repository::Repository;
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let db_pool = establish_pool();
+    let db_pool = connect_db();
     // let repository = Repository::new(db_pool.clone());
     // let block_headers = repository.load_block_headers(10).unwrap();
     let ethereum_client = ethereum::client::new_client().expect("Failed to create Ethereum client");
@@ -74,7 +73,7 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
-fn establish_pool() -> Pool<ConnectionManager<SqliteConnection>> {
+fn connect_db() -> Pool<ConnectionManager<SqliteConnection>> {
     let manager = ConnectionManager::<SqliteConnection>::new("blockchain.db");
     Pool::builder()
         .max_size(4)

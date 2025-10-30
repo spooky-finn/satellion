@@ -1,8 +1,8 @@
+use crate::ethereum;
+use alloy::eips::{BlockId, BlockNumberOrTag};
+use alloy::primitives::Address;
+use alloy::providers::{Provider, RootProvider};
 use std::str::FromStr;
-
-use alloy_eips::{BlockId, BlockNumberOrTag};
-use alloy_primitives::{Address, Uint};
-use alloy_provider::{Provider, RootProvider};
 
 #[derive(serde::Serialize)]
 pub struct ChainInfo {
@@ -17,10 +17,6 @@ pub async fn eth_chain_info(client: tauri::State<'_, RootProvider>) -> Result<Ch
         .get_block(BlockId::Number(BlockNumberOrTag::Latest))
         .await
         .map_err(|e| e.to_string())?;
-
-    // let block = block.inspect(f | println!("Block: {:?}", f));
-
-    // block.iter().for_each(|b| println!("Block: {:?}", b));
     if !block.is_some() {
         return Err("Block not found".to_string());
     }
@@ -32,15 +28,45 @@ pub async fn eth_chain_info(client: tauri::State<'_, RootProvider>) -> Result<Ch
     })
 }
 
+#[derive(serde::Serialize)]
+pub struct TokenBalance {
+    token_symbol: String,
+    balance: String,
+    decimals: u8,
+    ui_precision: u8,
+}
+
+#[derive(serde::Serialize)]
+pub struct Balance {
+    wei: String,
+    tokens: Vec<TokenBalance>,
+}
+
 #[tauri::command]
 pub async fn eth_get_balance(
     client: tauri::State<'_, RootProvider>,
     address: String,
-) -> Result<Uint<256, 4>, String> {
+) -> Result<Balance, String> {
     let address = Address::from_str(&address).expect("Invalid Ethereum address");
-    let balance = client
+    let eth_balance = client
         .get_balance(address)
         .await
         .map_err(|e| e.to_string())?;
-    Ok(balance)
+    let provider = client.inner();
+    let token_balances = ethereum::erc20::get_balances(provider, address)
+        .await
+        .map_err(|e| e.to_string())?;
+    let tokens: Vec<TokenBalance> = token_balances
+        .iter()
+        .map(|balance| TokenBalance {
+            balance: balance.balance.to_plain_string(),
+            token_symbol: balance.token.symbol.clone(),
+            decimals: balance.token.decimals,
+            ui_precision: balance.token.ui_precision,
+        })
+        .collect();
+    Ok(Balance {
+        wei: eth_balance.to_string(),
+        tokens: tokens,
+    })
 }

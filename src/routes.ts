@@ -30,6 +30,6 @@ export default [
   register(route.verify_mnemonic, 'mnemonic/verify.tsx'),
   register(route.create_passphrase, 'mnemonic/create_passphrase.tsx'),
   register(route.home, 'home.tsx'),
-  register(route.ethereum, 'ethereum.tsx'),
+  register(route.ethereum, 'ethereum/ethereum.tsx'),
   register(route.bitcoin, 'bitcoin.tsx')
 ] satisfies RouteConfig
