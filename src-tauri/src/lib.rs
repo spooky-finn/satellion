@@ -1,6 +1,7 @@
 mod app_state;
 mod bitcoin;
 mod commands;
+mod config;
 mod db;
 mod envelope_encryption;
 mod ethereum;
