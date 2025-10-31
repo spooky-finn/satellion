@@ -12,7 +12,7 @@ const CreateWallet = observer(() => {
       <Navbar hideLedgers />
       <P level="h2">Add wallet</P>
       <Row sx={{ width: 'min-content' }}>
-        <Button>Import</Button>
+        <Button onClick={() => navigate(route.import_mnemonic)}>Import</Button>
         <Button onClick={() => navigate(route.gen_mnemonic)}>Generate</Button>
       </Row>
     </Stack>

@@ -1,7 +1,8 @@
 import { Button } from '@mui/joy'
-import { Link, useNavigate } from 'react-router'
+import { Link } from 'react-router'
 import { route } from '../routes'
 import { Row } from '../shortcuts'
+import { AppMenu } from './menu'
 import { ThemeSwitcher } from './theme_switcher'
 
 export const Navbar = ({ hideLedgers }: { hideLedgers?: boolean }) => (
@@ -24,26 +25,10 @@ export const Navbar = ({ hideLedgers }: { hideLedgers?: boolean }) => (
     )}
     <Row ml="auto">
       <ThemeSwitcher />
-      <ExitButton />
+      <AppMenu />
     </Row>
   </Row>
 )
-
-const ExitButton = () => {
-  const navigate = useNavigate()
-  return (
-    <Button
-      size="sm"
-      color="neutral"
-      variant="soft"
-      onClick={() => {
-        navigate(route.unlock_wallet)
-      }}
-    >
-      Exit
-    </Button>
-  )
-}
 
 const LedgerButton = (props: {
   to: string

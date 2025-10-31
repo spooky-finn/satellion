@@ -8,7 +8,7 @@ import { store } from './store'
 const GenerateMnemonic = observer(() => {
   const navigate = useNavigate()
   useEffect(() => {
-    store.generateMnemonic()
+    store.generate()
   }, [])
   if (store.mnemonic.length === 0) {
     return null

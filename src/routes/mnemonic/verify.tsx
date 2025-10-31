@@ -26,7 +26,7 @@ const VerifyMnemonic = observer(() => {
       <Button
         sx={{ width: 'min-content' }}
         onClick={() => {
-          const status = store.verifyMnemonic()
+          const status = store.verify()
           if (status) {
             navigate(route.create_passphrase)
           }

@@ -13,11 +13,11 @@ const register = (url: string, path: string) => {
 
 export const route = {
   unlock_wallet: '/',
-  home: '/wallet',
   create_wallet: '/create_wallet',
   gen_mnemonic: '/gen_mnemonic',
   verify_mnemonic: '/verify_mnemonic',
   create_passphrase: '/create_passphrase',
+  import_mnemonic: '/import_mnemonic',
   // chain specific routes
   ethereum: '/wallet/ethereum',
   bitcoin: '/wallet/bitcoin'
@@ -29,7 +29,7 @@ export default [
   register(route.gen_mnemonic, 'mnemonic/gen.tsx'),
   register(route.verify_mnemonic, 'mnemonic/verify.tsx'),
   register(route.create_passphrase, 'mnemonic/create_passphrase.tsx'),
-  register(route.home, 'home.tsx'),
+  register(route.import_mnemonic, 'mnemonic/import.tsx'),
   register(route.ethereum, 'ethereum/ethereum.tsx'),
   register(route.bitcoin, 'bitcoin.tsx')
 ] satisfies RouteConfig
