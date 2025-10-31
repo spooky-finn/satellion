@@ -3,7 +3,7 @@ import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
 import { Navbar } from '../../components/navbar'
 import { notifier } from '../../components/notifier'
-import { useNavigate } from '../../routes'
+import { route, useNavigate } from '../../routes'
 import { P } from '../../shortcuts'
 import { PassphraseInput } from './create_passphrase'
 import { store } from './store'
@@ -33,7 +33,12 @@ const ImportMnemonic = observer(() => {
     store.passphraseStore.setPassphrase(passphrase)
     store.setWalletName(walletName)
 
-    await store.createWallet()
+    const success = await store.createWallet()
+    if (success) {
+      navigate(route.unlock_wallet)
+    } else {
+      notifier.err('Failed to create wallet')
+    }
   }
 
   const isFormValid = () => {
@@ -45,26 +50,24 @@ const ImportMnemonic = observer(() => {
   }
 
   return (
-    <Stack gap={3}>
+    <Stack gap={3} alignItems={'center'}>
       <Navbar hideLedgers />
-      <P level="h2">Import wallet</P>
-      <P level="body-md" color="neutral">
-        Enter your existing mnemonic phrase to import your wallet
-      </P>
+      <P level="h2">Import</P>
 
-      <Stack gap={2}>
-        <Textarea
-          placeholder="Enter your mnemonic phrase (12-24 words)"
-          value={mnemonicText}
-          onChange={e => setMnemonicText(e.target.value)}
-          minRows={3}
-          sx={{ width: '100%', maxWidth: '500px' }}
-        />
+      <Stack gap={2} alignItems={'center'}>
         <Input
           sx={{ width: '200px' }}
           placeholder="Wallet name"
           value={walletName}
           onChange={e => setWalletName(e.target.value)}
+        />
+        <Textarea
+          autoComplete="chrome-off"
+          autoCorrect="off"
+          placeholder="Enter your mnemonic phrase (12 words)"
+          value={mnemonicText}
+          onChange={e => setMnemonicText(e.target.value)}
+          minRows={3}
         />
         <PassphraseInput
           placeholder="Passphrase"

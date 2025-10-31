@@ -42,7 +42,7 @@ const CreatePassphrase = observer(() => {
         onClick={() => {
           store.passphraseStore.verifyPassphrase()
           store.createWallet().then(() => {
-            navigate(route.home)
+            navigate(route.ethereum)
           })
         }}
       >

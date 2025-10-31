@@ -47,7 +47,7 @@ pub async fn create_wallet(
     passphrase: String,
     name: String,
     repository: tauri::State<'_, Repository>,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     let last_wallet_id = repository.last_wallet_id().map_err(|e| e.to_string())?;
     let mut wallet_name = name;
     if wallet_name.is_empty() {
@@ -65,7 +65,8 @@ pub async fn create_wallet(
     repository
         .insert_wallet(wallet)
         .map_err(|e| e.to_string())?;
-    Ok(())
+
+    Ok(true)
 }
 
 #[tauri::command]

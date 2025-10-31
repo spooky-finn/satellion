@@ -77,7 +77,7 @@ class MnemonicStore {
 
   async createWallet() {
     try {
-      await invoke('create_wallet', {
+      return await invoke<boolean>('create_wallet', {
         mnemonic: this.mnemonic.join(' '),
         passphrase: this.passphraseStore.passphrase,
         name: this.walletName

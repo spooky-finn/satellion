@@ -1,5 +1,6 @@
 import { Button, Input, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
+import { Navbar } from '../../components/navbar'
 import { route, useNavigate } from '../../routes'
 import { P, Row } from '../../shortcuts'
 import { store } from './store'
@@ -7,7 +8,8 @@ import { store } from './store'
 const VerifyMnemonic = observer(() => {
   const navigate = useNavigate()
   return (
-    <Stack gap={3}>
+    <Stack gap={3} alignItems={'center'}>
+      <Navbar hideLedgers />
       {store.verificationIndices.map(index => (
         <Row key={index}>
           <P>{index + 1}</P>
@@ -24,6 +26,8 @@ const VerifyMnemonic = observer(() => {
       ))}
 
       <Button
+        variant="soft"
+        color="neutral"
         sx={{ width: 'min-content' }}
         onClick={() => {
           const status = store.verify()

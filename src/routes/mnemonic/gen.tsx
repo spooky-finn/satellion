@@ -1,8 +1,9 @@
-import { Button, Stack } from '@mui/joy'
+import { Button, Card, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
+import { Navbar } from '../../components/navbar'
 import { route, useNavigate } from '../../routes'
-import { P } from '../../shortcuts'
+import { P, Row } from '../../shortcuts'
 import { store } from './store'
 
 const GenerateMnemonic = observer(() => {
@@ -14,23 +15,27 @@ const GenerateMnemonic = observer(() => {
     return null
   }
   return (
-    <Stack gap={2}>
-      <P level="h3" color="primary">
-        Your private key
-      </P>
-      <Stack>
-        {store.mnemonic.map((word, index) => (
-          <P key={index}>
-            {index + 1}. {word}
-          </P>
-        ))}
-      </Stack>
-      <Button
-        sx={{ width: 'min-content' }}
-        onClick={() => navigate(route.verify_mnemonic)}
-      >
-        Continue
-      </Button>
+    <Stack gap={5} alignItems={'center'}>
+      <Navbar hideLedgers />
+      <P level="h2">Random secret private key</P>
+      <Card size="sm">
+        <Row gap={3} alignItems={'center'}>
+          <P level="body-lg">{store.mnemonic.join(' ')}</P>
+        </Row>
+      </Card>
+
+      <Row>
+        <Button
+          variant="soft"
+          color="primary"
+          onClick={() => navigate(route.verify_mnemonic)}
+        >
+          Ready to verify
+        </Button>
+        <Button variant="soft" color="neutral" onClick={() => store.generate()}>
+          Regen
+        </Button>
+      </Row>
     </Stack>
   )
 })

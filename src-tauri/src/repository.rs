@@ -100,7 +100,17 @@ impl Repository {
         let wallet_id = schema::wallets::table
             .select(schema::wallets::id)
             .order(schema::wallets::id.desc())
-            .first::<i32>(&mut conn)?;
-        Ok(wallet_id)
+            .first::<i32>(&mut conn);
+
+        match wallet_id {
+            Ok(id) => Ok(id),
+            Err(e) => {
+                if e.to_string().contains("Record not found") {
+                    Ok(0)
+                } else {
+                    Err(e)
+                }
+            }
+        }
     }
 }

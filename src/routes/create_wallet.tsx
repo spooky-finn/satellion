@@ -8,12 +8,24 @@ const CreateWallet = observer(() => {
   const navigate = useNavigate()
 
   return (
-    <Stack gap={3}>
+    <Stack gap={2} alignItems={'center'}>
       <Navbar hideLedgers />
       <P level="h2">Add wallet</P>
       <Row sx={{ width: 'min-content' }}>
-        <Button onClick={() => navigate(route.import_mnemonic)}>Import</Button>
-        <Button onClick={() => navigate(route.gen_mnemonic)}>Generate</Button>
+        <Button
+          variant="soft"
+          color="neutral"
+          onClick={() => navigate(route.import_mnemonic)}
+        >
+          Import
+        </Button>
+        <Button
+          variant="soft"
+          color="neutral"
+          onClick={() => navigate(route.gen_mnemonic)}
+        >
+          Generate
+        </Button>
       </Row>
     </Stack>
   )
