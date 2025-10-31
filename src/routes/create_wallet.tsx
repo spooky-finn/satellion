@@ -1,5 +1,6 @@
 import { Button, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
+import { Navbar } from '../components/navbar'
 import { route, useNavigate } from '../routes'
 import { P, Row } from '../shortcuts'
 
@@ -8,6 +9,7 @@ const CreateWallet = observer(() => {
 
   return (
     <Stack gap={3}>
+      <Navbar hideLedgers />
       <P level="h2">Add wallet</P>
       <Row sx={{ width: 'min-content' }}>
         <Button>Import</Button>

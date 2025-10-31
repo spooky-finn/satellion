@@ -18,9 +18,9 @@ export class Unlock {
   setUnlockWallet(w: AvailableWallet) {
     this.walletToUnlock = w
   }
-  unlockPassphrase: string = ''
-  setUnlockPassphrase(p: string) {
-    this.unlockPassphrase = p
+  passphrase: string = ''
+  setPassphrase(p: string) {
+    this.passphrase = p
   }
 
   availableWallets: AvailableWallet[] = []
@@ -43,7 +43,7 @@ export class Unlock {
     }
     const result = await invoke<UnlockMsg>('unlock_wallet', {
       walletId: this.walletToUnlock.id,
-      passphrase: this.unlockPassphrase
+      passphrase: this.passphrase
     }).catch((error: string) => {
       notifier.err(error)
       throw error

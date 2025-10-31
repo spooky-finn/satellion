@@ -1,4 +1,4 @@
-import { Button, Divider, Stack } from '@mui/joy'
+import { Box, Button, Divider, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
@@ -24,6 +24,7 @@ const UnlockWallet = () => {
   }
 
   useEffect(() => {
+    unlock.setPassphrase('')
     unlock.loadAvailableWallets().then(wallets => {
       if (wallets.length === 0) {
         navigate(route.create_wallet)
@@ -39,13 +40,16 @@ const UnlockWallet = () => {
   return (
     <Stack
       spacing={2}
-      alignItems={'center'}
+      alignItems={'start'}
       width={'fit-content'}
       margin={'auto'}
     >
       <P level="h2">Unlock Satellion</P>
       <Divider />
-      <Stack spacing={1} width={'fit-content'}>
+      <Box
+        sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}
+        width={'fit-content'}
+      >
         {unlock.availableWallets.map(key => (
           <Button
             key={key.id}
@@ -58,27 +62,27 @@ const UnlockWallet = () => {
             {key.name}
           </Button>
         ))}
-      </Stack>
+        <Divider orientation="vertical" />
+        <Button
+          size="sm"
+          sx={{ width: 'min-content' }}
+          variant="plain"
+          color="neutral"
+          onClick={() => {
+            navigate(route.create_wallet)
+          }}
+        >
+          Add
+        </Button>
+      </Box>
       {unlock.walletToUnlock && (
         <PassphraseInput
           autoFocus
           placeholder={`Passphrase`}
-          value={unlock.unlockPassphrase}
-          onChange={e => unlock.setUnlockPassphrase(e.target.value)}
+          value={unlock.passphrase}
+          onChange={e => unlock.setPassphrase(e.target.value)}
         />
       )}
-      <Divider />
-      <Button
-        size="sm"
-        sx={{ width: 'min-content' }}
-        variant="soft"
-        color="neutral"
-        onClick={() => {
-          navigate(route.create_wallet)
-        }}
-      >
-        Add
-      </Button>
     </Stack>
   )
 }
