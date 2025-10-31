@@ -45,16 +45,20 @@ export const Balances = observer(() => {
       )
       .filter(b => b.balance != '0') ?? []
 
+  const eth = {
+    token_symbol: 'ETH',
+    balance: root_store.wallet.eth.balance?.wei ?? '0',
+    decimals: 18,
+    ui_precision: 6
+  }
   return (
     <Card variant="outlined" size="sm">
       <Row alignItems={'start'} justifyContent={'space-between'}>
         <Stack>
           <Token
             b={{
-              token_symbol: 'ETH',
-              balance: root_store.wallet.eth.balance?.wei ?? '0',
-              decimals: 18,
-              ui_precision: 4
+              ...eth,
+              balance: prepareTokenBalance(eth) ?? '0'
             }}
           />
           {preparedBalances.length > 0 ? (

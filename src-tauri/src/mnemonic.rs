@@ -7,3 +7,11 @@ pub fn new() -> String {
         .unwrap()
         .to_phrase()
 }
+
+pub fn verify(mnemonic: String) -> Result<bool, String> {
+    let mnemonic = coins_bip39::Mnemonic::<English>::new_from_phrase(&mnemonic);
+    match mnemonic {
+        Ok(_) => Ok(true),
+        Err(e) => Err(format!("Invalid mnemonic {e}")),
+    }
+}

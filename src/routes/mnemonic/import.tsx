@@ -46,7 +46,7 @@ const ImportMnemonic = observer(() => {
       .trim()
       .split(/\s+/)
       .filter(w => w.length > 0)
-    return words.length >= 12 && words.length <= 24 && passphrase.length > 0
+    return words.length >= 12 && words.length <= 24
   }
 
   return (
