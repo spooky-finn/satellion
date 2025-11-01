@@ -27,11 +27,22 @@ impl Config {
         Ok(config)
     }
 
-    fn config_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    pub fn config_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
         let home = std::env::var("HOME")?;
         let mut path = PathBuf::from(home);
         path.push(".satellion");
+        Ok(path)
+    }
+
+    fn config_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
+        let mut path = Self::config_dir()?;
         path.push("config.json");
+        Ok(path)
+    }
+
+    pub fn db_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
+        let mut path = Self::config_dir()?;
+        path.push("blockchain.db");
         Ok(path)
     }
 }

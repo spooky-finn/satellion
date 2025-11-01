@@ -15,12 +15,6 @@ pub struct TokenBalance {
     pub balance: BigDecimal,
 }
 
-async fn get_symbol(provider: RootProvider, contract_address: Address) -> Result<String, String> {
-    let erc20 = Erc20Contract::Erc20ContractInstance::new(contract_address, provider);
-    let symbol = erc20.symbol().call().await.map_err(|e| e.to_string())?;
-    Ok(symbol)
-}
-
 pub async fn get_balances(
     provider: &RootProvider,
     address: Address,
@@ -42,26 +36,15 @@ pub async fn get_balances(
         }
     });
 
-    // Execute all queries in parallel using try_join_all
-    // This will return an error if any of the queries fail
     let token_balances = future::try_join_all(balance_futures).await?;
     Ok(token_balances)
 }
 
 #[cfg(test)]
 mod tests {
-    use alloy::primitives::address;
-
     use super::*;
     use crate::ethereum::{self};
-
-    #[tokio::test]
-    async fn test_get_symbol() {
-        let provider = ethereum::client::new_client().unwrap();
-        let contract_address = address!("dac17f958d2ee523a2206206994597c13d831ec7");
-        let symbol = get_symbol(provider, contract_address).await.unwrap();
-        assert_eq!(symbol, "USDT");
-    }
+    use alloy::primitives::address;
 
     #[tokio::test]
     async fn test_get_balances() {

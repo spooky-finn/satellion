@@ -31,5 +31,5 @@ export default [
   register(route.create_passphrase, 'mnemonic/create_passphrase.tsx'),
   register(route.import_mnemonic, 'mnemonic/import.tsx'),
   register(route.ethereum, 'ethereum/ethereum.tsx'),
-  register(route.bitcoin, 'bitcoin.tsx')
+  register(route.bitcoin, 'bitcoin/bitcoin.tsx')
 ] satisfies RouteConfig

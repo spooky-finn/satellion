@@ -10,6 +10,7 @@ mod repository;
 mod schema;
 mod wallet_storage;
 
+use crate::config::Config;
 use crate::repository::Repository;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
@@ -75,7 +76,12 @@ pub fn run() {
 }
 
 fn connect_db() -> Pool<ConnectionManager<SqliteConnection>> {
-    let manager = ConnectionManager::<SqliteConnection>::new("blockchain.db");
+    let manager = ConnectionManager::<SqliteConnection>::new(
+        Config::db_path()
+            .expect("Failed to get DB path")
+            .to_string_lossy()
+            .to_string(),
+    );
     Pool::builder()
         .max_size(4)
         .build(manager)

@@ -1,9 +1,9 @@
 import { Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
-import { Address } from '../components/address'
-import { Navbar } from '../components/navbar'
-import { P } from '../shortcuts'
-import { root_store } from '../stores/root'
+import { Address } from '../../components/address'
+import { Navbar } from '../../components/navbar'
+import { P } from '../../shortcuts'
+import { root_store } from '../../stores/root'
 
 const explorer_url = 'https://mempool.space/address/'
 

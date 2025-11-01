@@ -1,10 +1,10 @@
 import { Card, IconButton, Stack } from '@mui/joy'
-import Decimal from 'decimal.js'
 import { observer } from 'mobx-react-lite'
 import { RefreshIcon } from '../../components/icons/refresh.icon'
 import { P, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
 import { TokenBalance } from './types'
+import { BigDecimal } from './utils/big-decimal'
 
 const prepareTokenBalance = (b: TokenBalance): string | null => {
   let { balance, token_symbol, decimals, ui_precision } = b
@@ -14,9 +14,9 @@ const prepareTokenBalance = (b: TokenBalance): string | null => {
   }
 
   if (token_symbol === 'ETH' || token_symbol === 'WETH') {
-    const balanceDecimal = new Decimal(balance)
-    const divisor = new Decimal(10).pow(decimals)
-    const convertedBalance = balanceDecimal.div(divisor)
+    const balanceDecimal = new BigDecimal(balance)
+    const divisor = new BigDecimal(10).pow(decimals)
+    const convertedBalance = balanceDecimal.divide(divisor)
     balance = convertedBalance.toFixed(ui_precision)
   }
 
