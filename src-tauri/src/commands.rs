@@ -1,5 +1,5 @@
 use crate::bitcoin;
-use crate::bitcoin::wallet::AddressPurpose;
+use crate::bitcoin::wallet::AddressType;
 use crate::repository::{AvailableWallet, Repository};
 use crate::{app_state::AppState, db::BlockHeader, schema};
 use crate::{ethereum, mnemonic, wallet_storage};
@@ -86,6 +86,7 @@ pub struct EthereumData {
 #[derive(serde::Serialize)]
 pub struct BitcoinData {
     address: String,
+    change_address: String,
 }
 
 #[derive(serde::Serialize)]
@@ -119,7 +120,10 @@ pub async fn unlock_wallet(
         .map_err(|e| e.to_string())?;
 
     let (_, bitcoin_main_receive_address) =
-        bitcoin::wallet::derive_taproot_address(&bitcoin_xprv, network, AddressPurpose::Receive, 0)
+        bitcoin::wallet::derive_taproot_address(&bitcoin_xprv, network, AddressType::Receive, 0)
+            .map_err(|e| e.to_string())?;
+    let (_, bitcoin_main_change_address) =
+        bitcoin::wallet::derive_taproot_address(&bitcoin_xprv, network, AddressType::Change, 0)
             .map_err(|e| e.to_string())?;
 
     let res = UnlockMsg {
@@ -129,6 +133,7 @@ pub async fn unlock_wallet(
         },
         bitcoin: BitcoinData {
             address: bitcoin_main_receive_address.to_string(),
+            change_address: bitcoin_main_change_address.to_string(),
         },
     };
     Ok(res)

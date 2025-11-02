@@ -8,6 +8,7 @@ use diesel::r2d2::ConnectionManager;
 use r2d2::Pool;
 use r2d2::PooledConnection;
 
+#[derive(Clone)]
 pub struct Repository {
     pub db_pool: Pool<ConnectionManager<SqliteConnection>>,
 }

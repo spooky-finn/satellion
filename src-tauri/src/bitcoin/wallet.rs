@@ -9,9 +9,9 @@ use bitcoin::{
 
 pub use bitcoin::network::Network;
 
-pub enum AddressPurpose {
-    Receive,
-    Change,
+pub enum AddressType {
+    Receive = 0,
+    Change = 1,
 }
 
 pub fn create_private_key(
@@ -28,7 +28,7 @@ pub fn create_private_key(
 
 pub fn create_diriviation_path(
     network: Network,
-    purpose: AddressPurpose,
+    purpose: AddressType,
     address_index: u32,
 ) -> DerivationPath {
     let coin_type = match network {
@@ -37,8 +37,8 @@ pub fn create_diriviation_path(
     };
 
     let change = match purpose {
-        AddressPurpose::Receive => 0,
-        AddressPurpose::Change => 1,
+        AddressType::Receive => 0,
+        AddressType::Change => 1,
     };
 
     let account = 0;
@@ -49,7 +49,7 @@ pub fn create_diriviation_path(
 pub fn derive_taproot_address(
     xprv: &Xpriv,
     network: Network,
-    purpose: AddressPurpose,
+    purpose: AddressType,
     address_index: u32,
 ) -> Result<(Keypair, Address), String> {
     let secp = Secp256k1::new();

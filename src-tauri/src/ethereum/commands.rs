@@ -1,6 +1,6 @@
 use crate::ethereum;
 use alloy::eips::{BlockId, BlockNumberOrTag};
-use alloy::primitives::Address;
+use alloy::primitives::{Address, U256};
 use alloy::providers::{Provider, RootProvider};
 use std::str::FromStr;
 
@@ -12,8 +12,8 @@ pub struct ChainInfo {
 }
 
 #[tauri::command]
-pub async fn eth_chain_info(client: tauri::State<'_, RootProvider>) -> Result<ChainInfo, String> {
-    let block = client
+pub async fn eth_chain_info(provider: tauri::State<'_, RootProvider>) -> Result<ChainInfo, String> {
+    let block = provider
         .get_block(BlockId::Number(BlockNumberOrTag::Latest))
         .await
         .map_err(|e| e.to_string())?;
@@ -44,15 +44,15 @@ pub struct Balance {
 
 #[tauri::command]
 pub async fn eth_get_balance(
-    client: tauri::State<'_, RootProvider>,
+    provider: tauri::State<'_, RootProvider>,
     address: String,
 ) -> Result<Balance, String> {
-    let address = Address::from_str(&address).expect("Invalid Ethereum address");
-    let eth_balance = client
+    let address = Address::from_str(&address).map_err(|e| e.to_string())?;
+    let eth_balance = provider
         .get_balance(address)
         .await
         .map_err(|e| e.to_string())?;
-    let provider = client.inner();
+    let provider = provider.inner();
     let token_balances = ethereum::erc20::get_balances(provider, address)
         .await
         .map_err(|e| e.to_string())?;
@@ -68,5 +68,39 @@ pub async fn eth_get_balance(
     Ok(Balance {
         wei: eth_balance.to_string(),
         tokens: tokens,
+    })
+}
+
+#[derive(serde::Deserialize)]
+pub struct PrepareSendTxReq {
+    token_symbol: String,
+    amount: String,
+    recipient: String,
+}
+
+#[derive(serde::Serialize, Debug, PartialEq)]
+pub struct PrepareTxReqRes {
+    gas_limit: u64,
+    gas_price: u128,
+}
+
+#[tauri::command]
+pub async fn eth_prepare_send_tx(
+    req: PrepareSendTxReq,
+    provider: tauri::State<'_, RootProvider>,
+) -> Result<PrepareTxReqRes, String> {
+    let token_symbol = req.token_symbol;
+    let value = U256::from_str(&req.amount).map_err(|e| e.to_string())?;
+    let recipient = Address::from_str(&req.recipient).map_err(|e| e.to_string())?;
+    let res = crate::ethereum::provider::eth_prepare_send_tx(
+        &provider.inner(),
+        token_symbol,
+        value,
+        recipient,
+    )
+    .await?;
+    Ok(PrepareTxReqRes {
+        gas_limit: res.gas_limit,
+        gas_price: res.gas_price,
     })
 }

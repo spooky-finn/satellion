@@ -48,7 +48,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_balances() {
-        let provider = ethereum::client::new_client().unwrap();
+        let provider = ethereum::provider::new().unwrap();
         let address = address!("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045");
         let balances = get_balances(&provider, address).await.unwrap();
         println!("{:?}", balances);

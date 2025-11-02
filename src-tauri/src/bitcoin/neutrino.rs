@@ -56,7 +56,7 @@ impl Neutrino {
 pub async fn handle_chain_updates(
     mut client: bip157::Client,
     app_state: Arc<AppState>,
-    repository: Repository,
+    repository: Arc<Repository>,
 ) {
     let block_height = app_state.chain_height.clone();
     let sync_completed = app_state.sync_completed.clone();
