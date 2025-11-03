@@ -8,26 +8,26 @@ mod ethereum;
 mod mnemonic;
 mod repository;
 mod schema;
-mod wallet_storage;
+mod wallet_service;
 
-use crate::config::Config;
-use crate::repository::Repository;
-use diesel::prelude::*;
-use diesel::r2d2::{ConnectionManager, Pool};
+use crate::{repository::Repository, wallet_service::WalletService};
 use std::sync::Arc;
 use tauri::Manager;
+use tokio::sync::Mutex;
 
 const ENABLE_DEVTOOLS: bool = true;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let db_pool = connect_db();
+    let db = db::connect();
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(Arc::new(app_state::AppState::new()))
-        .manage(db_pool.clone())
-        .manage(Repository::new(db_pool.clone()))
+        .manage(db.clone())
+        .manage(Repository::new(db.clone()))
         .manage(ethereum::provider::new().expect("Failed to create Ethereum client"))
+        .manage(Mutex::new(ethereum::TxBuilder::new()))
+        .manage(WalletService::new(Repository::new(db.clone())))
         .setup(move |app| {
             #[cfg(debug_assertions)]
             if ENABLE_DEVTOOLS {
@@ -48,20 +48,8 @@ pub fn run() {
             ethereum::commands::eth_chain_info,
             ethereum::commands::eth_get_balance,
             ethereum::commands::eth_prepare_send_tx,
+            ethereum::commands::eth_sign_and_send_tx,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-}
-
-fn connect_db() -> Pool<ConnectionManager<SqliteConnection>> {
-    let manager = ConnectionManager::<SqliteConnection>::new(
-        Config::db_path()
-            .expect("Failed to get DB path")
-            .to_string_lossy()
-            .to_string(),
-    );
-    Pool::builder()
-        .max_size(4)
-        .build(manager)
-        .expect("Error creating DB pool")
 }

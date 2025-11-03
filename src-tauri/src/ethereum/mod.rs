@@ -5,3 +5,5 @@ pub mod erc20;
 pub mod provider;
 pub mod token;
 pub mod wallet;
+
+pub use provider::TxBuilder;

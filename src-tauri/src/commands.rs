@@ -1,8 +1,9 @@
 use crate::bitcoin;
 use crate::bitcoin::wallet::AddressType;
 use crate::repository::{AvailableWallet, Repository};
+use crate::wallet_service::WalletService;
 use crate::{app_state::AppState, db::BlockHeader, schema};
-use crate::{ethereum, mnemonic, wallet_storage};
+use crate::{ethereum, mnemonic};
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use std::sync::Arc;
 
@@ -46,27 +47,9 @@ pub async fn create_wallet(
     mnemonic: String,
     passphrase: String,
     name: String,
-    repository: tauri::State<'_, Repository>,
+    storage: tauri::State<'_, WalletService>,
 ) -> Result<bool, String> {
-    mnemonic::verify(mnemonic.clone()).map_err(|e| e.to_string())?;
-    let last_wallet_id = repository.last_wallet_id().map_err(|e| e.to_string())?;
-    let mut wallet_name = name;
-    if wallet_name.is_empty() {
-        wallet_name = format!("Wallet {}", last_wallet_id + 1);
-    }
-
-    let wallet = wallet_storage::create_encrypted_wallet(
-        last_wallet_id + 1,
-        mnemonic,
-        passphrase,
-        wallet_name,
-    )
-    .map_err(|e| e.to_string())?;
-
-    repository
-        .insert_wallet(wallet)
-        .map_err(|e| e.to_string())?;
-
+    storage.create(mnemonic, passphrase, name)?;
     Ok(true)
 }
 
@@ -100,31 +83,32 @@ pub struct UnlockMsg {
 pub async fn unlock_wallet(
     wallet_id: i32,
     passphrase: String,
-    repository: tauri::State<'_, Repository>,
+    storage: tauri::State<'_, WalletService>,
 ) -> Result<UnlockMsg, String> {
-    let wallet = repository
-        .get_wallet_by_id(wallet_id)
-        .map_err(|e| e.to_string())?;
+    let mnemonic = storage.load(wallet_id, passphrase.clone())?;
 
-    let mnemonic = wallet_storage::decrypt_wallet(&wallet, passphrase.clone());
-    let mnemonic = match mnemonic {
-        Ok(mnemonic) => mnemonic,
-        Err(e) => return Err(e.to_string()),
-    };
-
-    let network = bitcoin::wallet::Network::Bitcoin;
+    // TODO: extract into config module
+    let bitcoin_network = bitcoin::wallet::Network::Bitcoin;
     let eth_prk =
         ethereum::wallet::create_private_key(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
 
-    let bitcoin_xprv = bitcoin::wallet::create_private_key(network, &mnemonic, &passphrase)
+    let bitcoin_xprv = bitcoin::wallet::create_private_key(bitcoin_network, &mnemonic, &passphrase)
         .map_err(|e| e.to_string())?;
 
-    let (_, bitcoin_main_receive_address) =
-        bitcoin::wallet::derive_taproot_address(&bitcoin_xprv, network, AddressType::Receive, 0)
-            .map_err(|e| e.to_string())?;
-    let (_, bitcoin_main_change_address) =
-        bitcoin::wallet::derive_taproot_address(&bitcoin_xprv, network, AddressType::Change, 0)
-            .map_err(|e| e.to_string())?;
+    let (_, bitcoin_main_receive_address) = bitcoin::wallet::derive_taproot_address(
+        &bitcoin_xprv,
+        bitcoin_network,
+        AddressType::Receive,
+        0,
+    )
+    .map_err(|e| e.to_string())?;
+    let (_, bitcoin_main_change_address) = bitcoin::wallet::derive_taproot_address(
+        &bitcoin_xprv,
+        bitcoin_network,
+        AddressType::Change,
+        0,
+    )
+    .map_err(|e| e.to_string())?;
 
     let res = UnlockMsg {
         wallet_id,

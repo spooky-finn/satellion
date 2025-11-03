@@ -1,4 +1,5 @@
 use crate::ethereum;
+use crate::wallet_service::WalletService;
 use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::primitives::{Address, U256};
 use alloy::providers::{Provider, RootProvider};
@@ -87,20 +88,34 @@ pub struct PrepareTxReqRes {
 #[tauri::command]
 pub async fn eth_prepare_send_tx(
     req: PrepareSendTxReq,
-    provider: tauri::State<'_, RootProvider>,
+    builder: tauri::State<'_, tokio::sync::Mutex<ethereum::TxBuilder>>,
 ) -> Result<PrepareTxReqRes, String> {
     let token_symbol = req.token_symbol;
     let value = U256::from_str(&req.amount).map_err(|e| e.to_string())?;
     let recipient = Address::from_str(&req.recipient).map_err(|e| e.to_string())?;
-    let res = crate::ethereum::provider::eth_prepare_send_tx(
-        &provider.inner(),
-        token_symbol,
-        value,
-        recipient,
-    )
-    .await?;
+    let mut builder = builder.lock().await;
+    let res = builder
+        .eth_prepare_send_tx(token_symbol, value, recipient)
+        .await?;
     Ok(PrepareTxReqRes {
         gas_limit: res.gas_limit,
         gas_price: res.gas_price,
     })
+}
+
+#[tauri::command]
+pub async fn eth_sign_and_send_tx(
+    wallet_id: i32,
+    passphrase: String,
+    builder: tauri::State<'_, tokio::sync::Mutex<ethereum::TxBuilder>>,
+    storage: tauri::State<'_, WalletService>,
+) -> Result<(), String> {
+    let mut builder = builder.lock().await;
+    let mnemonic = storage
+        .load(wallet_id, passphrase.clone())
+        .map_err(|e| e.to_string())?;
+    let signer =
+        ethereum::wallet::create_private_key(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
+    builder.sign_and_send_tx(&signer).await?;
+    Ok(())
 }

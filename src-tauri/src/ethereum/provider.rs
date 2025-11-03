@@ -5,6 +5,8 @@ use alloy::primitives::{Address, U256};
 use alloy::providers::Provider;
 use alloy::providers::RootProvider;
 use alloy::rpc::types::TransactionRequest;
+use alloy_signer_local::PrivateKeySigner;
+use std::sync::Arc;
 use tauri::Url;
 
 pub fn new() -> Result<RootProvider, String> {
@@ -21,34 +23,73 @@ pub struct TxPresendInfo {
     pub gas_price: u128,
 }
 
-pub async fn eth_prepare_send_tx(
-    provider: &RootProvider,
-    token_symbol: String,
-    value: U256,
-    recipient: Address,
-) -> Result<TxPresendInfo, String> {
-    if token_symbol != "ETH" {
-        return Err("Only ETH is supported for now".to_string());
+pub struct TxBuilder {
+    provider: Arc<RootProvider<Ethereum>>,
+    tx: Option<TransactionRequest>,
+}
+
+impl TxBuilder {
+    pub fn new() -> Self {
+        let provider = new().unwrap();
+        Self {
+            provider: Arc::new(provider),
+            tx: None,
+        }
     }
 
-    let tx = TransactionRequest::default()
-        .with_to(recipient)
-        .with_value(value);
+    pub async fn eth_prepare_send_tx(
+        &mut self,
+        token_symbol: String,
+        value: U256,
+        recipient: Address,
+    ) -> Result<TxPresendInfo, String> {
+        if token_symbol != "ETH" {
+            return Err("Only ETH is supported for now".to_string());
+        }
+        let tx = TransactionRequest::default()
+            .with_to(recipient)
+            .with_value(value);
 
-    let estimated_gas = provider
-        .estimate_gas(tx)
-        .await
-        .map_err(|e| format!("Failed to estimate gas: {}", e))?;
+        let estimated_gas = self
+            .provider
+            .estimate_gas(tx.clone())
+            .await
+            .map_err(|e| format!("Failed to estimate gas: {}", e))?;
 
-    let gas_price = provider
-        .get_gas_price()
-        .await
-        .map_err(|e| format!("Failed to get gas price: {}", e))?;
+        let gas_price = self
+            .provider
+            .get_gas_price()
+            .await
+            .map_err(|e| format!("Failed to get gas price: {}", e))?;
 
-    Ok(TxPresendInfo {
-        gas_limit: estimated_gas,
-        gas_price: gas_price,
-    })
+        let estimator = self
+            .provider
+            .estimate_eip1559_fees()
+            .await
+            .map_err(|e| format!("Failed to estimate EIP-1559 fees: {}", e))?;
+
+        let tx = tx
+            .with_gas_price(gas_price)
+            .with_max_fee_per_gas(estimator.max_fee_per_gas)
+            .with_max_priority_fee_per_gas(estimator.max_priority_fee_per_gas);
+
+        self.tx = Some(tx);
+        Ok(TxPresendInfo {
+            gas_limit: estimated_gas,
+            gas_price: gas_price,
+        })
+    }
+
+    pub async fn sign_and_send_tx(&mut self, _signer: &PrivateKeySigner) -> Result<(), String> {
+        let tx = self.tx.take().ok_or("Transaction not prepared")?;
+        let _tx_eip1559 = tx
+            .build_1559()
+            .map_err(|e| format!("Failed to build transaction: {}", e))?;
+
+        // TODO: Sign and send transaction
+        self.tx = None;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -58,11 +99,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_eth_prepare_send_tx() {
-        let provider = new().unwrap();
+        let mut builder = TxBuilder::new();
+
         let token_symbol = "ETH".to_string();
         let value = U256::from(100);
         let recipient = Address::from_str("0x0000000000000000000000000000000000000000").unwrap();
-        let res = eth_prepare_send_tx(&provider, token_symbol, value, recipient)
+        let res = builder
+            .eth_prepare_send_tx(token_symbol, value, recipient)
             .await
             .unwrap();
         println!("{:?}", res);
