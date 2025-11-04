@@ -37,36 +37,50 @@ impl TxBuilder {
         }
     }
 
+    pub async fn get_tx_count(&self, address: Address) -> Result<u64, String> {
+        let count = self
+            .provider
+            .get_transaction_count(address)
+            .await
+            .map_err(|e| format!("Failed to get transaction count: {e}"))?;
+        Ok(count)
+    }
+
     pub async fn eth_prepare_send_tx(
         &mut self,
         token_symbol: String,
         value: U256,
+        sender: Address,
         recipient: Address,
     ) -> Result<TxPresendInfo, String> {
         if token_symbol != "ETH" {
             return Err("Only ETH is supported for now".to_string());
         }
+        let tx_count = self.get_tx_count(sender).await?;
+        let nonce = tx_count + 1;
+
         let tx = TransactionRequest::default()
             .with_to(recipient)
-            .with_value(value);
+            .with_value(value)
+            .with_nonce(nonce);
 
         let estimated_gas = self
             .provider
             .estimate_gas(tx.clone())
             .await
-            .map_err(|e| format!("Failed to estimate gas: {}", e))?;
+            .map_err(|e| format!("Failed to estimate gas: {e}"))?;
 
         let gas_price = self
             .provider
             .get_gas_price()
             .await
-            .map_err(|e| format!("Failed to get gas price: {}", e))?;
+            .map_err(|e| format!("Failed to get gas price: {e}"))?;
 
         let estimator = self
             .provider
             .estimate_eip1559_fees()
             .await
-            .map_err(|e| format!("Failed to estimate EIP-1559 fees: {}", e))?;
+            .map_err(|e| format!("Failed to estimate EIP-1559 fees: {e}"))?;
 
         let tx = tx
             .with_gas_price(gas_price)
@@ -84,7 +98,7 @@ impl TxBuilder {
         let tx = self.tx.take().ok_or("Transaction not prepared")?;
         let _tx_eip1559 = tx
             .build_1559()
-            .map_err(|e| format!("Failed to build transaction: {}", e))?;
+            .map_err(|e| format!("Failed to build transaction: {e}"))?;
 
         // TODO: Sign and send transaction
         self.tx = None;
@@ -104,8 +118,9 @@ mod tests {
         let token_symbol = "ETH".to_string();
         let value = U256::from(100);
         let recipient = Address::from_str("0x0000000000000000000000000000000000000000").unwrap();
+        let sender = Address::from_str("0x0000000000000000000000000000000000000000").unwrap();
         let res = builder
-            .eth_prepare_send_tx(token_symbol, value, recipient)
+            .eth_prepare_send_tx(token_symbol, value, sender, recipient)
             .await
             .unwrap();
         println!("{:?}", res);

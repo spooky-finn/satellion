@@ -77,6 +77,7 @@ pub struct PrepareSendTxReq {
     token_symbol: String,
     amount: String,
     recipient: String,
+    sender: String,
 }
 
 #[derive(serde::Serialize, Debug, PartialEq)]
@@ -92,11 +93,17 @@ pub async fn eth_prepare_send_tx(
 ) -> Result<PrepareTxReqRes, String> {
     let token_symbol = req.token_symbol;
     let value = U256::from_str(&req.amount).map_err(|e| e.to_string())?;
-    let recipient = Address::from_str(&req.recipient).map_err(|e| e.to_string())?;
-    let mut builder = builder.lock().await;
+
+    let recipient =
+        Address::from_str(&req.recipient).map_err(|e| format!("Invalid recipient address: {e}"))?;
+    let sender =
+        Address::from_str(&req.sender).map_err(|e| format!("Invalid sender address: {e}"))?;
+
+    let mut builder = builder.try_lock().map_err(|e| e.to_string())?;
     let res = builder
-        .eth_prepare_send_tx(token_symbol, value, recipient)
+        .eth_prepare_send_tx(token_symbol, value, sender, recipient)
         .await?;
+
     Ok(PrepareTxReqRes {
         gas_limit: res.gas_limit,
         gas_price: res.gas_price,
@@ -110,12 +117,13 @@ pub async fn eth_sign_and_send_tx(
     builder: tauri::State<'_, tokio::sync::Mutex<ethereum::TxBuilder>>,
     storage: tauri::State<'_, WalletService>,
 ) -> Result<(), String> {
-    let mut builder = builder.lock().await;
     let mnemonic = storage
         .load(wallet_id, passphrase.clone())
         .map_err(|e| e.to_string())?;
     let signer =
         ethereum::wallet::create_private_key(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
+
+    let mut builder = builder.try_lock().map_err(|e| e.to_string())?;
     builder.sign_and_send_tx(&signer).await?;
     Ok(())
 }
