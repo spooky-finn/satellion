@@ -1,3 +1,4 @@
+use bip157::Network;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8,6 +9,14 @@ pub struct BitcoinConfig {
 impl BitcoinConfig {
     pub fn new() -> Self {
         Self { regtest: true }
+    }
+
+    pub fn network(&self) -> Network {
+        if self.regtest {
+            Network::Regtest
+        } else {
+            Network::Bitcoin
+        }
     }
 }
 

@@ -1,5 +1,4 @@
 use crate::bitcoin;
-use crate::bitcoin::wallet::AddressType;
 use crate::repository::{AvailableWallet, Repository};
 use crate::wallet_service::WalletService;
 use crate::{app_state::AppState, db::BlockHeader, schema};
@@ -62,21 +61,10 @@ pub async fn get_available_wallets(
 }
 
 #[derive(serde::Serialize)]
-pub struct EthereumData {
-    address: String,
-}
-
-#[derive(serde::Serialize)]
-pub struct BitcoinData {
-    address: String,
-    change_address: String,
-}
-
-#[derive(serde::Serialize)]
 pub struct UnlockMsg {
     wallet_id: i32,
-    ethereum: EthereumData,
-    bitcoin: BitcoinData,
+    ethereum: ethereum::wallet::Unlock,
+    bitcoin: bitcoin::wallet::Unlock,
 }
 
 #[tauri::command]
@@ -86,41 +74,15 @@ pub async fn unlock_wallet(
     storage: tauri::State<'_, WalletService>,
 ) -> Result<UnlockMsg, String> {
     let mnemonic = storage.load(wallet_id, passphrase.clone())?;
-
-    // TODO: extract into config module
-    let bitcoin_network = bitcoin::wallet::Network::Bitcoin;
-    let eth_prk =
-        ethereum::wallet::create_private_key(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
-
-    let bitcoin_xprv = bitcoin::wallet::create_private_key(bitcoin_network, &mnemonic, &passphrase)
-        .map_err(|e| e.to_string())?;
-
-    let (_, bitcoin_main_receive_address) = bitcoin::wallet::derive_taproot_address(
-        &bitcoin_xprv,
-        bitcoin_network,
-        AddressType::Receive,
-        0,
-    )
-    .map_err(|e| e.to_string())?;
-    let (_, bitcoin_main_change_address) = bitcoin::wallet::derive_taproot_address(
-        &bitcoin_xprv,
-        bitcoin_network,
-        AddressType::Change,
-        0,
-    )
-    .map_err(|e| e.to_string())?;
-
-    let res = UnlockMsg {
+    let eth_unlock_data =
+        ethereum::wallet::unlock(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
+    let bitcoin_unlock_data =
+        bitcoin::wallet::unlock(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
+    Ok(UnlockMsg {
         wallet_id,
-        ethereum: EthereumData {
-            address: eth_prk.address().to_string(),
-        },
-        bitcoin: BitcoinData {
-            address: bitcoin_main_receive_address.to_string(),
-            change_address: bitcoin_main_change_address.to_string(),
-        },
-    };
-    Ok(res)
+        ethereum: eth_unlock_data,
+        bitcoin: bitcoin_unlock_data,
+    })
 }
 
 #[tauri::command]

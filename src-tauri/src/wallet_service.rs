@@ -19,7 +19,7 @@ impl WalletService {
         &self,
         mnemonic: String,
         passphrase: String,
-        wallet_name: String,
+        name: String,
     ) -> Result<db::Wallet, String> {
         mnemonic::verify(mnemonic.clone()).map_err(|e| e.to_string())?;
         let last_wallet_id = self
@@ -27,14 +27,15 @@ impl WalletService {
             .last_wallet_id()
             .map_err(|e| e.to_string())?;
 
-        let mut wallet_name = wallet_name;
-        if wallet_name.is_empty() {
-            wallet_name = format!("Wallet {}", last_wallet_id + 1);
+        let id = last_wallet_id + 1;
+        let mut name = name;
+        if name.is_empty() {
+            name = format!("Wallet {}", id);
         }
         let envelope = envelope_encryption::encrypt(mnemonic.as_bytes(), passphrase.as_bytes())?;
         let wallet = db::Wallet {
-            id: last_wallet_id + 1,
-            name: Some(wallet_name),
+            id,
+            name: Some(name),
             encrypted_key: envelope.ciphertext,
             key_wrapped: envelope.wrapped_key,
             kdf_salt: envelope.kdf_salt,

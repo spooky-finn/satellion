@@ -17,6 +17,18 @@ pub fn create_private_key(
     Ok(signer)
 }
 
+#[derive(serde::Serialize)]
+pub struct Unlock {
+    address: String,
+}
+
+pub fn unlock(mnemonic: &str, passphrase: &str) -> Result<Unlock, LocalSignerError> {
+    let signer = create_private_key(mnemonic, passphrase)?;
+    Ok(Unlock {
+        address: signer.address().to_string(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use crate::mnemonic;
