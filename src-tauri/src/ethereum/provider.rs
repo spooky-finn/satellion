@@ -1,6 +1,10 @@
 use crate::config::CONFIG;
+use alloy::consensus::SignableTransaction;
+use alloy::consensus::TxEnvelope;
 use alloy::network::Ethereum;
 use alloy::network::TransactionBuilder;
+use alloy::network::TxSignerSync;
+use alloy::primitives::FixedBytes;
 use alloy::primitives::{Address, U256};
 use alloy::providers::Provider;
 use alloy::providers::RootProvider;
@@ -94,15 +98,27 @@ impl TxBuilder {
         })
     }
 
-    pub async fn sign_and_send_tx(&mut self, _signer: &PrivateKeySigner) -> Result<(), String> {
+    pub async fn sign_and_send_tx(
+        &mut self,
+        signer: &PrivateKeySigner,
+    ) -> Result<FixedBytes<32>, String> {
         let tx = self.tx.take().ok_or("Transaction not prepared")?;
-        let _tx_eip1559 = tx
-            .build_1559()
-            .map_err(|e| format!("Failed to build transaction: {e}"))?;
 
-        // TODO: Sign and send transaction
+        let mut tx_eip1559 = tx.build_1559().map_err(|e| e.to_string())?;
+
+        let signature = signer
+            .sign_transaction_sync(&mut tx_eip1559)
+            .map_err(|e| format!("Failed to sign transaction: {e}"))?;
+
+        let tx_envelope = TxEnvelope::Eip1559(tx_eip1559.into_signed(signature));
+        let pending_tx = self
+            .provider
+            .send_tx_envelope(tx_envelope)
+            .await
+            .map_err(|e| format!("Failed to send transaction: {e}"))?;
         self.tx = None;
-        Ok(())
+        let hash = pending_tx.tx_hash().clone();
+        Ok(hash)
     }
 }
 
