@@ -41,8 +41,9 @@ export class Unlock {
     if (!this.walletToUnlock) {
       throw new Error('No wallet selected to unlock')
     }
+    const walletId = this.walletToUnlock.id
     const result = await invoke<UnlockMsg>('unlock_wallet', {
-      walletId: this.walletToUnlock.id,
+      walletId,
       passphrase: this.passphrase
     }).catch((error: string) => {
       notifier.err(error)
@@ -50,7 +51,7 @@ export class Unlock {
     })
 
     if (result) {
-      walletStrore.init(result)
+      walletStrore.init(walletId, result)
       this.setUnlocked(true)
     }
   }

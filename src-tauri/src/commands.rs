@@ -1,5 +1,5 @@
 use crate::bitcoin;
-use crate::repository::{AvailableWallet, Repository};
+use crate::repository::{AvailableWallet, WalletRepository};
 use crate::wallet_service::WalletService;
 use crate::{app_state::AppState, db::BlockHeader, schema};
 use crate::{ethereum, mnemonic};
@@ -54,15 +54,14 @@ pub async fn create_wallet(
 
 #[tauri::command]
 pub async fn get_available_wallets(
-    repository: tauri::State<'_, Repository>,
+    repository: tauri::State<'_, WalletRepository>,
 ) -> Result<Vec<AvailableWallet>, String> {
-    let wallets_info = repository.available_wallets().map_err(|e| e.to_string())?;
+    let wallets_info = repository.list().map_err(|e| e.to_string())?;
     Ok(wallets_info)
 }
 
 #[derive(serde::Serialize)]
 pub struct UnlockMsg {
-    wallet_id: i32,
     ethereum: ethereum::wallet::Unlock,
     bitcoin: bitcoin::wallet::Unlock,
 }
@@ -79,7 +78,6 @@ pub async fn unlock_wallet(
     let bitcoin_unlock_data =
         bitcoin::wallet::unlock(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
     Ok(UnlockMsg {
-        wallet_id,
         ethereum: eth_unlock_data,
         bitcoin: bitcoin_unlock_data,
     })
@@ -88,10 +86,8 @@ pub async fn unlock_wallet(
 #[tauri::command]
 pub async fn forget_wallet(
     wallet_id: i32,
-    repository: tauri::State<'_, Repository>,
+    repository: tauri::State<'_, WalletRepository>,
 ) -> Result<(), String> {
-    repository
-        .delete_wallet(wallet_id)
-        .map_err(|e| e.to_string())?;
+    repository.delete(wallet_id).map_err(|e| e.to_string())?;
     Ok(())
 }

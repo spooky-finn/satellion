@@ -15,8 +15,8 @@ export class Wallet {
 
   initialized: boolean = false
 
-  init(unlockmsg: UnlockMsg) {
-    this.id = unlockmsg.wallet_id
+  init(walletId: number, unlockmsg: UnlockMsg) {
+    this.id = walletId
     this.eth.address = unlockmsg.ethereum.address
     this.btc.address = unlockmsg.bitcoin.address
     this.initialized = true

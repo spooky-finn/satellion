@@ -9,24 +9,16 @@ use r2d2::Pool;
 use r2d2::PooledConnection;
 
 #[derive(Clone)]
-pub struct Repository {
+pub struct BaseRepository {
     pub db_pool: Pool<ConnectionManager<SqliteConnection>>,
 }
 
-type Error = diesel::result::Error;
-
-#[derive(serde::Serialize)]
-pub struct AvailableWallet {
-    pub id: i32,
-    pub name: Option<String>,
-}
-
-impl Repository {
+impl BaseRepository {
     pub fn new(db_pool: Pool<ConnectionManager<SqliteConnection>>) -> Self {
         Self { db_pool }
     }
 
-    fn get_conn(
+    pub fn get_conn(
         &self,
     ) -> Result<PooledConnection<ConnectionManager<diesel::SqliteConnection>>, Error> {
         self.db_pool.get().map_err(|e| {
@@ -36,22 +28,24 @@ impl Repository {
             )
         })
     }
+}
 
-    pub fn available_wallets(&self) -> Result<Vec<AvailableWallet>, Error> {
-        let mut conn = self.get_conn()?;
-        let wallets = schema::wallets::table
-            .select((schema::wallets::id, schema::wallets::name))
-            .load::<(i32, Option<String>)>(&mut conn)?;
+#[derive(Clone)]
+pub struct Repository {
+    base: BaseRepository,
+}
 
-        let result = wallets
-            .into_iter()
-            .map(|(id, name)| AvailableWallet { id, name })
-            .collect();
-        Ok(result)
+type Error = diesel::result::Error;
+
+impl Repository {
+    pub fn new(db_pool: Pool<ConnectionManager<SqliteConnection>>) -> Self {
+        Self {
+            base: BaseRepository::new(db_pool),
+        }
     }
 
     pub fn save_block_header(&self, block_header: IndexedHeader) -> Result<usize, Error> {
-        let mut conn = self.get_conn()?;
+        let mut conn = self.base.get_conn()?;
         diesel::insert_into(schema::bitcoin_block_headers::table)
             .values(&BlockHeader {
                 height: block_header.height as i32,
@@ -66,23 +60,55 @@ impl Repository {
     }
 
     pub fn load_block_headers(&self, limit: i64) -> Result<Vec<BlockHeader>, Error> {
-        let mut conn = self.get_conn()?;
+        let mut conn = self.base.get_conn()?;
         schema::bitcoin_block_headers::table
             .select(schema::bitcoin_block_headers::all_columns)
             .limit(limit)
             .order(schema::bitcoin_block_headers::height.desc())
             .load::<BlockHeader>(&mut conn)
     }
+}
 
-    pub fn insert_wallet(&self, wallet: db::Wallet) -> Result<usize, Error> {
-        let mut conn = self.get_conn()?;
+#[derive(Clone)]
+pub struct WalletRepository {
+    base: BaseRepository,
+}
+
+#[derive(serde::Serialize)]
+pub struct AvailableWallet {
+    pub id: i32,
+    pub name: Option<String>,
+}
+
+impl WalletRepository {
+    pub fn new(db_pool: Pool<ConnectionManager<SqliteConnection>>) -> Self {
+        Self {
+            base: BaseRepository::new(db_pool),
+        }
+    }
+
+    pub fn list(&self) -> Result<Vec<AvailableWallet>, Error> {
+        let mut conn = self.base.get_conn()?;
+        let wallets = schema::wallets::table
+            .select((schema::wallets::id, schema::wallets::name))
+            .load::<(i32, Option<String>)>(&mut conn)?;
+
+        let result = wallets
+            .into_iter()
+            .map(|(id, name)| AvailableWallet { id, name })
+            .collect();
+        Ok(result)
+    }
+
+    pub fn insert(&self, wallet: db::Wallet) -> Result<usize, Error> {
+        let mut conn = self.base.get_conn()?;
         diesel::insert_into(schema::wallets::table)
             .values(&wallet)
             .execute(&mut conn)
     }
 
-    pub fn get_wallet_by_id(&self, wallet_id: i32) -> Result<db::Wallet, Error> {
-        let mut conn = self.get_conn()?;
+    pub fn get(&self, wallet_id: i32) -> Result<db::Wallet, Error> {
+        let mut conn = self.base.get_conn()?;
         let wallet = schema::wallets::table
             .filter(schema::wallets::id.eq(wallet_id))
             .select(schema::wallets::all_columns)
@@ -90,14 +116,14 @@ impl Repository {
         Ok(wallet)
     }
 
-    pub fn delete_wallet(&self, wallet_id: i32) -> Result<usize, Error> {
-        let mut conn = self.get_conn()?;
+    pub fn delete(&self, wallet_id: i32) -> Result<usize, Error> {
+        let mut conn = self.base.get_conn()?;
         diesel::delete(schema::wallets::table.filter(schema::wallets::id.eq(wallet_id)))
             .execute(&mut conn)
     }
 
-    pub fn last_wallet_id(&self) -> Result<i32, Error> {
-        let mut conn = self.get_conn()?;
+    pub fn last_used_id(&self) -> Result<i32, Error> {
+        let mut conn = self.base.get_conn()?;
         let wallet_id = schema::wallets::table
             .select(schema::wallets::id)
             .order(schema::wallets::id.desc())

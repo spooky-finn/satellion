@@ -10,7 +10,10 @@ mod repository;
 mod schema;
 mod wallet_service;
 
-use crate::{repository::Repository, wallet_service::WalletService};
+use crate::{
+    repository::{Repository, WalletRepository},
+    wallet_service::WalletService,
+};
 use std::sync::Arc;
 use tauri::Manager;
 use tokio::sync::Mutex;
@@ -20,14 +23,18 @@ const ENABLE_DEVTOOLS: bool = true;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let db = db::connect();
+    let wallet_repository = WalletRepository::new(db.clone());
+    let wallet_service = WalletService::new(wallet_repository.clone());
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(Arc::new(app_state::AppState::new()))
         .manage(db.clone())
         .manage(Repository::new(db.clone()))
+        .manage(wallet_repository)
+        .manage(wallet_service)
         .manage(ethereum::provider::new().expect("Failed to create Ethereum client"))
         .manage(Mutex::new(ethereum::TxBuilder::new()))
-        .manage(WalletService::new(Repository::new(db.clone())))
         .setup(move |app| {
             #[cfg(debug_assertions)]
             if ENABLE_DEVTOOLS {
