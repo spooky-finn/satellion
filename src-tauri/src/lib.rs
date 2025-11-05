@@ -21,7 +21,7 @@ use tauri::Manager;
 use tauri_specta;
 use tokio::sync::Mutex;
 
-const ENABLE_DEVTOOLS: bool = false;
+const ENABLE_DEVTOOLS: bool = true;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -42,6 +42,7 @@ pub fn run() {
             ethereum::commands::eth_get_balance,
             ethereum::commands::eth_prepare_send_tx,
             ethereum::commands::eth_sign_and_send_tx,
+            ethereum::commands::eth_verify_address,
         ]);
 
     #[cfg(debug_assertions)]

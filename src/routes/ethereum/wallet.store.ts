@@ -1,8 +1,11 @@
 import { makeAutoObservable } from 'mobx'
 import { Balance, ChainInfo, commands } from '../../bindings'
 import { notifier } from '../../components/notifier'
+import { EthereumSendStore } from './send.store'
 
 export class EthereumWallet {
+  readonly send = new EthereumSendStore()
+
   constructor() {
     makeAutoObservable(this)
   }
@@ -17,6 +20,15 @@ export class EthereumWallet {
 
   setChainInfo(c: ChainInfo) {
     this.chainInfo = c
+  }
+
+  get eth_balance() {
+    const bigintBalance = BigInt(this.balance?.wei ?? '0')
+    return bigintBalance
+  }
+
+  get tokens_with_balance() {
+    return this.balance?.tokens.filter(t => Number(t.balance) > 0) ?? []
   }
 
   async getChainInfo() {

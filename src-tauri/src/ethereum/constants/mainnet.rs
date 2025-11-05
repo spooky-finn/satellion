@@ -2,6 +2,15 @@ use crate::ethereum::token::Token;
 use alloy::primitives::address;
 use once_cell::sync::Lazy;
 
+pub static ETH: Lazy<Token> = Lazy::<Token>::new(|| {
+    Token::new(
+        address!("0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"),
+        String::from("ETH"),
+        18,
+        6,
+    )
+});
+
 /// Wrapped Ether.
 pub static WETH: Lazy<Token> = Lazy::<Token>::new(|| {
     Token::new(

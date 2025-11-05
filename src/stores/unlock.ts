@@ -31,7 +31,7 @@ export class Unlock {
     const r = await commands.getAvailableWallets()
     if (r.status === 'error') {
       notifier.err(r.error)
-      return
+      throw Error(r.error)
     }
     const walletsInfo = r.data
     this.setAvailableWallets(walletsInfo)
@@ -49,7 +49,7 @@ export class Unlock {
     const r = await commands.unlockWallet(walletId, this.passphrase)
     if (r.status === 'error') {
       notifier.err(r.error)
-      return
+      throw Error(r.error)
     }
     walletStrore.init(walletId, r.data)
     this.setUnlocked(true)

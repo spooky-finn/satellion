@@ -2,7 +2,8 @@ import { Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { Address } from '../../components/address'
 import { Navbar } from '../../components/navbar'
-import { P } from '../../shortcuts'
+import { route } from '../../routes'
+import { LinkButton, P } from '../../shortcuts'
 import { root_store } from '../../stores/root'
 import { Balances } from './balances'
 
@@ -22,6 +23,9 @@ const Ethereum = () => {
             explorer_url={explorer_url + root_store.wallet.eth.address}
           />
           <Balances />
+          <LinkButton to={route.ethereum_send} sx={{ width: 'min-content' }}>
+            Send
+          </LinkButton>
           <Stack py={2}>
             <P>Chain</P>
             <P>Block Height: {root_store.wallet.eth.chainInfo?.block_number}</P>

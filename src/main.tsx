@@ -8,6 +8,7 @@ import { route } from './routes'
 import Bitcoin from './routes/bitcoin/bitcoin'
 import CreateWallet from './routes/create_wallet'
 import Ethereum from './routes/ethereum/ethereum'
+import { EthereumSend } from './routes/ethereum/send'
 import CreatePassphrase from './routes/mnemonic/create_passphrase'
 import GenMnemonic from './routes/mnemonic/gen'
 import ImportMnemonic from './routes/mnemonic/import'
@@ -34,6 +35,7 @@ const App = () => {
       <Route path={route.create_passphrase} element={<CreatePassphrase />} />
       <Route path={route.import_mnemonic} element={<ImportMnemonic />} />
       <Route path={route.ethereum} element={<Ethereum />} />
+      <Route path={route.ethereum_send} element={<EthereumSend />} />
       <Route path={route.bitcoin} element={<Bitcoin />} />
     </Routes>
   )

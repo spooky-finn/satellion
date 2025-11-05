@@ -1,6 +1,7 @@
 use crate::wallet_service::WalletService;
 use crate::{ethereum, session};
 use alloy::eips::{BlockId, BlockNumberOrTag};
+use alloy::primitives::utils::format_units;
 use alloy::primitives::{Address, U256};
 use alloy::providers::{Provider, RootProvider};
 use serde::{Deserialize, Serialize};
@@ -34,7 +35,7 @@ pub async fn eth_chain_info(provider: tauri::State<'_, RootProvider>) -> Result<
 
 #[derive(Type, Serialize)]
 pub struct TokenBalance {
-    token_symbol: String,
+    symbol: String,
     balance: String,
     decimals: u8,
     ui_precision: u8,
@@ -53,7 +54,7 @@ pub async fn eth_get_balance(
     address: String,
 ) -> Result<Balance, String> {
     let address = Address::from_str(&address).map_err(|e| e.to_string())?;
-    let eth_balance = provider
+    let wei_balance = provider
         .get_balance(address)
         .await
         .map_err(|e| e.to_string())?;
@@ -61,17 +62,26 @@ pub async fn eth_get_balance(
     let token_balances = ethereum::erc20::get_balances(provider, address)
         .await
         .map_err(|e| e.to_string())?;
-    let tokens: Vec<TokenBalance> = token_balances
+    let mut tokens: Vec<TokenBalance> = token_balances
         .iter()
-        .map(|balance| TokenBalance {
-            balance: balance.balance.to_plain_string(),
-            token_symbol: balance.token.symbol.clone(),
-            decimals: balance.token.decimals,
-            ui_precision: balance.token.ui_precision,
+        .map(|b| TokenBalance {
+            balance: b.balance.to_plain_string(),
+            symbol: b.token.symbol.clone(),
+            decimals: b.token.decimals,
+            ui_precision: b.token.ui_precision,
         })
         .collect();
+    let eth = ethereum::constants::mainnet::ETH.clone();
+
+    let eth_balance = format_units(wei_balance, "ether").map_err(|e| e.to_string())?;
+    tokens.push(TokenBalance {
+        balance: eth_balance,
+        symbol: eth.symbol.clone(),
+        decimals: eth.decimals,
+        ui_precision: eth.ui_precision,
+    });
     Ok(Balance {
-        wei: eth_balance.to_string(),
+        wei: wei_balance.to_string(),
         tokens: tokens,
     })
 }
@@ -138,4 +148,11 @@ pub async fn eth_sign_and_send_tx(
     let mut builder = builder.try_lock().map_err(|e| e.to_string())?;
     builder.sign_and_send_tx(&signer).await?;
     Ok(())
+}
+
+#[specta]
+#[tauri::command]
+pub async fn eth_verify_address(address: String) -> Result<bool, String> {
+    Address::from_str(&address).map_err(|e| e.to_string())?;
+    Ok(true)
 }

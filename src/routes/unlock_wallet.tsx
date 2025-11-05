@@ -44,7 +44,9 @@ const UnlockWallet = () => {
       width={'fit-content'}
       margin={'auto'}
     >
-      <P level="h2">Unlock Satellion</P>
+      <P level="h2" textAlign={'center'}>
+        Unlock Satellion
+      </P>
       <Divider />
       <Box
         sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}
