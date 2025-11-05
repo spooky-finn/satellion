@@ -17,14 +17,14 @@ pub fn create_private_key(
     Ok(signer)
 }
 
-#[derive(serde::Serialize)]
-pub struct Unlock {
+#[derive(serde::Serialize, specta::Type)]
+pub struct EthereumUnlock {
     address: String,
 }
 
-pub fn unlock(mnemonic: &str, passphrase: &str) -> Result<Unlock, LocalSignerError> {
+pub fn unlock(mnemonic: &str, passphrase: &str) -> Result<EthereumUnlock, LocalSignerError> {
     let signer = create_private_key(mnemonic, passphrase)?;
-    Ok(Unlock {
+    Ok(EthereumUnlock {
         address: signer.address().to_string(),
     })
 }

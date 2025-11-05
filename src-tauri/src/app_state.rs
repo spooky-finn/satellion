@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+// TODO: Move to chain specific state container
 pub struct AppState {
     pub chain_height: Arc<Mutex<u32>>,
     pub sync_completed: Arc<Mutex<bool>>,

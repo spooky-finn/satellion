@@ -1,12 +1,12 @@
 use crate::app_state::AppState;
 use crate::bitcoin;
-use crate::repository::Repository;
+use crate::repository::ChainRepository;
 use std::sync::Arc;
 
 #[tauri::command]
 pub async fn start_node(
     state: tauri::State<'_, Arc<AppState>>,
-    repository: tauri::State<'_, Repository>,
+    repository: tauri::State<'_, ChainRepository>,
 ) -> Result<(), String> {
     // Load block headers from the database using the repository
     let block_headers = match repository.load_block_headers(10) {

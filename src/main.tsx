@@ -1,6 +1,9 @@
+import { CssVarsProvider } from '@mui/joy'
+import { extendTheme } from '@mui/joy/styles'
 import React, { useLayoutEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Route, Routes } from 'react-router'
+import { NotifierOverlay } from './components/notifier/notification_overlay'
 import { route } from './routes'
 import Bitcoin from './routes/bitcoin/bitcoin'
 import CreateWallet from './routes/create_wallet'
@@ -10,10 +13,6 @@ import GenMnemonic from './routes/mnemonic/gen'
 import ImportMnemonic from './routes/mnemonic/import'
 import VerifyMnemonic from './routes/mnemonic/verify'
 import UnlockWallet from './routes/unlock_wallet'
-
-import { CssVarsProvider } from '@mui/joy'
-import { extendTheme } from '@mui/joy/styles'
-import { NotifierOverlay } from './components/notifier/notification_overlay'
 
 const theme = extendTheme({
   cssVarPrefix: 'mode-toggle',

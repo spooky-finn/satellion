@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { makeAutoObservable } from 'mobx'
+import { UnlockMsg } from '../bindings'
 import { EthereumWallet } from '../routes/ethereum/wallet.store'
-import { UnlockMsg } from '../types'
 import { BitcoinWallet } from './bitcoin'
 
 export class Wallet {

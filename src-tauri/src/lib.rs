@@ -11,11 +11,13 @@ mod schema;
 mod wallet_service;
 
 use crate::{
-    repository::{Repository, WalletRepository},
+    repository::{ChainRepository, WalletRepository},
     wallet_service::WalletService,
 };
+use specta_typescript::Typescript;
 use std::sync::Arc;
 use tauri::Manager;
+use tauri_specta;
 use tokio::sync::Mutex;
 
 const ENABLE_DEVTOOLS: bool = true;
@@ -26,11 +28,23 @@ pub fn run() {
     let wallet_repository = WalletRepository::new(db.clone());
     let wallet_service = WalletService::new(wallet_repository.clone());
 
+    tauri_specta::Builder::<tauri::Wry>::new()
+        .commands(tauri_specta::collect_commands![
+            commands::unlock_wallet,
+            commands::get_available_wallets,
+        ])
+        .export(
+            Typescript::default()
+                .formatter(specta_typescript::formatter::prettier),
+            "../src/bindings.ts",
+        )
+        .expect("Failed to export TypeScript bindings");
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(Arc::new(app_state::AppState::new()))
         .manage(db.clone())
-        .manage(Repository::new(db.clone()))
+        .manage(ChainRepository::new(db.clone()))
         .manage(wallet_repository)
         .manage(wallet_service)
         .manage(ethereum::provider::new().expect("Failed to create Ethereum client"))

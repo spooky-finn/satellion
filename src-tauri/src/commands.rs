@@ -52,6 +52,7 @@ pub async fn create_wallet(
     Ok(true)
 }
 
+#[specta::specta]
 #[tauri::command]
 pub async fn get_available_wallets(
     repository: tauri::State<'_, WalletRepository>,
@@ -60,12 +61,13 @@ pub async fn get_available_wallets(
     Ok(wallets_info)
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, specta::Type)]
 pub struct UnlockMsg {
-    ethereum: ethereum::wallet::Unlock,
-    bitcoin: bitcoin::wallet::Unlock,
+    ethereum: ethereum::wallet::EthereumUnlock,
+    bitcoin: bitcoin::wallet::BitcoinUnlock,
 }
 
+#[specta::specta]
 #[tauri::command]
 pub async fn unlock_wallet(
     wallet_id: i32,

@@ -1,6 +1,6 @@
 use crate::app_state::AppState;
 use crate::db::BlockHeader;
-use crate::repository::Repository;
+use crate::repository::ChainRepository;
 use bip157::chain::{BlockHeaderChanges, ChainState, IndexedHeader};
 use bip157::{BlockHash, Builder, Event, Header, TrustedPeer};
 use bitcoin::blockdata::block::{TxMerkleNode, Version};
@@ -56,7 +56,7 @@ impl Neutrino {
 pub async fn handle_chain_updates(
     mut client: bip157::Client,
     app_state: Arc<AppState>,
-    repository: Arc<Repository>,
+    repository: Arc<ChainRepository>,
 ) {
     let block_height = app_state.chain_height.clone();
     let sync_completed = app_state.sync_completed.clone();

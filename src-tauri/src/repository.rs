@@ -7,6 +7,7 @@ use diesel::prelude::*;
 use diesel::r2d2::ConnectionManager;
 use r2d2::Pool;
 use r2d2::PooledConnection;
+use specta;
 
 #[derive(Clone)]
 pub struct BaseRepository {
@@ -31,13 +32,13 @@ impl BaseRepository {
 }
 
 #[derive(Clone)]
-pub struct Repository {
+pub struct ChainRepository {
     base: BaseRepository,
 }
 
 type Error = diesel::result::Error;
 
-impl Repository {
+impl ChainRepository {
     pub fn new(db_pool: Pool<ConnectionManager<SqliteConnection>>) -> Self {
         Self {
             base: BaseRepository::new(db_pool),
@@ -74,7 +75,7 @@ pub struct WalletRepository {
     base: BaseRepository,
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, specta::Type)]
 pub struct AvailableWallet {
     pub id: i32,
     pub name: Option<String>,

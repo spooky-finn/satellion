@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { makeAutoObservable } from 'mobx'
+import { AvailableWallet, UnlockMsg } from '../bindings'
 import { notifier } from '../components/notifier'
-import { AvailableWallet, UnlockMsg } from '../types'
 import { Wallet } from './wallet'
 
 export class Unlock {

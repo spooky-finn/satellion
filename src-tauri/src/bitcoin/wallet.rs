@@ -75,13 +75,13 @@ pub fn derive_taproot_address(
     Ok((keypair, address))
 }
 
-#[derive(serde::Serialize)]
-pub struct Unlock {
+#[derive(serde::Serialize, specta::Type)]
+pub struct BitcoinUnlock {
     address: String,
     change_address: String,
 }
 
-pub fn unlock(mnemonic: &str, passphrase: &str) -> Result<Unlock, String> {
+pub fn unlock(mnemonic: &str, passphrase: &str) -> Result<BitcoinUnlock, String> {
     let net = CONFIG.bitcoin.network();
     let bitcoin_xprv =
         create_private_key(net, &mnemonic, &passphrase).map_err(|e| e.to_string())?;
@@ -93,7 +93,7 @@ pub fn unlock(mnemonic: &str, passphrase: &str) -> Result<Unlock, String> {
         derive_taproot_address(&bitcoin_xprv, net, AddressType::Change, 0)
             .map_err(|e| e.to_string())?;
 
-    Ok(Unlock {
+    Ok(BitcoinUnlock {
         address: bitcoin_main_receive_address.to_string(),
         change_address: bitcoin_main_change_address.to_string(),
     })
