@@ -3,33 +3,36 @@ use crate::wallet_service::WalletService;
 use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::primitives::{Address, U256};
 use alloy::providers::{Provider, RootProvider};
+use serde::{Deserialize, Serialize};
+use specta::{Type, specta};
 use std::str::FromStr;
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Type)]
 pub struct ChainInfo {
-    block_number: u64,
+    block_number: String,
     block_hash: String,
-    base_fee_per_gas: Option<u64>,
+    base_fee_per_gas: Option<String>,
 }
 
+#[specta]
 #[tauri::command]
 pub async fn eth_chain_info(provider: tauri::State<'_, RootProvider>) -> Result<ChainInfo, String> {
     let block = provider
         .get_block(BlockId::Number(BlockNumberOrTag::Latest))
         .await
         .map_err(|e| e.to_string())?;
-    if !block.is_some() {
+    if block.is_none() {
         return Err("Block not found".to_string());
     }
     let block = block.unwrap();
     Ok(ChainInfo {
-        block_number: block.header.number,
+        block_number: block.header.number.to_string(),
         block_hash: block.header.hash.to_string(),
-        base_fee_per_gas: block.header.base_fee_per_gas,
+        base_fee_per_gas: block.header.base_fee_per_gas.map(|fee| fee.to_string()),
     })
 }
 
-#[derive(serde::Serialize)]
+#[derive(Type, Serialize)]
 pub struct TokenBalance {
     token_symbol: String,
     balance: String,
@@ -37,12 +40,13 @@ pub struct TokenBalance {
     ui_precision: u8,
 }
 
-#[derive(serde::Serialize)]
+#[derive(Type, Serialize)]
 pub struct Balance {
     wei: String,
     tokens: Vec<TokenBalance>,
 }
 
+#[specta]
 #[tauri::command]
 pub async fn eth_get_balance(
     provider: tauri::State<'_, RootProvider>,
@@ -72,7 +76,7 @@ pub async fn eth_get_balance(
     })
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Type, Deserialize)]
 pub struct PrepareSendTxReq {
     token_symbol: String,
     amount: String,
@@ -80,12 +84,13 @@ pub struct PrepareSendTxReq {
     sender: String,
 }
 
-#[derive(serde::Serialize, Debug, PartialEq)]
+#[derive(Type, Serialize, Debug, PartialEq)]
 pub struct PrepareTxReqRes {
-    gas_limit: u64,
-    gas_price: u128,
+    gas_limit: String,
+    gas_price: String,
 }
 
+#[specta]
 #[tauri::command]
 pub async fn eth_prepare_send_tx(
     req: PrepareSendTxReq,
@@ -105,11 +110,12 @@ pub async fn eth_prepare_send_tx(
         .await?;
 
     Ok(PrepareTxReqRes {
-        gas_limit: res.gas_limit,
-        gas_price: res.gas_price,
+        gas_limit: res.gas_limit.to_string(),
+        gas_price: res.gas_price.to_string(),
     })
 }
 
+#[specta]
 #[tauri::command]
 pub async fn eth_sign_and_send_tx(
     wallet_id: i32,

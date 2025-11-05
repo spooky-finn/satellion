@@ -1,7 +1,6 @@
-import { invoke } from '@tauri-apps/api/core'
 import { makeAutoObservable } from 'mobx'
+import { Balance, ChainInfo, commands } from '../../bindings'
 import { notifier } from '../../components/notifier'
-import { Balance, Chain } from './types'
 
 export class EthereumWallet {
   constructor() {
@@ -9,37 +8,34 @@ export class EthereumWallet {
   }
 
   address!: string
-  chainInfo!: Chain
+  chainInfo!: ChainInfo
 
   balance!: Balance | null
   setBalance(b: Balance | null) {
     this.balance = b
   }
 
-  setChainInfo(c: Chain) {
+  setChainInfo(c: ChainInfo) {
     this.chainInfo = c
   }
 
   async getChainInfo() {
-    this.setChainInfo(
-      await invoke<Chain>('eth_chain_info').catch((e: string) => {
-        notifier.err(e)
-        throw e
-      })
-    )
+    const r = await commands.ethChainInfo()
+    if (r.status === 'error') {
+      notifier.err(r.error)
+      return
+    }
+    this.setChainInfo(r.data)
   }
 
   async getBalance() {
     this.setBalance(null)
     const address = this.address
-
-    const balance = await invoke<Balance>('eth_get_balance', {
-      address
-    }).catch((e: string) => {
-      notifier.err(e)
-      throw e
-    })
-
-    this.setBalance(balance)
+    const r = await commands.ethGetBalance(address)
+    if (r.status === 'error') {
+      notifier.err(r.error)
+      return
+    }
+    this.setBalance(r.data)
   }
 }

@@ -1,6 +1,6 @@
-import { invoke } from '@tauri-apps/api/core'
 import { makeAutoObservable } from 'mobx'
-import { UnlockMsg } from '../bindings'
+import { commands, UnlockMsg } from '../bindings'
+import { notifier } from '../components/notifier'
 import { EthereumWallet } from '../routes/ethereum/wallet.store'
 import { BitcoinWallet } from './bitcoin'
 
@@ -29,7 +29,11 @@ export class Wallet {
     if (this.id == null) {
       throw new Error('Wallet not initialized')
     }
-    await invoke('forget_wallet', { walletId: this.id })
+    const r = await commands.forgetWallet(this.id)
+    if (r.status === 'error') {
+      notifier.err(r.error)
+      return
+    }
     this.initialized = false
   }
 }

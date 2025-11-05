@@ -1,5 +1,5 @@
-import { invoke } from '@tauri-apps/api/core'
 import { makeAutoObservable } from 'mobx'
+import { commands } from '../../bindings'
 import { notifier } from '../../components/notifier/notifier'
 
 class PassphraseStore {
@@ -44,12 +44,14 @@ class MnemonicStore {
   verificationSuccessfull: boolean | null = null
 
   async generate() {
-    const mnemonic = await invoke('generate_mnemonic')
-    if (mnemonic) {
-      const words = (mnemonic as string).split(' ')
-      this.setMnemonic(words)
-      this.setVerificationIndices(words)
+    const resp = await commands.generateMnemonic()
+    if (resp.status === 'error') {
+      notifier.err(resp.error)
+      return
     }
+    const words = resp.data.split(' ')
+    this.setMnemonic(words)
+    this.setVerificationIndices(words)
   }
 
   verify() {
@@ -76,16 +78,16 @@ class MnemonicStore {
   }
 
   async createWallet() {
-    try {
-      return await invoke<boolean>('create_wallet', {
-        mnemonic: this.mnemonic.join(' '),
-        passphrase: this.passphraseStore.passphrase,
-        name: this.walletName
-      })
-    } catch (error: any) {
-      notifier.err(error)
-      throw error
+    const resp = await commands.createWallet(
+      this.mnemonic.join(' '),
+      this.passphraseStore.passphrase,
+      this.walletName
+    )
+    if (resp.status === 'error') {
+      notifier.err(resp.error)
+      return
     }
+    return resp.data
   }
 }
 

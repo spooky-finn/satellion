@@ -20,7 +20,7 @@ use tauri::Manager;
 use tauri_specta;
 use tokio::sync::Mutex;
 
-const ENABLE_DEVTOOLS: bool = true;
+const ENABLE_DEVTOOLS: bool = false;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -28,14 +28,25 @@ pub fn run() {
     let wallet_repository = WalletRepository::new(db.clone());
     let wallet_service = WalletService::new(wallet_repository.clone());
 
-    tauri_specta::Builder::<tauri::Wry>::new()
-        .commands(tauri_specta::collect_commands![
-            commands::unlock_wallet,
+    let builder =
+        tauri_specta::Builder::<tauri::Wry>::new().commands(tauri_specta::collect_commands![
+            commands::generate_mnemonic,
+            commands::create_wallet,
+            commands::chain_status,
             commands::get_available_wallets,
-        ])
+            commands::unlock_wallet,
+            commands::forget_wallet,
+            bitcoin::commands::start_node,
+            ethereum::commands::eth_chain_info,
+            ethereum::commands::eth_get_balance,
+            ethereum::commands::eth_prepare_send_tx,
+            ethereum::commands::eth_sign_and_send_tx,
+        ]);
+
+    #[cfg(debug_assertions)]
+    builder
         .export(
-            Typescript::default()
-                .formatter(specta_typescript::formatter::prettier),
+            Typescript::default().formatter(specta_typescript::formatter::prettier),
             "../src/bindings.ts",
         )
         .expect("Failed to export TypeScript bindings");
@@ -58,19 +69,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            commands::generate_mnemonic,
-            commands::create_wallet,
-            commands::chain_status,
-            commands::get_available_wallets,
-            commands::unlock_wallet,
-            commands::forget_wallet,
-            bitcoin::commands::start_node,
-            ethereum::commands::eth_chain_info,
-            ethereum::commands::eth_get_balance,
-            ethereum::commands::eth_prepare_send_tx,
-            ethereum::commands::eth_sign_and_send_tx,
-        ])
+        .invoke_handler(builder.invoke_handler())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

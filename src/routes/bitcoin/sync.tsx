@@ -1,15 +1,18 @@
-import { invoke } from '@tauri-apps/api/core'
 import { useEffect, useState } from 'react'
-import type { SyncStatus } from '../../types'
+import { commands, SyncStatus } from '../../bindings'
+import { notifier } from '../../components/notifier'
 
 export const BitcoinSync = () => {
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
 
   useEffect(() => {
-    // request block height every 1 second
     const interval = setInterval(async () => {
-      const status = await invoke<SyncStatus>('chain_status')
-      setSyncStatus(status)
+      const r = await commands.chainStatus()
+      if (r.status === 'error') {
+        notifier.err(r.error)
+        return
+      }
+      setSyncStatus(r.data)
     }, 1000)
     return () => clearInterval(interval)
   }, [])

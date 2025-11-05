@@ -1,8 +1,10 @@
+use specta::specta;
 use crate::app_state::AppState;
 use crate::bitcoin;
 use crate::repository::ChainRepository;
 use std::sync::Arc;
 
+#[specta]
 #[tauri::command]
 pub async fn start_node(
     state: tauri::State<'_, Arc<AppState>>,

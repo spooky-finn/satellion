@@ -4,14 +4,17 @@ use crate::wallet_service::WalletService;
 use crate::{app_state::AppState, db::BlockHeader, schema};
 use crate::{ethereum, mnemonic};
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
+use serde::Serialize;
+use specta::{Type, specta};
 use std::sync::Arc;
 
-#[derive(serde::Serialize)]
+#[derive(Type, Serialize)]
 pub struct SyncStatus {
     pub height: u32,
     pub sync_completed: bool,
 }
 
+#[specta]
 #[tauri::command]
 pub async fn chain_status(
     state: tauri::State<'_, Arc<AppState>>,
@@ -36,11 +39,13 @@ pub async fn chain_status(
     })
 }
 
+#[specta]
 #[tauri::command]
 pub async fn generate_mnemonic() -> Result<String, String> {
     Ok(mnemonic::new())
 }
 
+#[specta]
 #[tauri::command]
 pub async fn create_wallet(
     mnemonic: String,
@@ -52,7 +57,7 @@ pub async fn create_wallet(
     Ok(true)
 }
 
-#[specta::specta]
+#[specta]
 #[tauri::command]
 pub async fn get_available_wallets(
     repository: tauri::State<'_, WalletRepository>,
@@ -61,13 +66,13 @@ pub async fn get_available_wallets(
     Ok(wallets_info)
 }
 
-#[derive(serde::Serialize, specta::Type)]
+#[derive(Type, Serialize)]
 pub struct UnlockMsg {
     ethereum: ethereum::wallet::EthereumUnlock,
     bitcoin: bitcoin::wallet::BitcoinUnlock,
 }
 
-#[specta::specta]
+#[specta]
 #[tauri::command]
 pub async fn unlock_wallet(
     wallet_id: i32,
@@ -85,6 +90,7 @@ pub async fn unlock_wallet(
     })
 }
 
+#[specta]
 #[tauri::command]
 pub async fn forget_wallet(
     wallet_id: i32,

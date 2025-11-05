@@ -5,9 +5,25 @@
 
 
 export const commands = {
-async unlockWallet(walletId: number, passphrase: string) : Promise<Result<UnlockMsg, string>> {
+async generateMnemonic() : Promise<Result<string, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("unlock_wallet", { walletId, passphrase }) };
+    return { status: "ok", data: await TAURI_INVOKE("generate_mnemonic") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async createWallet(mnemonic: string, passphrase: string, name: string) : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("create_wallet", { mnemonic, passphrase, name }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async chainStatus() : Promise<Result<SyncStatus, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("chain_status") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -16,6 +32,62 @@ async unlockWallet(walletId: number, passphrase: string) : Promise<Result<Unlock
 async getAvailableWallets() : Promise<Result<AvailableWallet[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_available_wallets") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async unlockWallet(walletId: number, passphrase: string) : Promise<Result<UnlockMsg, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("unlock_wallet", { walletId, passphrase }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async forgetWallet(walletId: number) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("forget_wallet", { walletId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async startNode() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("start_node") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async ethChainInfo() : Promise<Result<ChainInfo, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("eth_chain_info") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async ethGetBalance(address: string) : Promise<Result<Balance, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("eth_get_balance", { address }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async ethPrepareSendTx(req: PrepareSendTxReq) : Promise<Result<PrepareTxReqRes, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("eth_prepare_send_tx", { req }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async ethSignAndSendTx(walletId: number, passphrase: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("eth_sign_and_send_tx", { walletId, passphrase }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -34,8 +106,14 @@ async getAvailableWallets() : Promise<Result<AvailableWallet[], string>> {
 /** user-defined types **/
 
 export type AvailableWallet = { id: number; name: string | null }
+export type Balance = { wei: string; tokens: TokenBalance[] }
 export type BitcoinUnlock = { address: string; change_address: string }
+export type ChainInfo = { block_number: string; block_hash: string; base_fee_per_gas: string | null }
 export type EthereumUnlock = { address: string }
+export type PrepareSendTxReq = { token_symbol: string; amount: string; recipient: string; sender: string }
+export type PrepareTxReqRes = { gas_limit: string; gas_price: string }
+export type SyncStatus = { height: number; sync_completed: boolean }
+export type TokenBalance = { token_symbol: string; balance: string; decimals: number; ui_precision: number }
 export type UnlockMsg = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock }
 
 /** tauri-specta globals **/
