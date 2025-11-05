@@ -1,5 +1,5 @@
-use crate::ethereum;
 use crate::wallet_service::WalletService;
+use crate::{ethereum, session};
 use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::primitives::{Address, U256};
 use alloy::providers::{Provider, RootProvider};
@@ -119,10 +119,16 @@ pub async fn eth_prepare_send_tx(
 #[tauri::command]
 pub async fn eth_sign_and_send_tx(
     wallet_id: i32,
-    passphrase: String,
     builder: tauri::State<'_, tokio::sync::Mutex<ethereum::TxBuilder>>,
     storage: tauri::State<'_, WalletService>,
+    session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
 ) -> Result<(), String> {
+    let mut session_store = session_store.lock().await;
+    let session = session_store.get(wallet_id);
+    if session.is_none() {
+        return Err("Session not found".to_string());
+    }
+    let passphrase = session.unwrap().passphrase.clone();
     let mnemonic = storage
         .load(wallet_id, passphrase.clone())
         .map_err(|e| e.to_string())?;

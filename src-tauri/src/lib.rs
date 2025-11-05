@@ -8,6 +8,7 @@ mod ethereum;
 mod mnemonic;
 mod repository;
 mod schema;
+mod session;
 mod wallet_service;
 
 use crate::{
@@ -60,6 +61,7 @@ pub fn run() {
         .manage(wallet_service)
         .manage(ethereum::provider::new().expect("Failed to create Ethereum client"))
         .manage(Mutex::new(ethereum::TxBuilder::new()))
+        .manage(tokio::sync::Mutex::new(session::Store::new()))
         .setup(move |app| {
             #[cfg(debug_assertions)]
             if ENABLE_DEVTOOLS {

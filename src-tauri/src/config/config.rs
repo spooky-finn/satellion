@@ -45,6 +45,10 @@ impl Config {
         path.push("blockchain.db");
         Ok(path)
     }
+
+    pub fn session_exp_duration() -> chrono::TimeDelta {
+        chrono::TimeDelta::hours(1)
+    }
 }
 
 impl Default for Config {

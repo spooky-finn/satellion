@@ -1,7 +1,8 @@
-use crate::bitcoin;
+use crate::config::Config;
 use crate::repository::{AvailableWallet, WalletRepository};
 use crate::wallet_service::WalletService;
 use crate::{app_state::AppState, db::BlockHeader, schema};
+use crate::{bitcoin, session};
 use crate::{ethereum, mnemonic};
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use serde::Serialize;
@@ -77,13 +78,19 @@ pub struct UnlockMsg {
 pub async fn unlock_wallet(
     wallet_id: i32,
     passphrase: String,
-    storage: tauri::State<'_, WalletService>,
+    wallet_store: tauri::State<'_, WalletService>,
+    session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
 ) -> Result<UnlockMsg, String> {
-    let mnemonic = storage.load(wallet_id, passphrase.clone())?;
+    let mnemonic = wallet_store.load(wallet_id, passphrase.clone())?;
     let eth_unlock_data =
         ethereum::wallet::unlock(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
     let bitcoin_unlock_data =
         bitcoin::wallet::unlock(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
+    session_store.lock().await.start(session::Session::new(
+        wallet_id,
+        passphrase,
+        Config::session_exp_duration(),
+    ));
     Ok(UnlockMsg {
         ethereum: eth_unlock_data,
         bitcoin: bitcoin_unlock_data,
@@ -95,7 +102,9 @@ pub async fn unlock_wallet(
 pub async fn forget_wallet(
     wallet_id: i32,
     repository: tauri::State<'_, WalletRepository>,
+    session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
 ) -> Result<(), String> {
+    session_store.lock().await.end();
     repository.delete(wallet_id).map_err(|e| e.to_string())?;
     Ok(())
 }
