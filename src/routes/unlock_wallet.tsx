@@ -46,12 +46,6 @@ const UnlockWallet = () => {
       width={'fit-content'}
       margin={'auto'}
     >
-      <img
-        src={new URL('/logo.png', import.meta.url).toString()}
-        alt="Satellion"
-        width={100}
-        height={100}
-      />
       <P level="h2" textAlign={'center'}>
         Unlock
       </P>
