@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "satellion",
+  "productName": "Satellion",
   "version": "0.2.0",
   "identifier": "com.satelliondao.satellion",
   "build": {
