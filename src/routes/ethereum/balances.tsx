@@ -1,7 +1,7 @@
+import CachedIcon from '@mui/icons-material/Cached'
 import { Card, IconButton, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { TokenBalance } from '../../bindings'
-import { RefreshIcon } from '../../components/icons/refresh.icon'
 import { P, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
 
@@ -44,9 +44,9 @@ export const Balances = observer(() => {
         </Stack>
         <IconButton
           onClick={() => root_store.wallet.eth.getBalance()}
-          variant="outlined"
+          variant="plain"
         >
-          <RefreshIcon />
+          <CachedIcon />
         </IconButton>
       </Row>
     </Card>

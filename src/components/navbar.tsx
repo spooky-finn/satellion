@@ -1,3 +1,4 @@
+import LockIcon from '@mui/icons-material/Lock'
 import { Button } from '@mui/joy'
 import { Link, useNavigate } from 'react-router'
 import { route } from '../routes'
@@ -9,32 +10,32 @@ export const Navbar = ({ hideLedgers }: { hideLedgers?: boolean }) => {
   const navigate = useNavigate()
   return (
     <Row justifyContent={'space-between'} width={'100%'}>
-      <Button
-        variant="plain"
-        color="neutral"
-        onClick={() => navigate(route.unlock_wallet)}
-      >
-        ┌( ಠ_ಠ)┘
-      </Button>
       {hideLedgers !== true && (
         <Row gap={1}>
           <LedgerButton
             to={route.bitcoin}
             src={new URL('/bitcoin.webp', import.meta.url).toString()}
             alt="Bitcoin"
-            label="Bitcoin Ledger"
+            label="Bitcoin"
           />
           <LedgerButton
             to={route.ethereum}
             src={new URL('/ethereum.webp', import.meta.url).toString()}
             alt="Ethereum"
-            label="Ethereum Ledger"
+            label="Ethereum"
           />
         </Row>
       )}
-      <Row ml="auto">
+      <Row ml="auto" gap={0}>
         <ThemeSwitcher />
         <AppMenu />
+        <Button
+          variant="plain"
+          color="neutral"
+          onClick={() => navigate(route.unlock_wallet)}
+        >
+          <LockIcon />
+        </Button>
       </Row>
     </Row>
   )

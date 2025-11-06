@@ -8,11 +8,11 @@ import { root_store } from '../stores/root'
 import { PassphraseInput } from './mnemonic/create_passphrase'
 
 const UnlockWallet = () => {
-  const { unlock } = root_store
+  const { unlock, wallet } = root_store
   const navigate = useNavigate()
 
   function handleUnlockWallet() {
-    unlock.unlockWalletAction(root_store.wallet).then(() => {
+    unlock.unlockWallet(root_store.wallet).then(() => {
       navigate(route.ethereum)
     })
   }
@@ -24,7 +24,9 @@ const UnlockWallet = () => {
   }
 
   useEffect(() => {
-    unlock.setPassphrase('')
+    wallet.reset()
+    unlock.reset()
+
     unlock.loadAvailableWallets().then(wallets => {
       if (wallets.length === 0) {
         navigate(route.create_wallet)
@@ -40,12 +42,18 @@ const UnlockWallet = () => {
   return (
     <Stack
       spacing={2}
-      alignItems={'start'}
+      alignItems={'center'}
       width={'fit-content'}
       margin={'auto'}
     >
+      <img
+        src={new URL('/logo.png', import.meta.url).toString()}
+        alt="Satellion"
+        width={100}
+        height={100}
+      />
       <P level="h2" textAlign={'center'}>
-        Unlock Satellion
+        Unlock
       </P>
       <Divider />
       <Box
@@ -80,6 +88,8 @@ const UnlockWallet = () => {
       {unlock.walletToUnlock && (
         <PassphraseInput
           autoFocus
+          variant="soft"
+          color="primary"
           placeholder={`Passphrase`}
           value={unlock.passphrase}
           onChange={e => unlock.setPassphrase(e.target.value)}

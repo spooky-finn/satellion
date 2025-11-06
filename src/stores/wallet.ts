@@ -8,7 +8,7 @@ export class Wallet {
   readonly eth = new EthereumWallet()
   readonly btc = new BitcoinWallet()
 
-  id!: number
+  id: number | null = null
   constructor() {
     makeAutoObservable(this)
   }
@@ -25,15 +25,17 @@ export class Wallet {
     this.eth.getBalance()
   }
 
-  async forget() {
-    if (this.id == null) {
-      throw new Error('Wallet not initialized')
-    }
-    const r = await commands.forgetWallet(this.id)
+  async forget(id: number) {
+    const r = await commands.forgetWallet(id)
     if (r.status === 'error') {
       notifier.err(r.error)
       return
     }
+    this.initialized = false
+  }
+
+  async reset() {
+    this.id = null
     this.initialized = false
   }
 }

@@ -27,6 +27,13 @@ export class Unlock {
     this.availableWallets = w
   }
 
+  reset() {
+    this.unlocked = false
+    this.walletToUnlock = null
+    this.passphrase = ''
+    this.availableWallets = []
+  }
+
   async loadAvailableWallets() {
     const r = await commands.getAvailableWallets()
     if (r.status === 'error') {
@@ -41,7 +48,7 @@ export class Unlock {
     return walletsInfo
   }
 
-  async unlockWalletAction(walletStrore: Wallet) {
+  async unlockWallet(walletStrore: Wallet) {
     if (!this.walletToUnlock) {
       throw new Error('No wallet selected to unlock')
     }
