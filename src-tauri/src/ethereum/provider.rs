@@ -1,15 +1,11 @@
 use crate::config::CONFIG;
-use alloy::consensus::SignableTransaction;
-use alloy::consensus::TxEnvelope;
-use alloy::network::Ethereum;
-use alloy::network::TransactionBuilder;
-use alloy::network::TxSignerSync;
-use alloy::primitives::FixedBytes;
-use alloy::primitives::{Address, U256};
-use alloy::providers::Provider;
-use alloy::providers::RootProvider;
+use alloy::consensus::{SignableTransaction, TxEnvelope};
+use alloy::network::{Ethereum, TransactionBuilder, TxSignerSync};
+use alloy::primitives::{Address, FixedBytes, U256, utils::parse_ether};
+use alloy::providers::{Provider, RootProvider};
 use alloy::rpc::types::TransactionRequest;
 use alloy_signer_local::PrivateKeySigner;
+use std::str::FromStr;
 use std::sync::Arc;
 use tauri::Url;
 
@@ -21,10 +17,18 @@ pub fn new() -> Result<RootProvider, String> {
     Ok(provider)
 }
 
+fn parse_tx_amount(token_symbol: String, amount: String) -> Result<U256, String> {
+    if token_symbol == "ETH" {
+        return parse_ether(&amount).map_err(|e| e.to_string());
+    }
+    U256::from_str(&amount).map_err(|e| e.to_string())
+}
+
 #[derive(serde::Serialize, Debug, PartialEq)]
 pub struct TxPresendInfo {
-    pub gas_limit: u64,
+    pub estimated_gas: u64,
     pub gas_price: u128,
+    pub max_fee_per_gas: u128,
 }
 
 pub struct TxBuilder {
@@ -53,7 +57,7 @@ impl TxBuilder {
     pub async fn eth_prepare_send_tx(
         &mut self,
         token_symbol: String,
-        value: U256,
+        raw_amount: String,
         sender: Address,
         recipient: Address,
     ) -> Result<TxPresendInfo, String> {
@@ -62,10 +66,10 @@ impl TxBuilder {
         }
         let tx_count = self.get_tx_count(sender).await?;
         let nonce = tx_count + 1;
-
+        let tx_value = parse_tx_amount(token_symbol, raw_amount)?;
         let tx = TransactionRequest::default()
             .with_to(recipient)
-            .with_value(value)
+            .with_value(tx_value)
             .with_nonce(nonce);
 
         let estimated_gas = self
@@ -86,15 +90,17 @@ impl TxBuilder {
             .await
             .map_err(|e| format!("Failed to estimate EIP-1559 fees: {e}"))?;
 
+        let max_fee_per_gas = estimator.max_fee_per_gas;
         let tx = tx
             .with_gas_price(gas_price)
-            .with_max_fee_per_gas(estimator.max_fee_per_gas)
+            .with_max_fee_per_gas(max_fee_per_gas)
             .with_max_priority_fee_per_gas(estimator.max_priority_fee_per_gas);
 
         self.tx = Some(tx);
         Ok(TxPresendInfo {
-            gas_limit: estimated_gas,
-            gas_price: gas_price,
+            estimated_gas,
+            gas_price,
+            max_fee_per_gas,
         })
     }
 
@@ -132,7 +138,7 @@ mod tests {
         let mut builder = TxBuilder::new();
 
         let token_symbol = "ETH".to_string();
-        let value = U256::from(100);
+        let value = "100".to_string();
         let recipient = Address::from_str("0x0000000000000000000000000000000000000000").unwrap();
         let sender = Address::from_str("0x0000000000000000000000000000000000000000").unwrap();
         let res = builder

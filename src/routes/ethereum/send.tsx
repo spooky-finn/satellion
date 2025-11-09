@@ -1,10 +1,11 @@
-import { Input, Option, Select, Stack } from '@mui/joy'
+import { Button, Input, Option, Select, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { Navbar } from '../../components/navbar'
 import { P, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
 
 export const EthereumSend = observer(() => {
+  const { wallet } = root_store
   const { send } = root_store.wallet.eth
   return (
     <Stack gap={1}>
@@ -22,6 +23,15 @@ export const EthereumSend = observer(() => {
       <TokenSelect />
       <CurrentBalance />
       <AmountInput />
+      <Button
+        disabled={send.disabled}
+        sx={{ width: 'min-content' }}
+        size="sm"
+        onClick={() => send.createTrasaction(wallet.id!)}
+      >
+        Estimate
+      </Button>
+      <TransactionCost />
     </Stack>
   )
 })
@@ -76,5 +86,19 @@ const AmountInput = observer(() => {
         }}
       />
     </Row>
+  )
+})
+
+const TransactionCost = observer(() => {
+  const { wallet } = root_store
+  const { send } = root_store.wallet.eth
+  if (!send.preconfirmInfo || !wallet.eth.price) {
+    return null
+  }
+  const usd_tx_cost = Number(send.preconfirmInfo.cost) * wallet.eth.price
+  return (
+    <P>
+      Cost: {send.preconfirmInfo.cost} ETH ~ {usd_tx_cost.toFixed(2)} USD
+    </P>
   )
 })

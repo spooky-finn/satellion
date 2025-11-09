@@ -70,3 +70,5 @@ pub static TOKENS: Lazy<Vec<Token>> = Lazy::<Vec<Token>>::new(|| {
         DAI.clone(),
     ]
 });
+
+pub const ETH_USD_PRICE_FEED: &str = "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419";

@@ -4,7 +4,7 @@ use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::primitives::utils::format_units;
 use alloy::primitives::{Address, U256};
 use alloy::providers::{Provider, RootProvider};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use specta::{Type, specta};
 use std::str::FromStr;
 
@@ -44,6 +44,7 @@ pub struct TokenBalance {
 #[derive(Type, Serialize)]
 pub struct Balance {
     wei: String,
+    eth_price: String,
     tokens: Vec<TokenBalance>,
 }
 
@@ -80,48 +81,64 @@ pub async fn eth_get_balance(
         decimals: eth.decimals,
         ui_precision: eth.ui_precision,
     });
+    let price_feeder = ethereum::price_feed::PriceFeeder::new()?;
+    let eth_price = price_feeder.get_eth_price().await?.to_string();
     Ok(Balance {
         wei: wei_balance.to_string(),
+        eth_price,
         tokens: tokens,
     })
 }
 
-#[derive(Type, Deserialize)]
-pub struct PrepareSendTxReq {
-    token_symbol: String,
-    amount: String,
-    recipient: String,
-    sender: String,
-}
-
 #[derive(Type, Serialize, Debug, PartialEq)]
 pub struct PrepareTxReqRes {
-    gas_limit: String,
+    estimated_gas: String,
     gas_price: String,
+    max_fee_per_gas: String,
+    cost: String,
 }
 
 #[specta]
 #[tauri::command]
 pub async fn eth_prepare_send_tx(
-    req: PrepareSendTxReq,
+    wallet_id: i32,
+    token_symbol: String,
+    amount: String,
+    recipient: String,
     builder: tauri::State<'_, tokio::sync::Mutex<ethereum::TxBuilder>>,
+    session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
+    storage: tauri::State<'_, WalletService>,
 ) -> Result<PrepareTxReqRes, String> {
-    let token_symbol = req.token_symbol;
-    let value = U256::from_str(&req.amount).map_err(|e| e.to_string())?;
+    let mut session_store = session_store.lock().await;
+    let session = session_store.get(wallet_id);
+    if session.is_none() {
+        return Err("Session not found".to_string());
+    }
+    let passphrase = session.unwrap().passphrase.clone();
+    let mnemonic = storage
+        .load(wallet_id, passphrase.clone())
+        .map_err(|e| e.to_string())?;
+    let signer =
+        ethereum::wallet::create_private_key(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
 
+    let sender = signer.address();
     let recipient =
-        Address::from_str(&req.recipient).map_err(|e| format!("Invalid recipient address: {e}"))?;
-    let sender =
-        Address::from_str(&req.sender).map_err(|e| format!("Invalid sender address: {e}"))?;
+        Address::from_str(&recipient).map_err(|e| format!("Invalid recipient address: {e}"))?;
 
     let mut builder = builder.try_lock().map_err(|e| e.to_string())?;
     let res = builder
-        .eth_prepare_send_tx(token_symbol, value, sender, recipient)
+        .eth_prepare_send_tx(token_symbol, amount, sender, recipient)
         .await?;
 
+    // Calculate cost in wei: estimated_gas * max_fee_per_gas
+    let cost_wei = U256::from(res.estimated_gas) * U256::from(res.max_fee_per_gas);
+    // Convert to ETH
+    let cost = format_units(cost_wei, "ether").map_err(|e| e.to_string())?;
     Ok(PrepareTxReqRes {
-        gas_limit: res.gas_limit.to_string(),
+        estimated_gas: res.estimated_gas.to_string(),
         gas_price: res.gas_price.to_string(),
+        max_fee_per_gas: res.max_fee_per_gas.to_string(),
+        cost,
     })
 }
 

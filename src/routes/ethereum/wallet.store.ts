@@ -17,6 +17,10 @@ export class EthereumWallet {
   setBalance(b: Balance | null) {
     this.balance = b
   }
+  price!: number | null
+  setPrice(v: number | null) {
+    this.price = v
+  }
 
   setChainInfo(c: ChainInfo) {
     this.chainInfo = c
@@ -49,5 +53,6 @@ export class EthereumWallet {
       return
     }
     this.setBalance(r.data)
+    this.setPrice(Number(r.data.eth_price))
   }
 }

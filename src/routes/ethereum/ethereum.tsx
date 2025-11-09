@@ -27,6 +27,7 @@ const Ethereum = () => {
             Send
           </LinkButton>
           <Stack py={2}>
+            <P>ETH price {root_store.wallet.eth.balance?.eth_price}</P>
             <P>Chain</P>
             <P>Block Height: {root_store.wallet.eth.chainInfo?.block_number}</P>
             <P>Block Hash: {root_store.wallet.eth.chainInfo?.block_hash}</P>
