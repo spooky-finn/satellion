@@ -94,7 +94,6 @@ pub async fn eth_get_balance(
 #[derive(Type, Serialize, Debug, PartialEq)]
 pub struct PrepareTxReqRes {
     estimated_gas: String,
-    gas_price: String,
     max_fee_per_gas: String,
     cost: String,
 }
@@ -130,16 +129,10 @@ pub async fn eth_prepare_send_tx(
     let res = builder
         .eth_prepare_send_tx(token_symbol, amount, sender, recipient)
         .await?;
-
-    // Calculate cost in wei: estimated_gas * max_fee_per_gas
-    let cost_wei = U256::from(res.estimated_gas) * U256::from(res.max_fee_per_gas);
-    // Convert to ETH
-    let cost = format_units(cost_wei, "ether").map_err(|e| e.to_string())?;
     Ok(PrepareTxReqRes {
         estimated_gas: res.estimated_gas.to_string(),
-        gas_price: res.gas_price.to_string(),
         max_fee_per_gas: res.max_fee_per_gas.to_string(),
-        cost,
+        cost: res.cost,
     })
 }
 
@@ -150,7 +143,7 @@ pub async fn eth_sign_and_send_tx(
     builder: tauri::State<'_, tokio::sync::Mutex<ethereum::TxBuilder>>,
     storage: tauri::State<'_, WalletService>,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let mut session_store = session_store.lock().await;
     let session = session_store.get(wallet_id);
     if session.is_none() {
@@ -164,8 +157,8 @@ pub async fn eth_sign_and_send_tx(
         ethereum::wallet::create_private_key(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
 
     let mut builder = builder.try_lock().map_err(|e| e.to_string())?;
-    builder.sign_and_send_tx(&signer).await?;
-    Ok(())
+    let hash = builder.sign_and_send_tx(&signer).await?;
+    Ok(hash.to_string())
 }
 
 #[specta]

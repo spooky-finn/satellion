@@ -23,15 +23,19 @@ export const EthereumSend = observer(() => {
       <TokenSelect />
       <CurrentBalance />
       <AmountInput />
-      <Button
-        disabled={send.disabled}
-        sx={{ width: 'min-content' }}
-        size="sm"
-        onClick={() => send.createTrasaction(wallet.id!)}
-      >
-        Estimate
-      </Button>
+      {!send.preconfirmInfo && (
+        <Button
+          loading={send.isEstimating}
+          disabled={send.disabled}
+          sx={{ width: 'min-content' }}
+          size="sm"
+          onClick={() => send.createTrasaction(wallet.id!)}
+        >
+          Estimate
+        </Button>
+      )}
       <TransactionCost />
+      <SendTransaction />
     </Stack>
   )
 })
@@ -100,5 +104,28 @@ const TransactionCost = observer(() => {
     <P>
       Cost: {send.preconfirmInfo.cost} ETH ~ {usd_tx_cost.toFixed(2)} USD
     </P>
+  )
+})
+
+const SendTransaction = observer(() => {
+  const { wallet } = root_store
+  const { send } = root_store.wallet.eth
+
+  if (!send.preconfirmInfo || !wallet.eth.price) {
+    return null
+  }
+
+  if (send.txHash) {
+    return <P>Transaction sent: hash {send.txHash}</P>
+  }
+  return (
+    <Button
+      loading={send.isSending}
+      onClick={() => send.signAndSend(wallet.id!)}
+      sx={{ width: 'max-content' }}
+      size="sm"
+    >
+      Sign and send
+    </Button>
   )
 })

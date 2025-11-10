@@ -85,7 +85,7 @@ async ethPrepareSendTx(walletId: number, tokenSymbol: TokenSymbol, amount: strin
     else return { status: "error", error: e  as any };
 }
 },
-async ethSignAndSendTx(walletId: number) : Promise<Result<null, string>> {
+async ethSignAndSendTx(walletId: number) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("eth_sign_and_send_tx", { walletId }) };
 } catch (e) {
@@ -118,7 +118,7 @@ export type Balance = { wei: string; eth_price: string; tokens: TokenBalance[] }
 export type BitcoinUnlock = { address: string; change_address: string }
 export type ChainInfo = { block_number: string; block_hash: string; base_fee_per_gas: string | null }
 export type EthereumUnlock = { address: string }
-export type PrepareTxReqRes = { estimated_gas: string; gas_price: string; max_fee_per_gas: string; cost: string }
+export type PrepareTxReqRes = { estimated_gas: string; max_fee_per_gas: string; cost: string }
 export type SyncStatus = { height: number; sync_completed: boolean }
 export type TokenBalance = { symbol: TokenSymbol; balance: string; decimals: number; ui_precision: number }
 export type TokenSymbol = "ETH" | "WETH" | "WBTC" | "USDC" | "USDT" | "DAI"

@@ -2,6 +2,7 @@ use crate::config::CONFIG;
 use crate::ethereum::constants::token_symbol::TokenSymbol;
 use alloy::consensus::{SignableTransaction, TxEnvelope};
 use alloy::network::{Ethereum, TransactionBuilder, TxSignerSync};
+use alloy::primitives::utils::format_units;
 use alloy::primitives::{Address, FixedBytes, U256, utils::parse_ether};
 use alloy::providers::{Provider, RootProvider};
 use alloy::rpc::types::TransactionRequest;
@@ -28,8 +29,8 @@ fn parse_tx_amount(token_symbol: TokenSymbol, amount: String) -> Result<U256, St
 #[derive(serde::Serialize, Debug, PartialEq)]
 pub struct TxPresendInfo {
     pub estimated_gas: u64,
-    pub gas_price: u128,
     pub max_fee_per_gas: u128,
+    pub cost: String,
 }
 
 pub struct TxBuilder {
@@ -65,43 +66,71 @@ impl TxBuilder {
         if token_symbol != TokenSymbol::ETH {
             return Err("Only ETH is supported for now".to_string());
         }
-        let tx_count = self.get_tx_count(sender).await?;
-        let nonce = tx_count + 1;
+        let nonce = self.get_tx_count(sender).await?;
         let tx_value = parse_tx_amount(token_symbol, raw_amount)?;
+        let chain_id = self
+            .provider
+            .get_chain_id()
+            .await
+            .expect("Failed to get chain id");
         let tx = TransactionRequest::default()
+            .with_from(sender)
             .with_to(recipient)
             .with_value(tx_value)
+            .with_chain_id(chain_id)
             .with_nonce(nonce);
-
+        let balance = self
+            .provider
+            .get_balance(sender)
+            .await
+            .map_err(|e| format!("Failed to get balance: {e}"))?;
         let estimated_gas = self
             .provider
             .estimate_gas(tx.clone())
             .await
             .map_err(|e| format!("Failed to estimate gas: {e}"))?;
-
-        let gas_price = self
-            .provider
-            .get_gas_price()
-            .await
-            .map_err(|e| format!("Failed to get gas price: {e}"))?;
-
         let estimator = self
             .provider
             .estimate_eip1559_fees()
             .await
             .map_err(|e| format!("Failed to estimate EIP-1559 fees: {e}"))?;
 
-        let max_fee_per_gas = estimator.max_fee_per_gas;
+        let fee_ceiling = U256::from(estimated_gas) * U256::from(estimator.max_fee_per_gas);
+        let tx_amount = tx_value.saturating_add(fee_ceiling);
+        let ether_tx_amount = format_units(fee_ceiling, "ether").map_err(|e| e.to_string())?;
+
+        if balance < tx_amount {
+            // tx_amount = tx_value + fee_ceiling
+            // If user can't afford full tx_value + fees, let's see if they can afford at least the fees
+            if balance < fee_ceiling {
+                // Can't even afford the fees, balance < estimated required gas * max fee per gas
+                let formatted_balance =
+                    format_units(balance, "ether").map_err(|e| e.to_string())?;
+                return Err(format!(
+                    "Insufficient funds: total balance is {}, but estimated fee cost is {}",
+                    formatted_balance, ether_tx_amount
+                ));
+            } else {
+                // Can afford fees, but not full tx_value. Suggest max possible ETH value to send
+                let possible_send_amount = balance.saturating_sub(fee_ceiling);
+                return Err(format!(
+                    "Insufficient funds: you can send a maximum of {}",
+                    format_units(possible_send_amount, "ether").map_err(|e| e.to_string())?
+                ));
+            }
+        }
+
         let tx = tx
-            .with_gas_price(gas_price)
-            .with_max_fee_per_gas(max_fee_per_gas)
-            .with_max_priority_fee_per_gas(estimator.max_priority_fee_per_gas);
+            .with_max_fee_per_gas(estimator.max_fee_per_gas)
+            .with_max_priority_fee_per_gas(estimator.max_priority_fee_per_gas)
+            .with_gas_limit(estimated_gas);
 
         self.tx = Some(tx);
+
         Ok(TxPresendInfo {
             estimated_gas,
-            gas_price,
-            max_fee_per_gas,
+            max_fee_per_gas: estimator.max_fee_per_gas,
+            cost: ether_tx_amount,
         })
     }
 
@@ -110,7 +139,12 @@ impl TxBuilder {
         signer: &PrivateKeySigner,
     ) -> Result<FixedBytes<32>, String> {
         let tx = self.tx.take().ok_or("Transaction not prepared")?;
-
+        // Check if the transaction is complete and return an error if not
+        let is_complete = tx.complete_1559();
+        if let Err(err) = is_complete {
+            let messages = err.to_vec().join(", ");
+            return Err(format!("Transaction is incomplete: {}", messages));
+        }
         let mut tx_eip1559 = tx.build_1559().map_err(|e| e.to_string())?;
 
         let signature = signer
@@ -123,6 +157,7 @@ impl TxBuilder {
             .send_tx_envelope(tx_envelope)
             .await
             .map_err(|e| format!("Failed to send transaction: {e}"))?;
+
         self.tx = None;
         let hash = pending_tx.tx_hash().clone();
         Ok(hash)
