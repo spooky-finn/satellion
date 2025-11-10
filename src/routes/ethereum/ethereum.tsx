@@ -5,7 +5,7 @@ import { Navbar } from '../../components/navbar'
 import { route } from '../../routes'
 import { LinkButton, P } from '../../shortcuts'
 import { root_store } from '../../stores/root'
-import { Balances } from './balances'
+import { BalanceCard } from './balances'
 
 const explorer_url = 'https://etherscan.io/address/'
 
@@ -22,7 +22,7 @@ const Ethereum = () => {
             addr={root_store.wallet.eth.address}
             explorer_url={explorer_url + root_store.wallet.eth.address}
           />
-          <Balances />
+          <BalanceCard />
           <LinkButton to={route.ethereum_send} sx={{ width: 'min-content' }}>
             Send
           </LinkButton>

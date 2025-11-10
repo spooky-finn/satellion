@@ -62,7 +62,7 @@ const CurrentBalance = observer(() => {
   const { send } = eth
   const selectedToken = send.selectedToken
   if (!selectedToken) return null
-  const token = eth.balance?.tokens.find(
+  const token = eth.balance?.data?.tokens.find(
     token => token.symbol === selectedToken
   )
   return (

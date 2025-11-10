@@ -2,7 +2,7 @@ import CachedIcon from '@mui/icons-material/Cached'
 import { Card, IconButton, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { TokenBalance } from '../../bindings'
-import { P, Row } from '../../shortcuts'
+import { P, Progress, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
 
 const fmtBalance = (b: TokenBalance): string | null => {
@@ -16,39 +16,39 @@ const fmtBalance = (b: TokenBalance): string | null => {
   return balance
 }
 
-const Token = (props: { b: TokenBalance }) => (
+const Token = (props: { t: TokenBalance }) => (
   <Row alignItems={'center'}>
-    <P color="neutral">{props.b.symbol}</P>
-    <P>{props.b.balance}</P>
+    <P color="neutral">{props.t.symbol}</P>
+    <P>{props.t.balance}</P>
   </Row>
 )
 
-export const Balances = observer(() => {
+export const BalanceCard = observer(() => (
+  <Card variant="outlined" size="sm">
+    <Row alignItems={'start'} justifyContent={'space-between'}>
+      <Stack>
+        <Balances />
+      </Stack>
+      <IconButton
+        onClick={() => root_store.wallet.eth.getBalance()}
+        variant="plain"
+      >
+        <CachedIcon />
+      </IconButton>
+    </Row>
+  </Card>
+))
+
+const Balances = observer(() => {
+  const { eth } = root_store.wallet
   const tokens =
-    root_store.wallet.eth.tokens_with_balance
+    eth.tokens_with_balance
       .map((b: TokenBalance) => ({
         ...b,
         balance: fmtBalance(b) ?? '0'
       }))
       .filter(b => b.balance != '0') ?? []
 
-  return (
-    <Card variant="outlined" size="sm">
-      <Row alignItems={'start'} justifyContent={'space-between'}>
-        <Stack>
-          {tokens.length > 0 ? (
-            tokens.map(b => <Token key={b.symbol} b={b} />)
-          ) : (
-            <P color="neutral">Tokens not found</P>
-          )}
-        </Stack>
-        <IconButton
-          onClick={() => root_store.wallet.eth.getBalance()}
-          variant="plain"
-        >
-          <CachedIcon />
-        </IconButton>
-      </Row>
-    </Card>
-  )
+  if (eth.balance.loading) return <Progress />
+  if (!tokens.length) return <P color="neutral">Tokens not found</P>
 })
