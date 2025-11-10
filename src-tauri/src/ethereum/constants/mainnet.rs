@@ -1,11 +1,11 @@
-use crate::ethereum::token::Token;
+use crate::ethereum::{constants::token_symbol::TokenSymbol, token::Token};
 use alloy::primitives::address;
 use once_cell::sync::Lazy;
 
 pub static ETH: Lazy<Token> = Lazy::<Token>::new(|| {
     Token::new(
         address!("0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"),
-        String::from("ETH"),
+        TokenSymbol::ETH,
         18,
         6,
     )
@@ -15,7 +15,7 @@ pub static ETH: Lazy<Token> = Lazy::<Token>::new(|| {
 pub static WETH: Lazy<Token> = Lazy::<Token>::new(|| {
     Token::new(
         address!("C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"),
-        String::from("WETH"),
+        TokenSymbol::WETH,
         18,
         6,
     )
@@ -25,7 +25,7 @@ pub static WETH: Lazy<Token> = Lazy::<Token>::new(|| {
 pub static WBTC: Lazy<Token> = Lazy::<Token>::new(|| {
     Token::new(
         address!("2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599"),
-        String::from("WBTC"),
+        TokenSymbol::WBTC,
         8,
         6,
     )
@@ -35,7 +35,7 @@ pub static WBTC: Lazy<Token> = Lazy::<Token>::new(|| {
 pub static USDC: Lazy<Token> = Lazy::<Token>::new(|| {
     Token::new(
         address!("A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"),
-        String::from("USDC"),
+        TokenSymbol::USDC,
         6,
         0,
     )
@@ -45,7 +45,7 @@ pub static USDC: Lazy<Token> = Lazy::<Token>::new(|| {
 pub static USDT: Lazy<Token> = Lazy::<Token>::new(|| {
     Token::new(
         address!("dAC17F958D2ee523a2206206994597C13D831ec7"),
-        String::from("USDT"),
+        TokenSymbol::USDT,
         6,
         0,
     )
@@ -55,7 +55,7 @@ pub static USDT: Lazy<Token> = Lazy::<Token>::new(|| {
 pub static DAI: Lazy<Token> = Lazy::<Token>::new(|| {
     Token::new(
         address!("6B175474E89094C44Da98b954EedeAC495271d0F"),
-        String::from("DAI"),
+        TokenSymbol::DAI,
         18,
         0,
     )

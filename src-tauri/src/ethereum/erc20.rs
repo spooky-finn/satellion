@@ -26,7 +26,11 @@ pub async fn get_balances(
             let erc20 =
                 Erc20Contract::Erc20ContractInstance::new(token_clone.address, provider_clone);
             let raw_balance = erc20.balanceOf(address).call().await.map_err(|e| {
-                format!("Failed to fetch balance for {}: {}", token_clone.symbol, e)
+                format!(
+                    "Failed to fetch balance for {}: {}",
+                    token_clone.symbol.to_string(),
+                    e
+                )
             })?;
             let balance = token_clone.get_balance(raw_balance);
             Ok::<TokenBalance, String>(TokenBalance {

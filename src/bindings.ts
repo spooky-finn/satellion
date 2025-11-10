@@ -77,7 +77,7 @@ async ethGetBalance(address: string) : Promise<Result<Balance, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async ethPrepareSendTx(walletId: number, tokenSymbol: string, amount: string, recipient: string) : Promise<Result<PrepareTxReqRes, string>> {
+async ethPrepareSendTx(walletId: number, tokenSymbol: TokenSymbol, amount: string, recipient: string) : Promise<Result<PrepareTxReqRes, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("eth_prepare_send_tx", { walletId, tokenSymbol, amount, recipient }) };
 } catch (e) {
@@ -120,7 +120,8 @@ export type ChainInfo = { block_number: string; block_hash: string; base_fee_per
 export type EthereumUnlock = { address: string }
 export type PrepareTxReqRes = { estimated_gas: string; gas_price: string; max_fee_per_gas: string; cost: string }
 export type SyncStatus = { height: number; sync_completed: boolean }
-export type TokenBalance = { symbol: string; balance: string; decimals: number; ui_precision: number }
+export type TokenBalance = { symbol: TokenSymbol; balance: string; decimals: number; ui_precision: number }
+export type TokenSymbol = "ETH" | "WETH" | "WBTC" | "USDC" | "USDT" | "DAI"
 export type UnlockMsg = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock }
 
 /** tauri-specta globals **/

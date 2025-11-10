@@ -1,3 +1,4 @@
+use crate::ethereum::constants::token_symbol::TokenSymbol;
 use crate::wallet_service::WalletService;
 use crate::{ethereum, session};
 use alloy::eips::{BlockId, BlockNumberOrTag};
@@ -35,7 +36,7 @@ pub async fn eth_chain_info(provider: tauri::State<'_, RootProvider>) -> Result<
 
 #[derive(Type, Serialize)]
 pub struct TokenBalance {
-    symbol: String,
+    symbol: TokenSymbol,
     balance: String,
     decimals: u8,
     ui_precision: u8,
@@ -67,7 +68,7 @@ pub async fn eth_get_balance(
         .iter()
         .map(|b| TokenBalance {
             balance: b.balance.to_plain_string(),
-            symbol: b.token.symbol.clone(),
+            symbol: b.token.symbol,
             decimals: b.token.decimals,
             ui_precision: b.token.ui_precision,
         })
@@ -102,7 +103,7 @@ pub struct PrepareTxReqRes {
 #[tauri::command]
 pub async fn eth_prepare_send_tx(
     wallet_id: i32,
-    token_symbol: String,
+    token_symbol: TokenSymbol,
     amount: String,
     recipient: String,
     builder: tauri::State<'_, tokio::sync::Mutex<ethereum::TxBuilder>>,
