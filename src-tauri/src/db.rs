@@ -2,6 +2,8 @@ use crate::config::Config;
 use crate::schema;
 use diesel::prelude::*;
 use diesel::r2d2::ConnectionManager;
+use serde::{Deserialize, Serialize};
+use specta::Type;
 
 // Nice mapping of Diesel to Rust types:
 // https://kotiri.com/2018/01/31/postgresql-diesel-rust-types.html
@@ -42,4 +44,36 @@ pub struct BlockHeader {
     pub version: i32,
     pub bits: i32,
     pub nonce: i32,
+}
+
+#[derive(Type, Serialize, Deserialize)]
+pub enum Chain {
+    Bitcoin = 0,
+    Ethereum = 1,
+}
+
+impl From<i32> for Chain {
+    fn from(value: i32) -> Self {
+        match value {
+            0 => Chain::Bitcoin,
+            1 => Chain::Ethereum,
+            _ => panic!("No default value for Chain. Invalid integer: {}", value),
+        }
+    }
+}
+
+impl From<Chain> for i32 {
+    fn from(chain: Chain) -> Self {
+        chain as i32
+    }
+}
+
+#[derive(Insertable, Queryable, Selectable, Debug, PartialEq, Clone)]
+#[diesel(table_name = schema::tokens)]
+pub struct Token {
+    pub wallet_id: i32,
+    pub chain: i32,
+    pub symbol: String,
+    pub address: Vec<u8>,
+    pub decimals: i32,
 }

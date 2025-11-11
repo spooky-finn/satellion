@@ -37,6 +37,7 @@ pub fn run() {
             commands::get_available_wallets,
             commands::unlock_wallet,
             commands::forget_wallet,
+            commands::add_token,
             bitcoin::commands::start_node,
             ethereum::commands::eth_chain_info,
             ethereum::commands::eth_get_balance,

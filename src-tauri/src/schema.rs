@@ -25,4 +25,14 @@ diesel::table! {
     }
 }
 
-diesel::allow_tables_to_appear_in_same_query!(bitcoin_block_headers, wallets,);
+diesel::table! {
+    tokens (wallet_id, chain, address) {
+        wallet_id -> Integer,
+        chain -> Integer,
+        symbol -> Text,
+        address -> Binary,
+        decimals -> Integer,
+    }
+}
+
+diesel::allow_tables_to_appear_in_same_query!(bitcoin_block_headers, wallets, tokens,);
