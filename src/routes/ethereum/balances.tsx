@@ -48,7 +48,7 @@ const Balances = observer(() => {
         balance: fmtBalance(b) ?? '0'
       }))
       .filter(b => b.balance != '0') ?? []
-
   if (eth.balance.loading) return <Progress />
   if (!tokens.length) return <P color="neutral">Tokens not found</P>
+  return tokens.map(t => <Token key={t.symbol} t={t} />)
 })
