@@ -1,12 +1,14 @@
 use crate::config::Chain;
 use crate::ethereum::token::Token;
+use crate::repository::TokenRepository;
 use crate::token_tracker::TokenTracker;
 use crate::wallet_service::WalletService;
-use crate::{ethereum, session};
+use crate::{db, ethereum, schema, session};
 use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::primitives::Address;
 use alloy::primitives::utils::format_units;
 use alloy::providers::{Provider, RootProvider};
+use diesel::RunQueryDsl;
 use serde::Serialize;
 use specta::{Type, specta};
 use std::str::FromStr;
@@ -188,4 +190,43 @@ pub async fn eth_sign_and_send_tx(
 pub async fn eth_verify_address(address: String) -> Result<bool, String> {
     Address::from_str(&address).map_err(|e| e.to_string())?;
     Ok(true)
+}
+#[derive(Type, Serialize)]
+pub struct TokenType {
+    chain: Chain,
+    address: String,
+    symbol: String,
+    decimals: i32,
+}
+
+#[specta]
+#[tauri::command]
+pub async fn eth_add_token(
+    wallet_id: i32,
+    address: String,
+    provider: tauri::State<'_, RootProvider>,
+    token_repository: tauri::State<'_, TokenRepository>,
+) -> Result<TokenType, String> {
+    let token_address =
+        Address::from_str(&address).map_err(|e| format!("Invalid Ethereum address: {}", e))?;
+    let eth_provider = provider.inner();
+    let token_info = ethereum::erc20::get_token_info(eth_provider, token_address)
+        .await
+        .map_err(|e| format!("Failed to fetch token info: {}", e))?;
+    let token_entity = db::Token {
+        wallet_id,
+        chain: i32::from(Chain::Ethereum),
+        symbol: token_info.symbol.clone(),
+        address: token_address.as_slice().to_vec(),
+        decimals: token_info.decimals as i32,
+    };
+    token_repository
+        .insert(token_entity)
+        .map_err(|e| format!("Failed to insert token: {}", e))?;
+    Ok(TokenType {
+        address,
+        chain: Chain::Ethereum,
+        symbol: token_info.symbol,
+        decimals: token_info.decimals as i32,
+    })
 }

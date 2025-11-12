@@ -41,7 +41,9 @@ export const BalanceCard = observer(() => (
       <Row alignItems={'center'} justifyContent={'end'}>
         <SpecifyTokenToTrack />
         <IconButton
-          onClick={() => root_store.wallet.eth.getBalance()}
+          onClick={() =>
+            root_store.wallet.eth.getBalance(root_store.wallet.id!)
+          }
           variant="plain"
         >
           <CachedIcon />

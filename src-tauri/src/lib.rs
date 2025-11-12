@@ -41,13 +41,13 @@ pub fn run() {
             commands::get_available_wallets,
             commands::unlock_wallet,
             commands::forget_wallet,
-            commands::add_token,
             bitcoin::commands::start_node,
             ethereum::commands::eth_chain_info,
             ethereum::commands::eth_get_balance,
             ethereum::commands::eth_prepare_send_tx,
             ethereum::commands::eth_sign_and_send_tx,
             ethereum::commands::eth_verify_address,
+            ethereum::commands::eth_add_token,
         ]);
 
     #[cfg(debug_assertions)]

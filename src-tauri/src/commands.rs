@@ -1,19 +1,14 @@
-use crate::config::{Chain, Config};
+use crate::config::Config;
 use crate::ethereum::init::init_ethereum;
 use crate::repository::{AvailableWallet, WalletRepository};
 use crate::token_tracker::TokenTracker;
 use crate::wallet_service::WalletService;
-use crate::{
-    app_state::AppState,
-    db::{BlockHeader, Token},
-    schema,
-};
+use crate::{app_state::AppState, db::BlockHeader, schema};
 use crate::{bitcoin, session};
 use crate::{ethereum, mnemonic};
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use serde::Serialize;
 use specta::{Type, specta};
-use std::str::FromStr;
 use std::sync::Arc;
 
 #[derive(Type, Serialize)]
@@ -117,49 +112,5 @@ pub async fn forget_wallet(
 ) -> Result<(), String> {
     session_store.lock().await.end();
     repository.delete(wallet_id).map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-#[specta]
-#[tauri::command]
-pub async fn add_token(
-    wallet_id: i32,
-    chain: Chain,
-    symbol: String,
-    address: String,
-    decimals: i32,
-    db_pool: tauri::State<'_, crate::db::Pool>,
-) -> Result<(), String> {
-    let mut conn = db_pool
-        .get()
-        .map_err(|e| format!("Failed to get database connection: {}", e))?;
-
-    let address_bytes = match chain {
-        Chain::Ethereum => {
-            // Parse Ethereum address (0x-prefixed hex string)
-            let addr = alloy::primitives::Address::from_str(&address)
-                .map_err(|e| format!("Invalid Ethereum address: {}", e))?;
-            addr.as_slice().to_vec()
-        }
-        Chain::Bitcoin => {
-            // For Bitcoin, addresses are typically base58 strings
-            // Store as UTF-8 bytes for now (can be improved with proper base58 decoding later)
-            address.as_bytes().to_vec()
-        }
-    };
-
-    let new_token = Token {
-        wallet_id,
-        chain: i32::from(chain),
-        symbol,
-        address: address_bytes,
-        decimals,
-    };
-
-    diesel::insert_into(schema::tokens::table)
-        .values(&new_token)
-        .execute(&mut conn)
-        .map_err(|e| format!("Failed to insert token: {}", e))?;
-
     Ok(())
 }

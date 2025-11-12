@@ -42,9 +42,9 @@ export class EthereumWallet {
     this.setChainInfo(r.data)
   }
 
-  async getBalance() {
+  async getBalance(walletId: number) {
     this.balance.start()
-    const r = await commands.ethGetBalance(this.address)
+    const r = await commands.ethGetBalance(this.address, walletId)
     if (r.status === 'error') {
       notifier.err(r.error)
       return
