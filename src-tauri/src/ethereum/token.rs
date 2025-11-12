@@ -1,4 +1,3 @@
-use crate::ethereum::constants::token_symbol::TokenSymbol;
 use alloy::primitives::{Address, U256};
 use bigdecimal::{
     BigDecimal,
@@ -8,18 +7,13 @@ use bigdecimal::{
 #[derive(Debug, Clone)]
 pub struct Token {
     pub address: Address,
-    pub symbol: TokenSymbol,
+    pub symbol: String,
     pub decimals: u8,
     pub ui_precision: u8,
 }
 
 impl Token {
-    pub const fn new(
-        address: Address,
-        symbol: TokenSymbol,
-        decimals: u8,
-        ui_precision: u8,
-    ) -> Self {
+    pub const fn new(address: Address, symbol: String, decimals: u8, ui_precision: u8) -> Self {
         Self {
             address,
             symbol,

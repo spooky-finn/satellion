@@ -1,4 +1,4 @@
-use crate::ethereum::{constants::mainnet::TOKENS, token::Token};
+use crate::ethereum::token::Token;
 use alloy::{primitives::Address, providers::RootProvider, sol};
 use bigdecimal::BigDecimal;
 use futures::future;
@@ -18,8 +18,9 @@ pub struct TokenBalance {
 pub async fn get_balances(
     provider: &RootProvider,
     address: Address,
+    tokens: Vec<Token>,
 ) -> Result<Vec<TokenBalance>, String> {
-    let balance_futures = TOKENS.iter().map(|token| {
+    let balance_futures = tokens.iter().map(|token| {
         let token_clone = token.clone();
         let provider_clone = provider.clone();
         async move {
@@ -47,14 +48,17 @@ pub async fn get_balances(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ethereum::{self};
+    use crate::ethereum::{self, constants::mainnet::DEFAULT_TOKENS};
     use alloy::primitives::address;
 
     #[tokio::test]
     async fn test_get_balances() {
         let provider = ethereum::provider::new().unwrap();
         let address = address!("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045");
-        let balances = get_balances(&provider, address).await.unwrap();
+        let tokens = &DEFAULT_TOKENS;
+        let balances = get_balances(&provider, address, tokens.to_vec())
+            .await
+            .unwrap();
         println!("{:?}", balances);
         assert_eq!(balances.len(), 5);
     }

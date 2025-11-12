@@ -9,10 +9,12 @@ mod mnemonic;
 mod repository;
 mod schema;
 mod session;
+mod token_tracker;
 mod wallet_service;
 
 use crate::{
-    repository::{ChainRepository, WalletRepository},
+    repository::{ChainRepository, TokenRepository, WalletRepository},
+    token_tracker::TokenTracker,
     wallet_service::WalletService,
 };
 use specta_typescript::Typescript;
@@ -28,6 +30,8 @@ pub fn run() {
     let db = db::connect();
     let wallet_repository = WalletRepository::new(db.clone());
     let wallet_service = WalletService::new(wallet_repository.clone());
+    let token_repository = TokenRepository::new(db.clone());
+    let token_tracker = TokenTracker::new(token_repository);
 
     let builder =
         tauri_specta::Builder::<tauri::Wry>::new().commands(tauri_specta::collect_commands![
@@ -64,6 +68,7 @@ pub fn run() {
         .manage(ethereum::provider::new().expect("Failed to create Ethereum client"))
         .manage(Mutex::new(ethereum::TxBuilder::new()))
         .manage(tokio::sync::Mutex::new(session::Store::new()))
+        .manage(token_tracker)
         .setup(move |app| {
             #[cfg(debug_assertions)]
             if ENABLE_DEVTOOLS {

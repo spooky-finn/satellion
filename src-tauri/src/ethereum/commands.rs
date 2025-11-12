@@ -1,9 +1,11 @@
-use crate::ethereum::constants::token_symbol::TokenSymbol;
+use crate::config::Chain;
+use crate::ethereum::token::Token;
+use crate::token_tracker::TokenTracker;
 use crate::wallet_service::WalletService;
 use crate::{ethereum, session};
 use alloy::eips::{BlockId, BlockNumberOrTag};
+use alloy::primitives::Address;
 use alloy::primitives::utils::format_units;
-use alloy::primitives::{Address, U256};
 use alloy::providers::{Provider, RootProvider};
 use serde::Serialize;
 use specta::{Type, specta};
@@ -36,7 +38,7 @@ pub async fn eth_chain_info(provider: tauri::State<'_, RootProvider>) -> Result<
 
 #[derive(Type, Serialize)]
 pub struct TokenBalance {
-    symbol: TokenSymbol,
+    symbol: String,
     balance: String,
     decimals: u8,
     ui_precision: u8,
@@ -54,21 +56,41 @@ pub struct Balance {
 pub async fn eth_get_balance(
     provider: tauri::State<'_, RootProvider>,
     address: String,
+    wallet_id: i32,
+    token_tracker: tauri::State<'_, TokenTracker>,
 ) -> Result<Balance, String> {
+    let provider = provider.inner();
     let address = Address::from_str(&address).map_err(|e| e.to_string())?;
     let wei_balance = provider
         .get_balance(address)
         .await
         .map_err(|e| e.to_string())?;
-    let provider = provider.inner();
-    let token_balances = ethereum::erc20::get_balances(provider, address)
+
+    let db_tokens = token_tracker
+        .load_all(wallet_id, Chain::Ethereum)
+        .map_err(|e| format!("Failed to load token list: {}", e))?;
+
+    let tokens: Vec<Token> = db_tokens
+        .into_iter()
+        .map(|t| {
+            Token::new(
+                Address::from_slice(&t.address),
+                t.symbol.clone(),
+                t.decimals as u8,
+                t.decimals as u8,
+            )
+        })
+        .collect();
+
+    let token_balances = ethereum::erc20::get_balances(provider, address, tokens)
         .await
         .map_err(|e| e.to_string())?;
-    let mut tokens: Vec<TokenBalance> = token_balances
+
+    let mut token_balances: Vec<TokenBalance> = token_balances
         .iter()
         .map(|b| TokenBalance {
             balance: b.balance.to_plain_string(),
-            symbol: b.token.symbol,
+            symbol: b.token.symbol.clone(),
             decimals: b.token.decimals,
             ui_precision: b.token.ui_precision,
         })
@@ -76,7 +98,7 @@ pub async fn eth_get_balance(
     let eth = ethereum::constants::mainnet::ETH.clone();
 
     let eth_balance = format_units(wei_balance, "ether").map_err(|e| e.to_string())?;
-    tokens.push(TokenBalance {
+    token_balances.push(TokenBalance {
         balance: eth_balance,
         symbol: eth.symbol.clone(),
         decimals: eth.decimals,
@@ -87,7 +109,7 @@ pub async fn eth_get_balance(
     Ok(Balance {
         wei: wei_balance.to_string(),
         eth_price,
-        tokens: tokens,
+        tokens: token_balances,
     })
 }
 
@@ -102,7 +124,7 @@ pub struct PrepareTxReqRes {
 #[tauri::command]
 pub async fn eth_prepare_send_tx(
     wallet_id: i32,
-    token_symbol: TokenSymbol,
+    token_symbol: String,
     amount: String,
     recipient: String,
     builder: tauri::State<'_, tokio::sync::Mutex<ethereum::TxBuilder>>,

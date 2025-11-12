@@ -1,74 +1,12 @@
 use crate::db;
-use crate::db::BlockHeader;
+use crate::repository::BaseRepository;
 use crate::schema;
-use bip157::chain::IndexedHeader;
 use diesel::SqliteConnection;
 use diesel::prelude::*;
 use diesel::r2d2::ConnectionManager;
+use diesel::result::Error;
 use r2d2::Pool;
-use r2d2::PooledConnection;
 use specta;
-
-#[derive(Clone)]
-pub struct BaseRepository {
-    pub db_pool: Pool<ConnectionManager<SqliteConnection>>,
-}
-
-impl BaseRepository {
-    pub fn new(db_pool: Pool<ConnectionManager<SqliteConnection>>) -> Self {
-        Self { db_pool }
-    }
-
-    pub fn get_conn(
-        &self,
-    ) -> Result<PooledConnection<ConnectionManager<diesel::SqliteConnection>>, Error> {
-        self.db_pool.get().map_err(|e| {
-            Error::DatabaseError(
-                diesel::result::DatabaseErrorKind::UnableToSendCommand,
-                Box::new(e.to_string()),
-            )
-        })
-    }
-}
-
-#[derive(Clone)]
-pub struct ChainRepository {
-    base: BaseRepository,
-}
-
-type Error = diesel::result::Error;
-
-impl ChainRepository {
-    pub fn new(db_pool: Pool<ConnectionManager<SqliteConnection>>) -> Self {
-        Self {
-            base: BaseRepository::new(db_pool),
-        }
-    }
-
-    pub fn save_block_header(&self, block_header: IndexedHeader) -> Result<usize, Error> {
-        let mut conn = self.base.get_conn()?;
-        diesel::insert_into(schema::bitcoin_block_headers::table)
-            .values(&BlockHeader {
-                height: block_header.height as i32,
-                merkle_root: block_header.header.merkle_root.to_string(),
-                prev_blockhash: block_header.header.prev_blockhash.to_string(),
-                time: block_header.header.time as i32,
-                version: block_header.header.version.to_consensus(),
-                bits: block_header.header.bits.to_consensus() as i32,
-                nonce: block_header.header.nonce as i32,
-            })
-            .execute(&mut conn)
-    }
-
-    pub fn load_block_headers(&self, limit: i64) -> Result<Vec<BlockHeader>, Error> {
-        let mut conn = self.base.get_conn()?;
-        schema::bitcoin_block_headers::table
-            .select(schema::bitcoin_block_headers::all_columns)
-            .limit(limit)
-            .order(schema::bitcoin_block_headers::height.desc())
-            .load::<BlockHeader>(&mut conn)
-    }
-}
 
 #[derive(Clone)]
 pub struct WalletRepository {

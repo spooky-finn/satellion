@@ -1,5 +1,4 @@
 use crate::config::CONFIG;
-use crate::ethereum::constants::token_symbol::TokenSymbol;
 use alloy::consensus::{SignableTransaction, TxEnvelope};
 use alloy::network::{Ethereum, TransactionBuilder, TxSignerSync};
 use alloy::primitives::utils::format_units;
@@ -19,8 +18,8 @@ pub fn new() -> Result<RootProvider, String> {
     Ok(provider)
 }
 
-fn parse_tx_amount(token_symbol: TokenSymbol, amount: String) -> Result<U256, String> {
-    if token_symbol == TokenSymbol::ETH {
+fn parse_tx_amount(token_symbol: String, amount: String) -> Result<U256, String> {
+    if token_symbol == "ETH" {
         return parse_ether(&amount).map_err(|e| e.to_string());
     }
     U256::from_str(&amount).map_err(|e| e.to_string())
@@ -58,12 +57,12 @@ impl TxBuilder {
 
     pub async fn eth_prepare_send_tx(
         &mut self,
-        token_symbol: TokenSymbol,
+        token_symbol: String,
         raw_amount: String,
         sender: Address,
         recipient: Address,
     ) -> Result<TxPresendInfo, String> {
-        if token_symbol != TokenSymbol::ETH {
+        if token_symbol != "ETH" {
             return Err("Only ETH is supported for now".to_string());
         }
         let nonce = self.get_tx_count(sender).await?;
@@ -177,7 +176,7 @@ mod tests {
         let recipient = Address::from_str("0x0000000000000000000000000000000000000000").unwrap();
         let sender = Address::from_str("0x0000000000000000000000000000000000000000").unwrap();
         let res = builder
-            .eth_prepare_send_tx(TokenSymbol::ETH, value, sender, recipient)
+            .eth_prepare_send_tx("ETH".to_string(), value, sender, recipient)
             .await
             .unwrap();
         println!("{:?}", res);

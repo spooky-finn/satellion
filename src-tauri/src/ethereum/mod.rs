@@ -2,6 +2,7 @@ pub mod commands;
 pub mod config;
 pub mod constants;
 pub mod erc20;
+pub mod init;
 pub mod price_feed;
 pub mod provider;
 pub mod token;

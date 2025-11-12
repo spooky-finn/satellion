@@ -53,6 +53,14 @@ async forgetWallet(walletId: number) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async addToken(walletId: number, chain: Chain, symbol: string, address: string, decimals: number) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("add_token", { walletId, chain, symbol, address, decimals }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async startNode() : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("start_node") };
@@ -69,15 +77,15 @@ async ethChainInfo() : Promise<Result<ChainInfo, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async ethGetBalance(address: string) : Promise<Result<Balance, string>> {
+async ethGetBalance(address: string, walletId: number) : Promise<Result<Balance, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("eth_get_balance", { address }) };
+    return { status: "ok", data: await TAURI_INVOKE("eth_get_balance", { address, walletId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async ethPrepareSendTx(walletId: number, tokenSymbol: TokenSymbol, amount: string, recipient: string) : Promise<Result<PrepareTxReqRes, string>> {
+async ethPrepareSendTx(walletId: number, tokenSymbol: string, amount: string, recipient: string) : Promise<Result<PrepareTxReqRes, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("eth_prepare_send_tx", { walletId, tokenSymbol, amount, recipient }) };
 } catch (e) {
@@ -116,12 +124,12 @@ async ethVerifyAddress(address: string) : Promise<Result<boolean, string>> {
 export type AvailableWallet = { id: number; name: string | null }
 export type Balance = { wei: string; eth_price: string; tokens: TokenBalance[] }
 export type BitcoinUnlock = { address: string; change_address: string }
+export type Chain = "Bitcoin" | "Ethereum"
 export type ChainInfo = { block_number: string; block_hash: string; base_fee_per_gas: string | null }
 export type EthereumUnlock = { address: string }
 export type PrepareTxReqRes = { estimated_gas: string; max_fee_per_gas: string; cost: string }
 export type SyncStatus = { height: number; sync_completed: boolean }
-export type TokenBalance = { symbol: TokenSymbol; balance: string; decimals: number; ui_precision: number }
-export type TokenSymbol = "ETH" | "WETH" | "WBTC" | "USDC" | "USDT" | "DAI"
+export type TokenBalance = { symbol: string; balance: string; decimals: number; ui_precision: number }
 export type UnlockMsg = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock }
 
 /** tauri-specta globals **/

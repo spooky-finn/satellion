@@ -1,6 +1,15 @@
 import CachedIcon from '@mui/icons-material/Cached'
-import { Card, IconButton, Stack } from '@mui/joy'
+import {
+  Button,
+  Card,
+  IconButton,
+  Modal,
+  ModalClose,
+  ModalDialog,
+  Stack
+} from '@mui/joy'
 import { observer } from 'mobx-react-lite'
+import { useState } from 'react'
 import { TokenBalance } from '../../bindings'
 import { P, Progress, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
@@ -29,12 +38,15 @@ export const BalanceCard = observer(() => (
       <Stack>
         <Balances />
       </Stack>
-      <IconButton
-        onClick={() => root_store.wallet.eth.getBalance()}
-        variant="plain"
-      >
-        <CachedIcon />
-      </IconButton>
+      <Row alignItems={'center'} justifyContent={'end'}>
+        <SpecifyTokenToTrack />
+        <IconButton
+          onClick={() => root_store.wallet.eth.getBalance()}
+          variant="plain"
+        >
+          <CachedIcon />
+        </IconButton>
+      </Row>
     </Row>
   </Card>
 ))
@@ -51,4 +63,26 @@ const Balances = observer(() => {
   if (eth.balance.loading) return <Progress />
   if (!tokens.length) return <P color="neutral">Tokens not found</P>
   return tokens.map(t => <Token key={t.symbol} t={t} />)
+})
+
+const SpecifyTokenToTrack = observer(() => {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <Button
+        variant="plain"
+        size="sm"
+        onClick={() => setOpen(true)}
+        sx={{ width: 'max-content', fontWeight: 400 }}
+        color="neutral"
+      >
+        Track another token
+      </Button>
+      <Modal open={open} onClose={() => setOpen(false)}>
+        <ModalDialog>
+          <ModalClose />
+        </ModalDialog>
+      </Modal>
+    </>
+  )
 })
