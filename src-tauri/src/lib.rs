@@ -31,7 +31,7 @@ pub fn run() {
     let wallet_repository = WalletRepository::new(db.clone());
     let wallet_service = WalletService::new(wallet_repository.clone());
     let token_repository = TokenRepository::new(db.clone());
-    let token_tracker = TokenTracker::new(token_repository);
+    let token_tracker = TokenTracker::new(&token_repository);
 
     let builder =
         tauri_specta::Builder::<tauri::Wry>::new().commands(tauri_specta::collect_commands![
@@ -47,7 +47,8 @@ pub fn run() {
             ethereum::commands::eth_prepare_send_tx,
             ethereum::commands::eth_sign_and_send_tx,
             ethereum::commands::eth_verify_address,
-            ethereum::commands::eth_add_token,
+            ethereum::commands::eth_track_token,
+            ethereum::commands::eth_untrack_token,
         ]);
 
     #[cfg(debug_assertions)]
@@ -65,10 +66,11 @@ pub fn run() {
         .manage(ChainRepository::new(db.clone()))
         .manage(wallet_repository)
         .manage(wallet_service)
+        .manage(token_repository)
+        .manage(token_tracker)
         .manage(ethereum::provider::new().expect("Failed to create Ethereum client"))
         .manage(Mutex::new(ethereum::TxBuilder::new()))
         .manage(tokio::sync::Mutex::new(session::Store::new()))
-        .manage(token_tracker)
         .setup(move |app| {
             #[cfg(debug_assertions)]
             if ENABLE_DEVTOOLS {

@@ -6,7 +6,7 @@ pub struct TokenTracker {
 }
 
 impl TokenTracker {
-    pub fn new(repo: TokenRepository) -> Self {
+    pub fn new(repo: &TokenRepository) -> Self {
         Self {
             repository: repo.clone(),
         }

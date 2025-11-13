@@ -52,4 +52,12 @@ export class EthereumWallet {
     this.balance.set(r.data)
     this.setPrice(Number(r.data.eth_price))
   }
+
+  async removeTokenFromBalance(address: string) {
+    this.balance.set({
+      ...this.balance.data,
+      tokens:
+        this.balance.data?.tokens.filter(each => each.address != address) ?? []
+    } as any)
+  }
 }

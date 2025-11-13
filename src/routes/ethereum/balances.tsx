@@ -1,36 +1,23 @@
+import { Remove } from '@mui/icons-material'
 import CachedIcon from '@mui/icons-material/Cached'
 import {
   Button,
   Card,
+  Grid,
   IconButton,
+  Input,
   Modal,
   ModalClose,
   ModalDialog,
-  Stack
+  Stack,
+  Tooltip
 } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
-import { useState } from 'react'
-import { TokenBalance } from '../../bindings'
+import { useState, type ChangeEvent } from 'react'
+import { commands, TokenBalance, type TokenType } from '../../bindings'
+import { notifier } from '../../components/notifier'
 import { P, Progress, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
-
-const fmtBalance = (b: TokenBalance): string | null => {
-  if (b.balance === '0') {
-    return null
-  }
-  const balance = Number(b.balance).toFixed(b.ui_precision)
-  if (Number(balance) === 0) {
-    return null
-  }
-  return balance
-}
-
-const Token = (props: { t: TokenBalance }) => (
-  <Row alignItems={'center'}>
-    <P color="neutral">{props.t.symbol}</P>
-    <P>{props.t.balance}</P>
-  </Row>
-)
 
 export const BalanceCard = observer(() => (
   <Card variant="outlined" size="sm">
@@ -53,22 +40,65 @@ export const BalanceCard = observer(() => (
   </Card>
 ))
 
+const Token = (props: { t: TokenBalance; handleUntrack: () => void }) => (
+  <>
+    <Grid xs={1}>
+      <P color="neutral">{props.t.symbol}</P>
+    </Grid>
+    <Grid xs={10} px={1}>
+      <P>{props.t.balance}</P>
+    </Grid>
+    <Grid xs={1}>
+      <Tooltip title="Do not track">
+        <IconButton size="sm" onClick={props.handleUntrack}>
+          <Remove />
+        </IconButton>
+      </Tooltip>
+    </Grid>
+  </>
+)
+
 const Balances = observer(() => {
   const { eth } = root_store.wallet
-  const tokens =
-    eth.tokens_with_balance
-      .map((b: TokenBalance) => ({
-        ...b,
-        balance: fmtBalance(b) ?? '0'
-      }))
-      .filter(b => b.balance != '0') ?? []
+  const tokens = eth.balance.data?.tokens
   if (eth.balance.loading) return <Progress />
-  if (!tokens.length) return <P color="neutral">Tokens not found</P>
-  return tokens.map(t => <Token key={t.symbol} t={t} />)
+  if (!tokens?.length) return <P color="neutral">Tokens not found</P>
+
+  const handleTokenUntrack = async (token_address: string) => {
+    await commands.ethUntrackToken(root_store.wallet.id!, token_address)
+    eth.removeTokenFromBalance(token_address)
+  }
+
+  return (
+    <Grid container>
+      {tokens.map(t => (
+        <Token
+          key={t.symbol}
+          t={t}
+          handleUntrack={() => handleTokenUntrack(t.address)}
+        />
+      ))}
+    </Grid>
+  )
 })
 
 const SpecifyTokenToTrack = observer(() => {
   const [open, setOpen] = useState(false)
+  const [data, setData] = useState<TokenType | null>(null)
+
+  const handleAddressInput = async (e: ChangeEvent<HTMLInputElement>) => {
+    const address = e.target.value
+    if (address.length >= 40) {
+      const res = await commands.ethTrackToken(root_store.wallet.id!, address)
+      if (res.status === 'error') {
+        setOpen(false)
+        notifier.err(res.error)
+        throw new Error(res.error)
+      }
+      setData(res.data)
+    }
+  }
+
   return (
     <>
       <Button
@@ -81,8 +111,16 @@ const SpecifyTokenToTrack = observer(() => {
         Track another token
       </Button>
       <Modal open={open} onClose={() => setOpen(false)}>
-        <ModalDialog>
+        <ModalDialog sx={{ pr: 6 }}>
           <ModalClose />
+          {data ? (
+            <P>{data.symbol} now is trackable</P>
+          ) : (
+            <Input
+              placeholder="Token Contract Address"
+              onChange={handleAddressInput}
+            />
+          )}
         </ModalDialog>
       </Modal>
     </>

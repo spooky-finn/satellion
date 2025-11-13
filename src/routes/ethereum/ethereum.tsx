@@ -9,7 +9,7 @@ import { BalanceCard } from './balances'
 
 const explorer_url = 'https://etherscan.io/address/'
 
-const Ethereum = () => {
+export const Ethereum = observer(() => {
   return (
     <Stack gap={1}>
       <Navbar />
@@ -27,7 +27,7 @@ const Ethereum = () => {
             Send
           </LinkButton>
           <Stack py={2}>
-            <P>ETH price {root_store.wallet.eth.balance?.eth_price}</P>
+            <P>ETH price {root_store.wallet.eth.price}</P>
             <P>Chain</P>
             <P>Block Height: {root_store.wallet.eth.chainInfo?.block_number}</P>
             <P>Block Hash: {root_store.wallet.eth.chainInfo?.block_hash}</P>
@@ -40,6 +40,4 @@ const Ethereum = () => {
       )}
     </Stack>
   )
-}
-
-export default observer(Ethereum)
+})

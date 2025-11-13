@@ -56,4 +56,13 @@ impl TokenRepository {
             Ok(inserted)
         })
     }
+
+    pub fn remove(&self, wallet_id: i32, chain: Chain, address: &[u8]) -> Result<usize, Error> {
+        let mut conn = self.base.get_conn()?;
+        diesel::delete(schema::tokens::table)
+            .filter(schema::tokens::wallet_id.eq(wallet_id))
+            .filter(schema::tokens::chain.eq(i32::from(chain)))
+            .filter(schema::tokens::address.eq(address))
+            .execute(&mut conn)
+    }
 }

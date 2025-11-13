@@ -3,12 +3,11 @@ use crate::ethereum::token::Token;
 use crate::repository::TokenRepository;
 use crate::token_tracker::TokenTracker;
 use crate::wallet_service::WalletService;
-use crate::{db, ethereum, schema, session};
+use crate::{db, ethereum, session};
 use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::primitives::Address;
 use alloy::primitives::utils::format_units;
 use alloy::providers::{Provider, RootProvider};
-use diesel::RunQueryDsl;
 use serde::Serialize;
 use specta::{Type, specta};
 use std::str::FromStr;
@@ -43,7 +42,7 @@ pub struct TokenBalance {
     symbol: String,
     balance: String,
     decimals: u8,
-    ui_precision: u8,
+    address: String,
 }
 
 #[derive(Type, Serialize)]
@@ -94,7 +93,7 @@ pub async fn eth_get_balance(
             balance: b.balance.to_plain_string(),
             symbol: b.token.symbol.clone(),
             decimals: b.token.decimals,
-            ui_precision: b.token.ui_precision,
+            address: b.token.address.to_string(),
         })
         .collect();
     let eth = ethereum::constants::mainnet::ETH.clone();
@@ -104,7 +103,7 @@ pub async fn eth_get_balance(
         balance: eth_balance,
         symbol: eth.symbol.clone(),
         decimals: eth.decimals,
-        ui_precision: eth.ui_precision,
+        address: eth.address.to_string(),
     });
     let price_feeder = ethereum::price_feed::PriceFeeder::new()?;
     let eth_price = price_feeder.get_eth_price().await?.to_string();
@@ -201,7 +200,7 @@ pub struct TokenType {
 
 #[specta]
 #[tauri::command]
-pub async fn eth_add_token(
+pub async fn eth_track_token(
     wallet_id: i32,
     address: String,
     provider: tauri::State<'_, RootProvider>,
@@ -229,4 +228,21 @@ pub async fn eth_add_token(
         symbol: token_info.symbol,
         decimals: token_info.decimals as i32,
     })
+}
+
+#[specta]
+#[tauri::command]
+pub async fn eth_untrack_token(
+    wallet_id: i32,
+    address: String,
+    token_repository: tauri::State<'_, TokenRepository>,
+) -> Result<bool, String> {
+    let token_address =
+        Address::from_str(&address).map_err(|e| format!("Invalid Ethereum address: {}", e))?;
+
+    let rows_affected = token_repository
+        .remove(wallet_id, Chain::Ethereum, token_address.as_slice())
+        .map_err(|e| format!("Failed to remove token: {}", e))?;
+
+    Ok(rows_affected > 0)
 }

@@ -101,17 +101,9 @@ async ethVerifyAddress(address: string) : Promise<Result<boolean, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async ethTrackToken(walletId: number, address: string) : Promise<Result<TokenType, string>> {
+async ethAddToken(walletId: number, address: string) : Promise<Result<TokenType, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("eth_track_token", { walletId, address }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async ethUntrackToken(walletId: number, address: string) : Promise<Result<boolean, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("eth_untrack_token", { walletId, address }) };
+    return { status: "ok", data: await TAURI_INVOKE("eth_add_token", { walletId, address }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -137,7 +129,7 @@ export type ChainInfo = { block_number: string; block_hash: string; base_fee_per
 export type EthereumUnlock = { address: string }
 export type PrepareTxReqRes = { estimated_gas: string; max_fee_per_gas: string; cost: string }
 export type SyncStatus = { height: number; sync_completed: boolean }
-export type TokenBalance = { symbol: string; balance: string; decimals: number; address: string }
+export type TokenBalance = { symbol: string; balance: string; decimals: number; ui_precision: number }
 export type TokenType = { chain: Chain; address: string; symbol: string; decimals: number }
 export type UnlockMsg = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock }
 
