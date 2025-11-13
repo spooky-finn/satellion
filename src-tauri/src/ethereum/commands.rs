@@ -78,7 +78,6 @@ pub async fn eth_get_balance(
                 Address::from_slice(&t.address),
                 t.symbol.clone(),
                 t.decimals as u8,
-                t.decimals as u8,
             )
         })
         .collect();

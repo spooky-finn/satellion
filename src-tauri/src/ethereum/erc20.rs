@@ -33,12 +33,7 @@ pub async fn get_token_info(
         .await
         .map_err(|e| format!("Failed to fetch token decimals: {}", e))?;
 
-    Ok(Token::new(
-        token_address,
-        symbol_result,
-        decimals_result,
-        decimals_result,
-    ))
+    Ok(Token::new(token_address, symbol_result, decimals_result))
 }
 
 pub async fn get_balances(

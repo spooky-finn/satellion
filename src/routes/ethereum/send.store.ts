@@ -1,5 +1,5 @@
 import { makeAutoObservable } from 'mobx'
-import { commands, PrepareTxReqRes, TokenSymbol } from '../../bindings'
+import { commands, PrepareTxReqRes } from '../../bindings'
 import { notifier } from '../../components/notifier'
 
 export class EthereumSendStore {
@@ -22,8 +22,8 @@ export class EthereumSendStore {
     this.amount = amount
   }
 
-  selectedToken: TokenSymbol | null = null
-  setSelectedToken(token: TokenSymbol | null) {
+  selectedToken: string | null = null
+  setSelectedToken(token: string | null) {
     this.selectedToken = token
   }
 

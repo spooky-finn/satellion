@@ -62,7 +62,7 @@ pub async fn create_wallet(
 
 #[specta]
 #[tauri::command]
-pub async fn get_available_wallets(
+pub async fn list_wallets(
     repository: tauri::State<'_, WalletRepository>,
 ) -> Result<Vec<AvailableWallet>, String> {
     let wallets_info = repository.list().map_err(|e| e.to_string())?;

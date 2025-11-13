@@ -38,7 +38,7 @@ pub fn run() {
             commands::generate_mnemonic,
             commands::create_wallet,
             commands::chain_status,
-            commands::get_available_wallets,
+            commands::list_wallets,
             commands::unlock_wallet,
             commands::forget_wallet,
             bitcoin::commands::start_node,

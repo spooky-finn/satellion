@@ -29,9 +29,9 @@ async chainStatus() : Promise<Result<SyncStatus, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async getAvailableWallets() : Promise<Result<AvailableWallet[], string>> {
+async listWallets() : Promise<Result<AvailableWallet[], string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("get_available_wallets") };
+    return { status: "ok", data: await TAURI_INVOKE("list_wallets") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };

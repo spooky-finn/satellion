@@ -35,7 +35,7 @@ export class Unlock {
   }
 
   async loadAvailableWallets() {
-    const r = await commands.getAvailableWallets()
+    const r = await commands.listWallets()
     if (r.status === 'error') {
       notifier.err(r.error)
       throw Error(r.error)

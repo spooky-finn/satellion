@@ -9,16 +9,14 @@ pub struct Token {
     pub address: Address,
     pub symbol: String,
     pub decimals: u8,
-    pub ui_precision: u8,
 }
 
 impl Token {
-    pub const fn new(address: Address, symbol: String, decimals: u8, ui_precision: u8) -> Self {
+    pub const fn new(address: Address, symbol: String, decimals: u8) -> Self {
         Self {
             address,
             symbol,
             decimals,
-            ui_precision,
         }
     }
 
