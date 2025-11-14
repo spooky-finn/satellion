@@ -14,7 +14,6 @@ mod wallet_service;
 
 use crate::{
     repository::{ChainRepository, TokenRepository, WalletRepository},
-    token_tracker::TokenTracker,
     wallet_service::WalletService,
 };
 use specta_typescript::Typescript;
@@ -31,7 +30,10 @@ pub fn run() {
     let wallet_repository = WalletRepository::new(db.clone());
     let wallet_service = WalletService::new(wallet_repository.clone());
     let token_repository = TokenRepository::new(db.clone());
-    let token_tracker = TokenTracker::new(&token_repository);
+    let eth_provider = ethereum::new_provider();
+
+    let token_manager =
+        ethereum::token_manager::TokenManager::new(eth_provider.clone(), token_repository.clone());
 
     let builder =
         tauri_specta::Builder::<tauri::Wry>::new().commands(tauri_specta::collect_commands![
@@ -67,8 +69,8 @@ pub fn run() {
         .manage(wallet_repository)
         .manage(wallet_service)
         .manage(token_repository)
-        .manage(token_tracker)
-        .manage(ethereum::provider::new().expect("Failed to create Ethereum client"))
+        .manage(eth_provider)
+        .manage(token_manager)
         .manage(Mutex::new(ethereum::TxBuilder::new()))
         .manage(tokio::sync::Mutex::new(session::Store::new()))
         .setup(move |app| {

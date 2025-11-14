@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::ethereum::init::init_ethereum;
+use crate::ethereum::token_manager::TokenManager;
 use crate::repository::{AvailableWallet, WalletRepository};
-use crate::token_tracker::TokenTracker;
 use crate::wallet_service::WalletService;
 use crate::{app_state::AppState, db::BlockHeader, schema};
 use crate::{bitcoin, session};
@@ -82,7 +82,7 @@ pub async fn unlock_wallet(
     passphrase: String,
     wallet_store: tauri::State<'_, WalletService>,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
-    token_tracker: tauri::State<'_, TokenTracker>,
+    token_manager: tauri::State<'_, TokenManager>,
 ) -> Result<UnlockMsg, String> {
     let mnemonic = wallet_store.load(wallet_id, passphrase.clone())?;
     let eth_unlock_data =
@@ -95,7 +95,7 @@ pub async fn unlock_wallet(
         Config::session_exp_duration(),
     ));
 
-    init_ethereum(token_tracker.inner(), wallet_id)?;
+    init_ethereum(&token_manager, wallet_id)?;
 
     Ok(UnlockMsg {
         ethereum: eth_unlock_data,

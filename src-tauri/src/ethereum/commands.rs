@@ -1,7 +1,7 @@
 use crate::config::Chain;
 use crate::ethereum::token::Token;
+use crate::ethereum::token_manager::TokenManager;
 use crate::repository::TokenRepository;
-use crate::token_tracker::TokenTracker;
 use crate::wallet_service::WalletService;
 use crate::{db, ethereum, session};
 use alloy::eips::{BlockId, BlockNumberOrTag};
@@ -55,10 +55,10 @@ pub struct Balance {
 #[specta]
 #[tauri::command]
 pub async fn eth_get_balance(
-    provider: tauri::State<'_, RootProvider>,
     address: String,
     wallet_id: i32,
-    token_tracker: tauri::State<'_, TokenTracker>,
+    provider: tauri::State<'_, RootProvider>,
+    token_manager: tauri::State<'_, TokenManager>,
 ) -> Result<Balance, String> {
     let provider = provider.inner();
     let address = Address::from_str(&address).map_err(|e| e.to_string())?;
@@ -66,8 +66,7 @@ pub async fn eth_get_balance(
         .get_balance(address)
         .await
         .map_err(|e| e.to_string())?;
-
-    let db_tokens = token_tracker
+    let db_tokens = token_manager
         .load_all(wallet_id, Chain::Ethereum)
         .map_err(|e| format!("Failed to load token list: {}", e))?;
 
@@ -82,7 +81,8 @@ pub async fn eth_get_balance(
         })
         .collect();
 
-    let token_balances = ethereum::erc20::get_balances(provider, address, tokens)
+    let token_balances = token_manager
+        .get_balances(address, tokens)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -189,6 +189,7 @@ pub async fn eth_verify_address(address: String) -> Result<bool, String> {
     Address::from_str(&address).map_err(|e| e.to_string())?;
     Ok(true)
 }
+
 #[derive(Type, Serialize)]
 pub struct TokenType {
     chain: Chain,
@@ -202,15 +203,17 @@ pub struct TokenType {
 pub async fn eth_track_token(
     wallet_id: i32,
     address: String,
-    provider: tauri::State<'_, RootProvider>,
     token_repository: tauri::State<'_, TokenRepository>,
+    token_manager: tauri::State<'_, TokenManager>,
 ) -> Result<TokenType, String> {
     let token_address =
         Address::from_str(&address).map_err(|e| format!("Invalid Ethereum address: {}", e))?;
-    let eth_provider = provider.inner();
-    let token_info = ethereum::erc20::get_token_info(eth_provider, token_address)
+
+    let token_info = token_manager
+        .get_token_info(token_address)
         .await
         .map_err(|e| format!("Failed to fetch token info: {}", e))?;
+
     let token_entity = db::Token {
         wallet_id,
         chain: i32::from(Chain::Ethereum),
@@ -218,6 +221,7 @@ pub async fn eth_track_token(
         address: token_address.as_slice().to_vec(),
         decimals: token_info.decimals as i32,
     };
+
     token_repository
         .insert(token_entity)
         .map_err(|e| format!("Failed to insert token: {}", e))?;

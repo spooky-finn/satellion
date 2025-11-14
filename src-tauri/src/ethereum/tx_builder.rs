@@ -1,4 +1,3 @@
-use crate::config::CONFIG;
 use alloy::consensus::{SignableTransaction, TxEnvelope};
 use alloy::network::{Ethereum, TransactionBuilder, TxSignerSync};
 use alloy::primitives::utils::format_units;
@@ -8,15 +7,8 @@ use alloy::rpc::types::TransactionRequest;
 use alloy_signer_local::PrivateKeySigner;
 use std::str::FromStr;
 use std::sync::Arc;
-use tauri::Url;
 
-pub fn new() -> Result<RootProvider, String> {
-    let rpc_url = CONFIG.ethereum.rpc_url.clone();
-    let provider = RootProvider::<Ethereum>::new_http(
-        Url::parse(&rpc_url).expect("Invalid RPC URL for Ethereum"),
-    );
-    Ok(provider)
-}
+use crate::ethereum::init::new_provider;
 
 fn parse_tx_amount(token_symbol: String, amount: String) -> Result<U256, String> {
     if token_symbol == "ETH" {
@@ -39,7 +31,7 @@ pub struct TxBuilder {
 
 impl TxBuilder {
     pub fn new() -> Self {
-        let provider = new().unwrap();
+        let provider = new_provider();
         Self {
             provider: Arc::new(provider),
             tx: None,
