@@ -9,7 +9,6 @@ mod mnemonic;
 mod repository;
 mod schema;
 mod session;
-mod token_tracker;
 mod wallet_service;
 
 use crate::{
@@ -26,6 +25,8 @@ const ENABLE_DEVTOOLS: bool = true;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    db::initialize_database();
+
     let db = db::connect();
     let wallet_repository = WalletRepository::new(db.clone());
     let wallet_service = WalletService::new(wallet_repository.clone());

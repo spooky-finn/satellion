@@ -30,6 +30,7 @@ once_cell = "1.21.3"
 bigdecimal = "0.4.9"
 # sqlite db
 diesel = { version = "2.2.12", features = ["sqlite", "r2d2", "returning_clauses_for_sqlite_3_35", "chrono"] }
+diesel_migrations = "2.2.0"
 r2d2 = "0.8"
 # Encryption
 argon2 = "0.5.3"

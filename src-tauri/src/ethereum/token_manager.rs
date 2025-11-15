@@ -11,8 +11,8 @@ use alloy::{
 use bigdecimal::{BigDecimal, Zero};
 use diesel::result;
 use futures;
+use std::str::FromStr;
 use std::time::Duration;
-use std::{str::FromStr, sync::Arc};
 
 sol!(
     #[sol(rpc)]
