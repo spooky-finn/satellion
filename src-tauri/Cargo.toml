@@ -29,7 +29,12 @@ chrono = "0.4.42"
 once_cell = "1.21.3"
 bigdecimal = "0.4.9"
 # sqlite db
-diesel = { version = "2.2.12", features = ["sqlite", "r2d2", "returning_clauses_for_sqlite_3_35", "chrono"] }
+diesel = { version = "2.2.12", features = [
+    "sqlite",
+    "r2d2",
+    "returning_clauses_for_sqlite_3_35",
+    "chrono",
+] }
 diesel_migrations = "2.2.0"
 r2d2 = "0.8"
 # Encryption
@@ -37,7 +42,8 @@ argon2 = "0.5.3"
 aes-gcm = "0.10.3"
 # Ethereum deps
 alloy = "1.0.41"
-alloy-signer-local = {version = "1.0.41", features = ["mnemonic"] }
+alloy-provider = { version = "1.0.41", features = ["anvil-node"] }
+alloy-signer-local = { version = "1.0.41", features = ["mnemonic"] }
 # Bitcoin deps
 bip157 = "0.3.3"
 bitcoin = "0.32.7"
@@ -46,4 +52,3 @@ bip39 = "2.2.0"
 specta = "=2.0.0-rc.22"
 specta-typescript = "0.0.9"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["typescript"] }
-

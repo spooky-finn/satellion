@@ -25,16 +25,17 @@ const ENABLE_DEVTOOLS: bool = true;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    db::initialize_database();
+    db::initialize();
 
     let db = db::connect();
     let wallet_repository = WalletRepository::new(db.clone());
     let wallet_service = WalletService::new(wallet_repository.clone());
     let token_repository = TokenRepository::new(db.clone());
-    let eth_provider = ethereum::new_provider();
-
+    let eth_provider: alloy_provider::DynProvider = ethereum::new_provider();
+    let eth_batch_provider = ethereum::new_provider_batched();
     let token_manager =
         ethereum::token_manager::TokenManager::new(eth_provider.clone(), token_repository.clone());
+    let tx_builder = ethereum::TxBuilder::new(eth_batch_provider);
 
     let builder =
         tauri_specta::Builder::<tauri::Wry>::new().commands(tauri_specta::collect_commands![
@@ -70,9 +71,9 @@ pub fn run() {
         .manage(wallet_repository)
         .manage(wallet_service)
         .manage(token_repository)
-        .manage(eth_provider)
+        .manage(eth_provider.clone())
         .manage(token_manager)
-        .manage(Mutex::new(ethereum::TxBuilder::new()))
+        .manage(Mutex::new(tx_builder))
         .manage(tokio::sync::Mutex::new(session::Store::new()))
         .setup(move |app| {
             #[cfg(debug_assertions)]

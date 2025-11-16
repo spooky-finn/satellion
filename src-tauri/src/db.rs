@@ -18,7 +18,7 @@ pub fn ensure_data_dir() -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn initialize_database() {
+pub fn initialize() {
     ensure_data_dir().expect("cannot create data dir");
     let db_path = Config::db_path();
 

@@ -1,21 +1,12 @@
 use alloy::consensus::{SignableTransaction, TxEnvelope};
-use alloy::network::{Ethereum, TransactionBuilder, TxSignerSync};
+use alloy::network::{TransactionBuilder, TxSignerSync};
 use alloy::primitives::utils::format_units;
 use alloy::primitives::{Address, FixedBytes, U256, utils::parse_ether};
-use alloy::providers::{Provider, RootProvider};
+use alloy::providers::Provider;
 use alloy::rpc::types::TransactionRequest;
+use alloy_provider::DynProvider;
 use alloy_signer_local::PrivateKeySigner;
 use std::str::FromStr;
-use std::sync::Arc;
-
-use crate::ethereum::init::new_provider;
-
-fn parse_tx_amount(token_symbol: String, amount: String) -> Result<U256, String> {
-    if token_symbol == "ETH" {
-        return parse_ether(&amount).map_err(|e| e.to_string());
-    }
-    U256::from_str(&amount).map_err(|e| e.to_string())
-}
 
 #[derive(serde::Serialize, Debug, PartialEq)]
 pub struct TxPresendInfo {
@@ -25,17 +16,13 @@ pub struct TxPresendInfo {
 }
 
 pub struct TxBuilder {
-    provider: Arc<RootProvider<Ethereum>>,
+    provider: DynProvider,
     tx: Option<TransactionRequest>,
 }
 
 impl TxBuilder {
-    pub fn new() -> Self {
-        let provider = new_provider();
-        Self {
-            provider: Arc::new(provider),
-            tx: None,
-        }
+    pub fn new(provider: DynProvider) -> Self {
+        Self { provider, tx: None }
     }
 
     pub async fn get_tx_count(&self, address: Address) -> Result<u64, String> {
@@ -155,14 +142,24 @@ impl TxBuilder {
     }
 }
 
+fn parse_tx_amount(token_symbol: String, amount: String) -> Result<U256, String> {
+    if token_symbol == "ETH" {
+        return parse_ether(&amount).map_err(|e| e.to_string());
+    }
+    U256::from_str(&amount).map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ethereum::new_provider;
+    use alloy::providers::ProviderBuilder;
     use std::str::FromStr;
 
     #[tokio::test]
     async fn test_eth_prepare_send_tx() {
-        let mut builder = TxBuilder::new();
+        let provider = new_provider();
+        let mut builder = TxBuilder::new(provider);
 
         let value = "100".to_string();
         let recipient = Address::from_str("0x0000000000000000000000000000000000000000").unwrap();
@@ -172,5 +169,42 @@ mod tests {
             .await
             .unwrap();
         println!("{:?}", res);
+    }
+
+    #[tokio::test]
+    async fn test_eth_prepare_send_tokens() {
+        let rpc_url = "https://reth-ethereum.ithaca.xyz/rpc";
+        let provider = ProviderBuilder::new()
+            .connect_anvil_with_wallet_and_config(|anvil| anvil.fork(rpc_url))
+            .unwrap();
+
+        let block_number = provider.get_block_number().await.unwrap();
+        println!("blocnum {}", block_number);
+
+        // // Create two users, Alice and Bob.
+        // let accounts = provider.get_accounts().await?;
+        // let alice = accounts[0];
+        // let bob = accounts[1];
+
+        // // Deploy the `ERC20Example` contract.
+        // let contract = ERC20Example::deploy(provider).await?;
+
+        // // Register the balances of Alice and Bob before the transfer.
+        // let alice_before_balance = contract.balanceOf(alice).call().await?;
+        // let bob_before_balance = contract.balanceOf(bob).call().await?;
+
+        // // Transfer and wait for inclusion.
+        // let amount = U256::from(100);
+        // let tx_hash = contract.transfer(bob, amount).send().await?.watch().await?;
+
+        // println!("Sent transaction: {tx_hash}");
+
+        // // Register the balances of Alice and Bob after the transfer.
+        // let alice_after_balance = contract.balanceOf(alice).call().await?;
+        // let bob_after_balance = contract.balanceOf(bob).call().await?;
+
+        // // Check the balances of Alice and Bob after the transfer.
+        // assert_eq!(alice_before_balance - alice_after_balance, amount);
+        // assert_eq!(bob_after_balance - bob_before_balance, amount);
     }
 }

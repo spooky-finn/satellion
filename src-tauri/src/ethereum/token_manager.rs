@@ -2,17 +2,12 @@ use crate::config::Chain;
 use crate::db;
 use crate::ethereum::token::Token;
 use crate::repository::TokenRepository;
-use alloy::{
-    network::Ethereum,
-    primitives::Address,
-    providers::{Provider, ProviderBuilder, RootProvider},
-    sol,
-};
+use alloy::{primitives::Address, providers::Provider, sol};
+use alloy_provider::DynProvider;
 use bigdecimal::{BigDecimal, Zero};
 use diesel::result;
 use futures;
 use std::str::FromStr;
-use std::time::Duration;
 
 sol!(
     #[sol(rpc)]
@@ -27,12 +22,12 @@ pub struct TokenBalance {
 }
 
 pub struct TokenManager {
-    provider: RootProvider<Ethereum>,
+    provider: DynProvider,
     repository: TokenRepository,
 }
 
 impl TokenManager {
-    pub fn new(provider: RootProvider<Ethereum>, repository: TokenRepository) -> Self {
+    pub fn new(provider: DynProvider, repository: TokenRepository) -> Self {
         Self {
             provider,
             repository,
@@ -67,20 +62,12 @@ impl TokenManager {
         tokens: Vec<Token>,
     ) -> impl std::future::Future<Output = Result<Vec<TokenBalance>, String>> + Send {
         async move {
-            let provider_batched = ProviderBuilder::new()
-                .layer(
-                    alloy::providers::layers::CallBatchLayer::new().wait(Duration::from_millis(50)),
-                )
-                .connect_provider(self.provider.clone());
-
             let balance_futures: Vec<_> = tokens
                 .iter()
                 .map(|token| {
-                    let provider_clone = provider_batched.clone();
-                    let contract = Erc20Contract::Erc20ContractInstance::new(
-                        token.address,
-                        provider_clone.clone(),
-                    );
+                    let provider_clone = self.provider.root();
+                    let contract =
+                        Erc20Contract::Erc20ContractInstance::new(token.address, provider_clone);
                     let tx_request = contract.balanceOf(address).into_transaction_request();
 
                     let balance_future = async move {

@@ -7,7 +7,8 @@ use crate::{db, ethereum, session};
 use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::primitives::Address;
 use alloy::primitives::utils::format_units;
-use alloy::providers::{Provider, RootProvider};
+use alloy::providers::Provider;
+use alloy_provider::DynProvider;
 use serde::Serialize;
 use specta::{Type, specta};
 use std::str::FromStr;
@@ -21,7 +22,7 @@ pub struct ChainInfo {
 
 #[specta]
 #[tauri::command]
-pub async fn eth_chain_info(provider: tauri::State<'_, RootProvider>) -> Result<ChainInfo, String> {
+pub async fn eth_chain_info(provider: tauri::State<'_, DynProvider>) -> Result<ChainInfo, String> {
     let block = provider
         .get_block(BlockId::Number(BlockNumberOrTag::Latest))
         .await
@@ -57,7 +58,7 @@ pub struct Balance {
 pub async fn eth_get_balance(
     address: String,
     wallet_id: i32,
-    provider: tauri::State<'_, RootProvider>,
+    provider: tauri::State<'_, DynProvider>,
     token_manager: tauri::State<'_, TokenManager>,
 ) -> Result<Balance, String> {
     let provider = provider.inner();
