@@ -1,7 +1,6 @@
 use crate::config::CONFIG;
-use crate::ethereum::token_manager::TokenManager;
-use crate::{db, ethereum::constants::mainnet::DEFAULT_TOKENS};
-use alloy::network::Ethereum;
+use crate::eth::token_manager::TokenManager;
+use crate::{db, eth::constants::mainnet::DEFAULT_TOKENS};
 use alloy::providers::RootProvider;
 use alloy_provider::{DynProvider, Provider, ProviderBuilder};
 use std::time::Duration;
@@ -9,8 +8,7 @@ use tauri::Url;
 
 pub fn new_provider() -> DynProvider {
     let rpc_url = CONFIG.ethereum.rpc_url.clone();
-    RootProvider::<Ethereum>::new_http(Url::parse(&rpc_url).expect("Invalid RPC URL for Ethereum"))
-        .erased()
+    RootProvider::new_http(Url::parse(&rpc_url).expect("Invalid RPC URL for Ethereum")).erased()
 }
 
 pub fn new_provider_batched() -> DynProvider {
@@ -18,6 +16,15 @@ pub fn new_provider_batched() -> DynProvider {
     ProviderBuilder::new()
         .layer(alloy::providers::layers::CallBatchLayer::new().wait(Duration::from_millis(50)))
         .connect_provider(provider)
+        .erased()
+}
+
+#[cfg(test)]
+pub fn new_provider_anvil() -> DynProvider {
+    let rpc_url = "https://reth-ethereum.ithaca.xyz/rpc";
+    ProviderBuilder::new()
+        .connect_anvil_with_wallet_and_config(|anvil| anvil.fork(rpc_url))
+        .expect("failed to create anvil provider")
         .erased()
 }
 

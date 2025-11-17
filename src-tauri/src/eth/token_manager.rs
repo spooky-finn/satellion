@@ -1,7 +1,4 @@
-use crate::config::Chain;
-use crate::db;
-use crate::ethereum::token::Token;
-use crate::repository::TokenRepository;
+use crate::{config::Chain, db, eth::token::Token, repository::TokenRepository};
 use alloy::{primitives::Address, providers::Provider, sol};
 use alloy_provider::DynProvider;
 use bigdecimal::{BigDecimal, Zero};
@@ -12,7 +9,7 @@ use std::str::FromStr;
 sol!(
     #[sol(rpc)]
     Erc20Contract,
-    "src/ethereum/abi/erc20.json"
+    "src/eth/abi/erc20.json"
 );
 
 #[derive(Debug, Clone)]
@@ -21,6 +18,7 @@ pub struct TokenBalance {
     pub balance: BigDecimal,
 }
 
+#[derive(Debug)]
 pub struct TokenManager {
     provider: DynProvider,
     repository: TokenRepository,
@@ -46,13 +44,33 @@ impl TokenManager {
         self.repository.load(wallet_id, chain_id)
     }
 
+    pub fn load(
+        &self,
+        wallet_id: i32,
+        chain_id: Chain,
+        token_symbol: String,
+    ) -> Result<db::Token, result::Error> {
+        self.repository.get(wallet_id, chain_id, token_symbol)
+    }
+
     pub fn get_token_info(
         &self,
         token_address: Address,
     ) -> impl std::future::Future<Output = Result<Token, String>> + Send {
         async move {
-            // For now, return placeholder values until we can solve the ERC20 contract issue
-            Ok(Token::new(token_address, "UNKNOWN".to_string(), 18))
+            let erc20 =
+                Erc20Contract::Erc20ContractInstance::new(token_address, self.provider.clone());
+            let symbol_result = erc20
+                .symbol()
+                .call()
+                .await
+                .map_err(|e| format!("Failed to fetch token symbol: {}", e))?;
+            let decimals_result = erc20
+                .decimals()
+                .call()
+                .await
+                .map_err(|e| format!("Failed to fetch token decimals: {}", e))?;
+            Ok(Token::new(token_address, symbol_result, decimals_result))
         }
     }
 
@@ -125,7 +143,7 @@ impl Clone for TokenManager {
 
 #[cfg(test)]
 mod tests {
-    use crate::ethereum::{constants::mainnet::DEFAULT_TOKENS, new_provider};
+    use crate::eth::{constants::mainnet::DEFAULT_TOKENS, new_provider};
 
     use super::*;
     use alloy::primitives::Address;

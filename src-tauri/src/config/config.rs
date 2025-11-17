@@ -1,4 +1,4 @@
-use crate::{bitcoin::config::BitcoinConfig, ethereum::config::EthereumConfig};
+use crate::{btc::config::BitcoinConfig, eth::config::EthereumConfig};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::fs;

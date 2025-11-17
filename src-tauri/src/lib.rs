@@ -1,10 +1,10 @@
 mod app_state;
-mod bitcoin;
+mod btc;
 mod commands;
 mod config;
 mod db;
-mod envelope_encryption;
-mod ethereum;
+mod encryptor;
+mod eth;
 mod mnemonic;
 mod repository;
 mod schema;
@@ -31,11 +31,12 @@ pub fn run() {
     let wallet_repository = WalletRepository::new(db.clone());
     let wallet_service = WalletService::new(wallet_repository.clone());
     let token_repository = TokenRepository::new(db.clone());
-    let eth_provider: alloy_provider::DynProvider = ethereum::new_provider();
-    let eth_batch_provider = ethereum::new_provider_batched();
+    let eth_provider: alloy_provider::DynProvider = eth::new_provider();
+    let eth_batch_provider = eth::new_provider_batched();
     let token_manager =
-        ethereum::token_manager::TokenManager::new(eth_provider.clone(), token_repository.clone());
-    let tx_builder = ethereum::TxBuilder::new(eth_batch_provider);
+        eth::token_manager::TokenManager::new(eth_provider.clone(), token_repository.clone());
+    let tx_builder = eth::TxBuilder::new(eth_batch_provider);
+    let price_feed = eth::PriceFeed::new(eth_provider.clone());
 
     let builder =
         tauri_specta::Builder::<tauri::Wry>::new().commands(tauri_specta::collect_commands![
@@ -45,14 +46,14 @@ pub fn run() {
             commands::list_wallets,
             commands::unlock_wallet,
             commands::forget_wallet,
-            bitcoin::commands::start_node,
-            ethereum::commands::eth_chain_info,
-            ethereum::commands::eth_get_balance,
-            ethereum::commands::eth_prepare_send_tx,
-            ethereum::commands::eth_sign_and_send_tx,
-            ethereum::commands::eth_verify_address,
-            ethereum::commands::eth_track_token,
-            ethereum::commands::eth_untrack_token,
+            btc::commands::start_node,
+            eth::commands::eth_chain_info,
+            eth::commands::eth_get_balance,
+            eth::commands::eth_prepare_send_tx,
+            eth::commands::eth_sign_and_send_tx,
+            eth::commands::eth_verify_address,
+            eth::commands::eth_track_token,
+            eth::commands::eth_untrack_token,
         ]);
 
     #[cfg(debug_assertions)]
@@ -73,6 +74,7 @@ pub fn run() {
         .manage(token_repository)
         .manage(eth_provider.clone())
         .manage(token_manager)
+        .manage(price_feed)
         .manage(Mutex::new(tx_builder))
         .manage(tokio::sync::Mutex::new(session::Store::new()))
         .setup(move |app| {

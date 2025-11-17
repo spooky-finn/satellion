@@ -1,7 +1,7 @@
-use specta::specta;
 use crate::app_state::AppState;
-use crate::bitcoin;
+use crate::btc;
 use crate::repository::ChainRepository;
+use specta::specta;
 use std::sync::Arc;
 
 #[specta]
@@ -17,7 +17,7 @@ pub async fn start_node(
     };
 
     // Try to connect the regtest neutrino node with headers
-    let neutrino = match bitcoin::neutrino::Neutrino::connect_regtest(block_headers) {
+    let neutrino = match btc::neutrino::Neutrino::connect_regtest(block_headers) {
         Ok(val) => val,
         Err(e) => {
             eprintln!("Failed to connect to regtest: {}", e);
@@ -36,7 +36,7 @@ pub async fn start_node(
         }
     });
 
-    tauri::async_runtime::spawn(bitcoin::neutrino::handle_chain_updates(
+    tauri::async_runtime::spawn(btc::neutrino::handle_chain_updates(
         client, app_state, repository,
     ));
 

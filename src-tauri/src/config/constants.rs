@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-#[derive(Type, Serialize, Deserialize)]
+#[derive(Type, Serialize, Deserialize, Debug, Clone)]
 pub enum Chain {
     Bitcoin = 0,
     Ethereum = 1,

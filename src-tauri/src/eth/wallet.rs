@@ -31,9 +31,8 @@ pub fn unlock(mnemonic: &str, passphrase: &str) -> Result<EthereumUnlock, LocalS
 
 #[cfg(test)]
 mod tests {
-    use crate::mnemonic;
-
     use super::*;
+    use crate::mnemonic;
 
     #[test]
     fn test_construct_private_key() {

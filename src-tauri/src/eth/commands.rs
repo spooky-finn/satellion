@@ -1,13 +1,14 @@
 use crate::config::Chain;
-use crate::ethereum::token::Token;
-use crate::ethereum::token_manager::TokenManager;
-use crate::repository::TokenRepository;
-use crate::wallet_service::WalletService;
-use crate::{db, ethereum, session};
-use alloy::eips::{BlockId, BlockNumberOrTag};
-use alloy::primitives::Address;
-use alloy::primitives::utils::format_units;
-use alloy::providers::Provider;
+use crate::eth::PriceFeed;
+use crate::eth::{
+    constants::mainnet::ETH, token::Token, token_manager::TokenManager, tx_builder::TransferRequest,
+};
+use crate::{db, eth, repository::TokenRepository, session, wallet_service::WalletService};
+use alloy::{
+    eips::{BlockId, BlockNumberOrTag},
+    primitives::{Address, utils::format_units},
+    providers::Provider,
+};
 use alloy_provider::DynProvider;
 use serde::Serialize;
 use specta::{Type, specta};
@@ -60,6 +61,7 @@ pub async fn eth_get_balance(
     wallet_id: i32,
     provider: tauri::State<'_, DynProvider>,
     token_manager: tauri::State<'_, TokenManager>,
+    price_feed: tauri::State<'_, PriceFeed>,
 ) -> Result<Balance, String> {
     let provider = provider.inner();
     let address = Address::from_str(&address).map_err(|e| e.to_string())?;
@@ -96,7 +98,7 @@ pub async fn eth_get_balance(
             address: b.token.address.to_string(),
         })
         .collect();
-    let eth = ethereum::constants::mainnet::ETH.clone();
+    let eth = eth::constants::mainnet::ETH.clone();
 
     let eth_balance = format_units(wei_balance, "ether").map_err(|e| e.to_string())?;
     token_balances.push(TokenBalance {
@@ -105,8 +107,7 @@ pub async fn eth_get_balance(
         decimals: eth.decimals,
         address: eth.address.to_string(),
     });
-    let price_feeder = ethereum::price_feed::PriceFeeder::new()?;
-    let eth_price = price_feeder.get_eth_price().await?.to_string();
+    let eth_price = price_feed.get_eth_price().await?.to_string();
     Ok(Balance {
         wei: wei_balance.to_string(),
         eth_price,
@@ -128,9 +129,10 @@ pub async fn eth_prepare_send_tx(
     token_symbol: String,
     amount: String,
     recipient: String,
-    builder: tauri::State<'_, tokio::sync::Mutex<ethereum::TxBuilder>>,
+    builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
     storage: tauri::State<'_, WalletService>,
+    token_manager: tauri::State<'_, TokenManager>,
 ) -> Result<PrepareTxReqRes, String> {
     let mut session_store = session_store.lock().await;
     let session = session_store.get(wallet_id);
@@ -142,15 +144,38 @@ pub async fn eth_prepare_send_tx(
         .load(wallet_id, passphrase.clone())
         .map_err(|e| e.to_string())?;
     let signer =
-        ethereum::wallet::create_private_key(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
+        eth::wallet::create_private_key(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
 
     let sender = signer.address();
     let recipient =
         Address::from_str(&recipient).map_err(|e| format!("Invalid recipient address: {e}"))?;
 
+    let token = if token_symbol.to_uppercase() != "ETH" {
+        match token_manager.load(wallet_id, Chain::Ethereum, token_symbol.clone()) {
+            Ok(t) => Token::new(
+                Address::from_slice(&t.address),
+                t.symbol.clone(),
+                t.decimals as u8,
+            ),
+            Err(e) => {
+                return Err(format!(
+                    "Failed to load token info for {}: {}",
+                    token_symbol, e
+                ));
+            }
+        }
+    } else {
+        ETH.clone()
+    };
+
     let mut builder = builder.try_lock().map_err(|e| e.to_string())?;
     let res = builder
-        .eth_prepare_send_tx(token_symbol, amount, sender, recipient)
+        .eth_create_transfer(TransferRequest {
+            token,
+            raw_amount: amount,
+            sender,
+            recipient,
+        })
         .await?;
     Ok(PrepareTxReqRes {
         estimated_gas: res.estimated_gas.to_string(),
@@ -163,7 +188,7 @@ pub async fn eth_prepare_send_tx(
 #[tauri::command]
 pub async fn eth_sign_and_send_tx(
     wallet_id: i32,
-    builder: tauri::State<'_, tokio::sync::Mutex<ethereum::TxBuilder>>,
+    builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
     storage: tauri::State<'_, WalletService>,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
 ) -> Result<String, String> {
@@ -177,7 +202,7 @@ pub async fn eth_sign_and_send_tx(
         .load(wallet_id, passphrase.clone())
         .map_err(|e| e.to_string())?;
     let signer =
-        ethereum::wallet::create_private_key(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
+        eth::wallet::create_private_key(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
 
     let mut builder = builder.try_lock().map_err(|e| e.to_string())?;
     let hash = builder.sign_and_send_tx(&signer).await?;

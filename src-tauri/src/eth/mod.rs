@@ -9,4 +9,5 @@ pub mod tx_builder;
 pub mod wallet;
 
 pub use init::*;
+pub use price_feed::PriceFeed;
 pub use tx_builder::TxBuilder;

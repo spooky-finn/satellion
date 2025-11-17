@@ -1,30 +1,24 @@
-use crate::config::CONFIG;
-use crate::ethereum::constants::mainnet::ETH_USD_PRICE_FEED;
-use alloy::network::Ethereum;
-use alloy::primitives::utils::format_units;
-use alloy::primitives::{Address, U256};
-use alloy::providers::RootProvider;
-use alloy::sol;
+use crate::eth::constants::mainnet::ETH_USD_PRICE_FEED;
+use alloy::{
+    primitives::{Address, U256, utils::format_units},
+    sol,
+};
+use alloy_provider::DynProvider;
 use std::str::FromStr;
-use tauri::Url;
 
 sol!(
     #[sol(rpc)]
     ChainlinkPriceFeed,
-    "src/ethereum/abi/chainlink.json"
+    "src/eth/abi/chainlink.json"
 );
 
-pub struct PriceFeeder {
-    provider: RootProvider<Ethereum>,
+pub struct PriceFeed {
+    provider: DynProvider,
 }
 
-impl PriceFeeder {
-    pub fn new() -> Result<Self, String> {
-        let rpc_url = CONFIG.ethereum.rpc_url.clone();
-        let provider = RootProvider::<Ethereum>::new_http(
-            Url::parse(&rpc_url).map_err(|e| format!("Invalid RPC URL: {e}"))?,
-        );
-        Ok(Self { provider })
+impl PriceFeed {
+    pub fn new(provider: DynProvider) -> Self {
+        Self { provider }
     }
 
     pub async fn get_eth_price(&self) -> Result<String, String> {

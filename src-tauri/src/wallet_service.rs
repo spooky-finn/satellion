@@ -3,7 +3,7 @@
 //! This module provides wallet-specific wrappers around the generic
 //! envelope encryption module for storing cryptocurrency mnemonics.
 
-use crate::{db, envelope_encryption, mnemonic, repository::WalletRepository};
+use crate::{db, encryptor, mnemonic, repository::WalletRepository};
 use chrono::Utc;
 
 pub struct WalletService {
@@ -31,7 +31,7 @@ impl WalletService {
         if name.is_empty() {
             name = format!("Wallet {}", id);
         }
-        let envelope = envelope_encryption::encrypt(mnemonic.as_bytes(), passphrase.as_bytes())?;
+        let envelope = encryptor::encrypt(mnemonic.as_bytes(), passphrase.as_bytes())?;
         let wallet = db::Wallet {
             id,
             name: Some(name),
@@ -50,12 +50,12 @@ impl WalletService {
     pub fn load(&self, wallet_id: i32, passphrase: String) -> Result<String, String> {
         let wallet = self.repository.get(wallet_id).map_err(|e| e.to_string())?;
 
-        let envelope = envelope_encryption::EncryptedData {
+        let envelope = encryptor::EncryptedData {
             ciphertext: wallet.encrypted_key.clone(),
             wrapped_key: wallet.key_wrapped.clone(),
             kdf_salt: wallet.kdf_salt.clone(),
         };
-        let mnemonic_bytes = envelope_encryption::decrypt(&envelope, passphrase.as_bytes())?;
+        let mnemonic_bytes = encryptor::decrypt(&envelope, passphrase.as_bytes())?;
         let mnemonic =
             String::from_utf8(mnemonic_bytes).map_err(|_| "Invalid UTF-8 in decrypted mnemonic")?;
 

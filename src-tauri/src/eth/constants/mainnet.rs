@@ -1,4 +1,4 @@
-use crate::ethereum::token::Token;
+use crate::eth::token::Token;
 use alloy::primitives::address;
 use once_cell::sync::Lazy;
 

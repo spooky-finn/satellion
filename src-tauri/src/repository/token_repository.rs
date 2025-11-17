@@ -8,7 +8,7 @@ use diesel::r2d2::ConnectionManager;
 use diesel::result::Error;
 use r2d2::Pool;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TokenRepository {
     base: BaseRepository,
 }
@@ -18,6 +18,21 @@ impl TokenRepository {
         Self {
             base: BaseRepository::new(db_pool),
         }
+    }
+
+    pub fn get(
+        &self,
+        wallet_id: i32,
+        chain: Chain,
+        token_symbol: String,
+    ) -> Result<db::Token, Error> {
+        let mut conn = self.base.get_conn()?;
+        schema::tokens::table
+            .filter(schema::tokens::wallet_id.eq(wallet_id))
+            .filter(schema::tokens::chain.eq(i32::from(chain)))
+            .filter(schema::tokens::symbol.eq(token_symbol))
+            .select(schema::tokens::all_columns)
+            .get_result::<db::Token>(&mut conn)
     }
 
     /// Load all tokens for a given wallet and chain

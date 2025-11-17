@@ -1,11 +1,11 @@
 use crate::config::Config;
-use crate::ethereum::init::init_ethereum;
-use crate::ethereum::token_manager::TokenManager;
+use crate::eth::init::init_ethereum;
+use crate::eth::token_manager::TokenManager;
 use crate::repository::{AvailableWallet, WalletRepository};
 use crate::wallet_service::WalletService;
 use crate::{app_state::AppState, db::BlockHeader, schema};
-use crate::{bitcoin, session};
-use crate::{ethereum, mnemonic};
+use crate::{btc, session};
+use crate::{eth, mnemonic};
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use serde::Serialize;
 use specta::{Type, specta};
@@ -71,8 +71,8 @@ pub async fn list_wallets(
 
 #[derive(Type, Serialize)]
 pub struct UnlockMsg {
-    ethereum: ethereum::wallet::EthereumUnlock,
-    bitcoin: bitcoin::wallet::BitcoinUnlock,
+    ethereum: eth::wallet::EthereumUnlock,
+    bitcoin: btc::wallet::BitcoinUnlock,
 }
 
 #[specta]
@@ -85,10 +85,9 @@ pub async fn unlock_wallet(
     token_manager: tauri::State<'_, TokenManager>,
 ) -> Result<UnlockMsg, String> {
     let mnemonic = wallet_store.load(wallet_id, passphrase.clone())?;
-    let eth_unlock_data =
-        ethereum::wallet::unlock(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
+    let eth_unlock_data = eth::wallet::unlock(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
     let bitcoin_unlock_data =
-        bitcoin::wallet::unlock(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
+        btc::wallet::unlock(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
     session_store.lock().await.start(session::Session::new(
         wallet_id,
         passphrase,
