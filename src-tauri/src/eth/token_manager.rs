@@ -53,7 +53,7 @@ impl TokenManager {
         self.repository.get(wallet_id, chain_id, token_symbol)
     }
 
-    pub fn get_token_info(
+    pub fn request_token_info(
         &self,
         token_address: Address,
     ) -> impl std::future::Future<Output = Result<Token, String>> + Send {
@@ -74,7 +74,7 @@ impl TokenManager {
         }
     }
 
-    pub fn get_balances(
+    pub fn request_balances(
         &self,
         address: Address,
         tokens: Vec<Token>,
@@ -155,7 +155,7 @@ mod tests {
         let repository = TokenRepository::new(db::connect());
         let token_manager = TokenManager::new(new_provider(), repository);
         let tokens: Vec<Token> = DEFAULT_TOKENS.to_vec();
-        let result = token_manager.get_balances(address, tokens).await;
+        let result = token_manager.request_balances(address, tokens).await;
         assert!(result.is_ok(), "get_balances should not error");
         println!("res {:?}", result);
 
@@ -185,7 +185,7 @@ mod tests {
         // Test with USDC contract address
         let usdc_address = Address::from_str("A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48").unwrap();
 
-        let result = tm.get_token_info(usdc_address).await;
+        let result = tm.request_token_info(usdc_address).await;
 
         // Note: This test may fail if we don't have internet access or the RPC is down
         // In a real test environment, we'd mock the provider

@@ -85,7 +85,7 @@ pub async fn eth_get_balance(
         .collect();
 
     let token_balances = token_manager
-        .get_balances(address, tokens)
+        .request_balances(address, tokens)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -236,7 +236,7 @@ pub async fn eth_track_token(
         Address::from_str(&address).map_err(|e| format!("Invalid Ethereum address: {}", e))?;
 
     let token_info = token_manager
-        .get_token_info(token_address)
+        .request_token_info(token_address)
         .await
         .map_err(|e| format!("Failed to fetch token info: {}", e))?;
 
