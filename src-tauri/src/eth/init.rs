@@ -1,6 +1,6 @@
 use crate::config::CONFIG;
 use crate::eth::token_manager::TokenManager;
-use crate::{db, eth::constants::mainnet::DEFAULT_TOKENS};
+use crate::{db, eth::constants::DEFAULT_TOKENS};
 use alloy::providers::RootProvider;
 use alloy_provider::{DynProvider, Provider, ProviderBuilder};
 use std::time::Duration;
@@ -20,11 +20,11 @@ pub fn new_provider_batched() -> DynProvider {
 }
 
 #[cfg(test)]
+/// May panic if anvil is not installed
 pub fn new_provider_anvil() -> DynProvider {
     let rpc_url = "https://reth-ethereum.ithaca.xyz/rpc";
     ProviderBuilder::new()
-        .connect_anvil_with_wallet_and_config(|anvil| anvil.fork(rpc_url))
-        .expect("failed to create anvil provider")
+        .connect_anvil_with_config(|anvil| anvil.fork(rpc_url).path(CONFIG.ethereum.anvil_bin()))
         .erased()
 }
 

@@ -1,5 +1,5 @@
 use crate::eth::token::Token;
-use alloy::primitives::address;
+use alloy::primitives::{Address, address};
 use once_cell::sync::Lazy;
 
 pub static ETH: Lazy<Token> = Lazy::<Token>::new(|| {
@@ -31,4 +31,4 @@ pub static USDT: Lazy<Token> = Lazy::<Token>::new(|| {
 pub static DEFAULT_TOKENS: Lazy<Vec<Token>> =
     Lazy::<Vec<Token>>::new(|| vec![USDC.clone(), USDT.clone()]);
 
-pub const ETH_USD_PRICE_FEED: &str = "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419";
+pub const ETH_USD_PRICE_FEED: Address = address!("0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419");

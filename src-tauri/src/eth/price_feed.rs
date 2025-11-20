@@ -1,10 +1,8 @@
-use crate::eth::constants::mainnet::ETH_USD_PRICE_FEED;
 use alloy::{
     primitives::{Address, U256, utils::format_units},
     sol,
 };
 use alloy_provider::DynProvider;
-use std::str::FromStr;
 
 sol!(
     #[sol(rpc)]
@@ -21,12 +19,9 @@ impl PriceFeed {
         Self { provider }
     }
 
-    pub async fn get_eth_price(&self) -> Result<String, String> {
-        let price_feed_address = Address::from_str(ETH_USD_PRICE_FEED)
-            .map_err(|e| format!("Invalid price feed address: {e}"))?;
-
+    pub async fn get_eth(&self, contract_address: Address) -> Result<String, String> {
         let contract = ChainlinkPriceFeed::ChainlinkPriceFeedInstance::new(
-            price_feed_address,
+            contract_address,
             self.provider.clone(),
         );
 

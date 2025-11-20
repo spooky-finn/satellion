@@ -78,10 +78,11 @@ impl TxBuilder {
         };
 
         let builder = self.builder_factory.create_builder(&req.token.symbol);
-        let tx_info = builder.build_transaction(req, context).await?;
+        let tx_base = builder.build_transaction(req, context).await?;
+        let tx_build = self.calc_gas(tx_base).await?;
 
-        self.pending_tx = Some(tx_info.transaction);
-        Ok(tx_info.metadata)
+        self.pending_tx = Some(tx_build.transaction);
+        Ok(tx_build.metadata)
     }
 
     pub async fn sign_and_send_tx(
@@ -112,6 +113,38 @@ impl TxBuilder {
         let hash = pending_tx.tx_hash().clone();
         Ok(hash)
     }
+
+    async fn calc_gas(&self, tx: TransactionRequest) -> Result<Build, String> {
+        let estimated_gas = self
+            .provider
+            .estimate_gas(tx.clone())
+            .await
+            .map_err(|e| format!("Failed to estimate gas: {e}"))?;
+
+        let estimator = self
+            .provider
+            .estimate_eip1559_fees()
+            .await
+            .map_err(|e| format!("Failed to estimate EIP-1559 fees: {e}"))?;
+
+        let final_tx = tx
+            .with_max_fee_per_gas(estimator.max_fee_per_gas)
+            .with_max_priority_fee_per_gas(estimator.max_priority_fee_per_gas)
+            .with_gas_limit(estimated_gas);
+
+        let fee_ceiling: alloy::primitives::Uint<256, 4> =
+            U256::from(estimated_gas) * U256::from(estimator.max_fee_per_gas);
+        let tx_fee_ether = format_units(fee_ceiling, "ether").map_err(|e| e.to_string())?;
+
+        Ok(Build {
+            transaction: final_tx.clone(),
+            metadata: TransactionMetadata {
+                estimated_gas,
+                max_fee_per_gas: estimator.max_fee_per_gas,
+                cost: tx_fee_ether,
+            },
+        })
+    }
 }
 
 fn parse_tx_amount(token_symbol: String, amount: String) -> Result<U256, String> {
@@ -139,7 +172,7 @@ pub trait TransferBuilder {
         &self,
         req: TransferRequest,
         ctx: TransferContext,
-    ) -> Result<Build, String>;
+    ) -> Result<TransactionRequest, String>;
 }
 
 pub enum TransferBuilderType {
@@ -152,7 +185,7 @@ impl TransferBuilder for TransferBuilderType {
         &self,
         req: TransferRequest,
         ctx: TransferContext,
-    ) -> Result<Build, String> {
+    ) -> Result<TransactionRequest, String> {
         match self {
             TransferBuilderType::Ether(b) => b.build_transaction(req, ctx).await,
             TransferBuilderType::Token(b) => b.build_transaction(req, ctx).await,
@@ -176,9 +209,8 @@ impl TransferBuilder for EtherTransferBuilder {
         &self,
         req: TransferRequest,
         ctx: TransferContext,
-    ) -> Result<Build, String> {
+    ) -> Result<TransactionRequest, String> {
         let tx_value = parse_tx_amount(req.token.symbol.clone(), req.raw_amount)?;
-
         let tx = TransactionRequest::default()
             .with_from(req.sender)
             .with_to(req.recipient)
@@ -186,58 +218,34 @@ impl TransferBuilder for EtherTransferBuilder {
             .with_chain_id(ctx.chain_id)
             .with_nonce(ctx.nonce);
 
-        let balance = ctx
-            .provider
-            .get_balance(req.sender)
-            .await
-            .map_err(|e| format!("Failed to get balance: {e}"))?;
+        // let balance = ctx
+        //     .provider
+        //     .get_balance(req.sender)
+        //     .await
+        //     .map_err(|e| format!("Failed to get balance: {e}"))?;
 
-        let estimated_gas = ctx
-            .provider
-            .estimate_gas(tx.clone())
-            .await
-            .map_err(|e| format!("Failed to estimate gas: {e}"))?;
+        // let fee_ceiling = U256::from(estimated_gas) * U256::from(estimator.max_fee_per_gas);
+        // let tx_amount = tx_value.saturating_add(fee_ceiling);
+        // let ether_tx_amount = format_units(fee_ceiling, "ether").map_err(|e| e.to_string())?;
 
-        let estimator = ctx
-            .provider
-            .estimate_eip1559_fees()
-            .await
-            .map_err(|e| format!("Failed to estimate EIP-1559 fees: {e}"))?;
+        // if balance < tx_amount {
+        //     if balance < fee_ceiling {
+        //         let formatted_balance =
+        //             format_units(balance, "ether").map_err(|e| e.to_string())?;
+        //         return Err(format!(
+        //             "Insufficient funds: total balance is {}, but estimated fee cost is {}",
+        //             formatted_balance, ether_tx_amount
+        //         ));
+        //     } else {
+        //         let possible_send_amount = balance.saturating_sub(fee_ceiling);
+        //         return Err(format!(
+        //             "Insufficient funds: you can send a maximum of {}",
+        //             format_units(possible_send_amount, "ether").map_err(|e| e.to_string())?
+        //         ));
+        //     }
+        // }
 
-        let fee_ceiling = U256::from(estimated_gas) * U256::from(estimator.max_fee_per_gas);
-        let tx_amount = tx_value.saturating_add(fee_ceiling);
-        let ether_tx_amount = format_units(fee_ceiling, "ether").map_err(|e| e.to_string())?;
-
-        if balance < tx_amount {
-            if balance < fee_ceiling {
-                let formatted_balance =
-                    format_units(balance, "ether").map_err(|e| e.to_string())?;
-                return Err(format!(
-                    "Insufficient funds: total balance is {}, but estimated fee cost is {}",
-                    formatted_balance, ether_tx_amount
-                ));
-            } else {
-                let possible_send_amount = balance.saturating_sub(fee_ceiling);
-                return Err(format!(
-                    "Insufficient funds: you can send a maximum of {}",
-                    format_units(possible_send_amount, "ether").map_err(|e| e.to_string())?
-                ));
-            }
-        }
-
-        let final_tx = tx
-            .with_max_fee_per_gas(estimator.max_fee_per_gas)
-            .with_max_priority_fee_per_gas(estimator.max_priority_fee_per_gas)
-            .with_gas_limit(estimated_gas);
-
-        Ok(Build {
-            transaction: final_tx,
-            metadata: TransactionMetadata {
-                estimated_gas,
-                max_fee_per_gas: estimator.max_fee_per_gas,
-                cost: ether_tx_amount,
-            },
-        })
+        Ok(tx)
     }
 }
 
@@ -248,7 +256,7 @@ impl TransferBuilder for TokenTransferBuilder {
         &self,
         req: TransferRequest,
         ctx: TransferContext,
-    ) -> Result<Build, String> {
+    ) -> Result<TransactionRequest, String> {
         let value = U256::from_str(req.raw_amount.as_str())
             .map_err(|e| format!("failed to parse amount {}", e))?;
 
@@ -262,43 +270,49 @@ impl TransferBuilder for TokenTransferBuilder {
             .with_chain_id(ctx.chain_id)
             .with_nonce(ctx.nonce);
 
-        let estimated_gas = ctx
-            .provider
-            .estimate_gas(tx.clone())
-            .await
-            .map_err(|e| format!("Failed to estimate gas: {e}"))?;
+        // let estimated_gas = ctx
+        //     .provider
+        //     .estimate_gas(tx.clone())
+        //     .await
+        //     .map_err(|e| format!("Failed to estimate gas: {e}"))?;
 
-        let estimator = ctx
-            .provider
-            .estimate_eip1559_fees()
-            .await
-            .map_err(|e| format!("Failed to estimate EIP-1559 fees: {e}"))?;
+        // let estimator = ctx
+        //     .provider
+        //     .estimate_eip1559_fees()
+        //     .await
+        //     .map_err(|e| format!("Failed to estimate EIP-1559 fees: {e}"))?;
 
-        let fee_ceiling = U256::from(estimated_gas) * U256::from(estimator.max_fee_per_gas);
-        let ether_fee_amount = format_units(fee_ceiling, "ether").map_err(|e| e.to_string())?;
+        // let fee_ceiling = U256::from(estimated_gas) * U256::from(estimator.max_fee_per_gas);
+        // let ether_fee_amount = format_units(fee_ceiling, "ether").map_err(|e| e.to_string())?;
 
-        let final_tx = tx
-            .with_max_fee_per_gas(estimator.max_fee_per_gas)
-            .with_max_priority_fee_per_gas(estimator.max_priority_fee_per_gas)
-            .with_gas_limit(estimated_gas);
+        // let final_tx = tx
+        //     .with_max_fee_per_gas(estimator.max_fee_per_gas)
+        //     .with_max_priority_fee_per_gas(estimator.max_priority_fee_per_gas)
+        //     .with_gas_limit(estimated_gas);
 
-        Ok(Build {
-            transaction: final_tx,
-            metadata: TransactionMetadata {
-                estimated_gas,
-                max_fee_per_gas: estimator.max_fee_per_gas,
-                cost: ether_fee_amount,
-            },
-        })
+        // Ok(Build {
+        //     transaction: final_tx,
+        //     metadata: TransactionMetadata {
+        //         estimated_gas,
+        //         max_fee_per_gas: estimator.max_fee_per_gas,
+        //         cost: ether_fee_amount,
+        //     },
+        // })
+        Ok(tx)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use alloy_provider::{PendingTransactionConfig, ext::AnvilApi};
+    use alloy_signer_local::LocalSigner;
+    use bitcoin::psbt::raw;
+
     use super::*;
     use crate::eth::{
-        constants::mainnet::{ETH, USDT},
+        constants::{ETH, USDT},
         new_provider, new_provider_anvil,
+        token_manager::Erc20Retriever,
     };
     use std::str::FromStr;
 
@@ -360,14 +374,74 @@ mod tests {
     #[tokio::test]
     async fn test_eth_prepare_send_tokens() {
         let provider = new_provider_anvil();
-        let block_number = provider.get_block_number().await.unwrap();
-        println!("blocnum {}", block_number);
+        let mut builder = TxBuilder::new(provider.clone());
+        let erc20_retriver = Erc20Retriever::new(provider.clone());
 
-        let vitalik = Address::from_str("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045").unwrap();
+        let token_address = USDT.address;
+        let sender = LocalSigner::random();
+        let amount = 100000000; // 0.01 USDT with 6 decimals
 
-        let balance = provider.get_balance(vitalik).await.unwrap();
+        match provider
+            .anvil_set_balance(
+                sender.address(),
+                U256::from_str("10000000000000000000").unwrap(),
+            )
+            .await
+        {
+            Ok(_) => {}
+            Err(e) => {
+                panic!("Error setting balance: {}", e);
+            }
+        };
+        provider
+            .anvil_deal_erc20(sender.address(), token_address, U256::from(amount))
+            .await
+            .unwrap();
+
+        let recipient = LocalSigner::random();
+
+        let balance = provider.get_balance(sender.address()).await.unwrap();
         let formated_balance = format_units(balance, "eth").unwrap();
         print!("formated_balance {}", formated_balance);
+
+        match builder
+            .eth_create_transfer(TransferRequest {
+                token: USDT.clone(),
+                raw_amount: amount.to_string(),
+                sender: sender.address(),
+                recipient: recipient.address(),
+            })
+            .await
+        {
+            Ok(tx) => {
+                println!("tx {:?}", tx);
+            }
+            Err(e) => {
+                panic!("Error creating transfer: {}", e);
+            }
+        };
+
+        let tx_hash = builder.sign_and_send_tx(&sender).await.unwrap();
+        println!("tx hash {:?}", tx_hash);
+
+        let tx_receipt = provider
+            .watch_pending_transaction(PendingTransactionConfig::new(tx_hash))
+            .await
+            .unwrap();
+
+        println!("tx receipt {:?}", tx_receipt);
+        let balance = erc20_retriver
+            .get_balances(recipient.address(), vec![USDT.clone()])
+            .await
+            .unwrap();
+
+        balance.iter().for_each(|tb| {
+            println!("Token: {}, Balance: {}", tb.token.symbol, tb.balance);
+        });
+        // let receiver_balance = provider
+        //     .(USDT.address, recipient.address())
+        //     .await
+        //     .unwrap();
         // // Create two users, Alice and Bob.
         // let accounts = provider.get_accounts().await?;
         // let alice = accounts[0];

@@ -20,16 +20,12 @@ pub struct TokenBalance {
 
 #[derive(Debug)]
 pub struct TokenManager {
-    provider: DynProvider,
     repository: TokenRepository,
 }
 
 impl TokenManager {
-    pub fn new(provider: DynProvider, repository: TokenRepository) -> Self {
-        Self {
-            provider,
-            repository,
-        }
+    pub fn new(repository: TokenRepository) -> Self {
+        Self { repository }
     }
 
     pub fn insert_default_tokens(&self, tokens: Vec<db::Token>) -> Result<usize, result::Error> {
@@ -52,8 +48,27 @@ impl TokenManager {
     ) -> Result<db::Token, result::Error> {
         self.repository.get(wallet_id, chain_id, token_symbol)
     }
+}
 
-    pub fn request_token_info(
+impl Clone for TokenManager {
+    fn clone(&self) -> Self {
+        Self {
+            repository: self.repository.clone(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Erc20Retriever {
+    provider: DynProvider,
+}
+
+impl Erc20Retriever {
+    pub fn new(provider: DynProvider) -> Self {
+        Self { provider }
+    }
+
+    pub fn token_info(
         &self,
         token_address: Address,
     ) -> impl std::future::Future<Output = Result<Token, String>> + Send {
@@ -74,7 +89,7 @@ impl TokenManager {
         }
     }
 
-    pub fn request_balances(
+    pub fn balances(
         &self,
         address: Address,
         tokens: Vec<Token>,
@@ -132,18 +147,9 @@ impl TokenManager {
     }
 }
 
-impl Clone for TokenManager {
-    fn clone(&self) -> Self {
-        Self {
-            provider: self.provider.clone(),
-            repository: self.repository.clone(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::eth::{constants::mainnet::DEFAULT_TOKENS, new_provider};
+    use crate::eth::{constants::DEFAULT_TOKENS, new_provider};
 
     use super::*;
     use alloy::primitives::Address;
@@ -152,10 +158,9 @@ mod tests {
     #[tokio::test]
     async fn test_get_balance() {
         let address = Address::from_str("d8da6bf26964af9d7eed9e03e53415d37aa96045").unwrap();
-        let repository = TokenRepository::new(db::connect());
-        let token_manager = TokenManager::new(new_provider(), repository);
+        let retriver = Erc20Retriever::new(new_provider());
         let tokens: Vec<Token> = DEFAULT_TOKENS.to_vec();
-        let result = token_manager.request_balances(address, tokens).await;
+        let result = retriver.balances(address, tokens).await;
         assert!(result.is_ok(), "get_balances should not error");
         println!("res {:?}", result);
 
@@ -179,14 +184,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_token_info() {
-        let repository = TokenRepository::new(db::connect());
-        let tm = TokenManager::new(new_provider(), repository);
-
+        let retriver = Erc20Retriever::new(new_provider());
         // Test with USDC contract address
         let usdc_address = Address::from_str("A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48").unwrap();
-
-        let result = tm.request_token_info(usdc_address).await;
-
+        let result = retriver.token_info(usdc_address).await;
         // Note: This test may fail if we don't have internet access or the RPC is down
         // In a real test environment, we'd mock the provider
         if result.is_ok() {

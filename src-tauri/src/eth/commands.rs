@@ -1,7 +1,9 @@
 use crate::config::Chain;
 use crate::eth::PriceFeed;
+use crate::eth::constants::ETH_USD_PRICE_FEED;
+use crate::eth::token_manager::Erc20Retriever;
 use crate::eth::{
-    constants::mainnet::ETH, token::Token, token_manager::TokenManager, tx_builder::TransferRequest,
+    constants::ETH, token::Token, token_manager::TokenManager, tx_builder::TransferRequest,
 };
 use crate::{db, eth, repository::TokenRepository, session, wallet_service::WalletService};
 use alloy::{
@@ -61,6 +63,7 @@ pub async fn eth_get_balance(
     wallet_id: i32,
     provider: tauri::State<'_, DynProvider>,
     token_manager: tauri::State<'_, TokenManager>,
+    erc20_retriever: tauri::State<'_, Erc20Retriever>,
     price_feed: tauri::State<'_, PriceFeed>,
 ) -> Result<Balance, String> {
     let provider = provider.inner();
@@ -84,8 +87,8 @@ pub async fn eth_get_balance(
         })
         .collect();
 
-    let token_balances = token_manager
-        .request_balances(address, tokens)
+    let token_balances = erc20_retriever
+        .balances(address, tokens)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -98,7 +101,7 @@ pub async fn eth_get_balance(
             address: b.token.address.to_string(),
         })
         .collect();
-    let eth = eth::constants::mainnet::ETH.clone();
+    let eth = eth::constants::ETH.clone();
 
     let eth_balance = format_units(wei_balance, "ether").map_err(|e| e.to_string())?;
     token_balances.push(TokenBalance {
@@ -107,7 +110,7 @@ pub async fn eth_get_balance(
         decimals: eth.decimals,
         address: eth.address.to_string(),
     });
-    let eth_price = price_feed.get_eth_price().await?.to_string();
+    let eth_price = price_feed.get_eth(ETH_USD_PRICE_FEED).await?.to_string();
     Ok(Balance {
         wei: wei_balance.to_string(),
         eth_price,
@@ -230,13 +233,13 @@ pub async fn eth_track_token(
     wallet_id: i32,
     address: String,
     token_repository: tauri::State<'_, TokenRepository>,
-    token_manager: tauri::State<'_, TokenManager>,
+    erc20_retriever: tauri::State<'_, Erc20Retriever>,
 ) -> Result<TokenType, String> {
     let token_address =
         Address::from_str(&address).map_err(|e| format!("Invalid Ethereum address: {}", e))?;
 
-    let token_info = token_manager
-        .request_token_info(token_address)
+    let token_info = erc20_retriever
+        .token_info(token_address)
         .await
         .map_err(|e| format!("Failed to fetch token info: {}", e))?;
 
@@ -247,7 +250,6 @@ pub async fn eth_track_token(
         address: token_address.as_slice().to_vec(),
         decimals: token_info.decimals as i32,
     };
-
     token_repository
         .insert(token_entity)
         .map_err(|e| format!("Failed to insert token: {}", e))?;

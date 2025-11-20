@@ -33,8 +33,8 @@ pub fn run() {
     let token_repository = TokenRepository::new(db.clone());
     let eth_provider: alloy_provider::DynProvider = eth::new_provider();
     let eth_batch_provider = eth::new_provider_batched();
-    let token_manager =
-        eth::token_manager::TokenManager::new(eth_provider.clone(), token_repository.clone());
+    let token_manager = eth::token_manager::TokenManager::new(token_repository.clone());
+    let token_retriever = eth::token_manager::Erc20Retriever::new(eth_provider.clone());
     let tx_builder = eth::TxBuilder::new(eth_batch_provider);
     let price_feed = eth::PriceFeed::new(eth_provider.clone());
 
@@ -74,6 +74,7 @@ pub fn run() {
         .manage(token_repository)
         .manage(eth_provider.clone())
         .manage(token_manager)
+        .manage(token_retriever)
         .manage(price_feed)
         .manage(Mutex::new(tx_builder))
         .manage(tokio::sync::Mutex::new(session::Store::new()))
