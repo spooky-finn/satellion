@@ -1,10 +1,12 @@
 use crate::{config::Chain, db, eth::token::Token, repository::TokenRepository};
-use alloy::{primitives::Address, providers::Provider, sol};
+use alloy::{
+    primitives::{Address, Uint},
+    providers::Provider,
+    sol,
+};
 use alloy_provider::DynProvider;
-use bigdecimal::{BigDecimal, Zero};
 use diesel::result;
 use futures;
-use std::str::FromStr;
 
 sol!(
     #[sol(rpc)]
@@ -15,7 +17,7 @@ sol!(
 #[derive(Debug, Clone)]
 pub struct TokenBalance {
     pub token: Token,
-    pub balance: BigDecimal,
+    pub balance: Uint<256, 4>,
 }
 
 #[derive(Debug)]
@@ -102,7 +104,6 @@ impl Erc20Retriever {
                     let contract =
                         Erc20Contract::Erc20ContractInstance::new(token.address, provider_clone);
                     let tx_request = contract.balanceOf(address).into_transaction_request();
-
                     let balance_future = async move {
                         provider_clone
                             .call(tx_request)
@@ -113,36 +114,20 @@ impl Erc20Retriever {
                 })
                 .collect();
 
-            // Execute all balance calls concurrently (will be batched by CallBatchLayer)
             let results = futures::future::join_all(balance_futures).await;
+            let balances: Result<Vec<_>, String> = results
+                .into_iter()
+                .zip(tokens)
+                .map(|(result, token)| {
+                    let token_symbol = token.symbol.clone();
+                    result
+                        .map_err(|e| format!("Failed to execute batch call: {}", e))?
+                        .map(|balance| TokenBalance { token, balance })
+                        .map_err(|e| format!("Failed to fetch balance for {}: {}", token_symbol, e))
+                })
+                .collect();
 
-            // Process results and collect successful balances
-            let mut token_balances = Vec::new();
-            for (i, result) in results.into_iter().enumerate() {
-                match result {
-                    Ok(balance_call) => {
-                        let token = tokens[i].clone();
-                        match balance_call {
-                            Ok(balance_bytes) => {
-                                let balance = BigDecimal::from_str(&balance_bytes.to_string())
-                                    .unwrap_or_else(|_| BigDecimal::zero())
-                                    / BigDecimal::from(10_i64.pow(token.decimals as u32));
-
-                                token_balances.push(TokenBalance { token, balance });
-                            }
-                            Err(e) => {
-                                return Err(format!(
-                                    "Failed to fetch balance for {}: {}",
-                                    token.symbol, e
-                                ));
-                            }
-                        }
-                    }
-                    Err(e) => return Err(format!("Failed to execute batch call: {}", e)),
-                }
-            }
-
-            Ok(token_balances)
+            Ok(balances?)
         }
     }
 }
@@ -168,7 +153,6 @@ mod tests {
             for token_balance in &balances {
                 assert!(!token_balance.token.symbol.is_empty());
                 assert!(token_balance.token.decimals > 0);
-                assert!(token_balance.balance >= BigDecimal::zero());
             }
 
             assert!(

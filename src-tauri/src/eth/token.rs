@@ -1,4 +1,8 @@
-use alloy::primitives::Address;
+use alloy::primitives::{Address, U256};
+use bigdecimal::{
+    BigDecimal,
+    num_bigint::{BigInt, Sign},
+};
 
 #[derive(Debug, Clone)]
 pub struct Token {
@@ -16,12 +20,12 @@ impl Token {
         }
     }
 
-    // pub fn get_balance(&self, amount: U256) -> BigDecimal {
-    //     BigDecimal::from((
-    //         BigInt::from_bytes_be(Sign::Plus, &amount.to_be_bytes::<{ U256::BYTES }>()),
-    //         self.decimals as i64,
-    //     ))
-    // }
+    pub fn get_balance(&self, amount: U256) -> BigDecimal {
+        BigDecimal::from((
+            BigInt::from_bytes_be(Sign::Plus, &amount.to_be_bytes::<{ U256::BYTES }>()),
+            self.decimals as i64,
+        ))
+    }
 }
 
 impl PartialEq for Token {

@@ -95,7 +95,7 @@ pub async fn eth_get_balance(
     let mut token_balances: Vec<TokenBalance> = token_balances
         .iter()
         .map(|b| TokenBalance {
-            balance: b.balance.to_plain_string(),
+            balance: b.token.get_balance(b.balance).to_string(),
             symbol: b.token.symbol.clone(),
             decimals: b.token.decimals,
             address: b.token.address.to_string(),
@@ -173,7 +173,7 @@ pub async fn eth_prepare_send_tx(
 
     let mut builder = builder.try_lock().map_err(|e| e.to_string())?;
     let res = builder
-        .eth_create_transfer(TransferRequest {
+        .create_transfer(TransferRequest {
             token,
             raw_amount: amount,
             sender,
@@ -182,7 +182,7 @@ pub async fn eth_prepare_send_tx(
         .await?;
     Ok(PrepareTxReqRes {
         estimated_gas: res.estimated_gas.to_string(),
-        max_fee_per_gas: res.max_fee_per_gas.to_string(),
+        max_fee_per_gas: res.estimator.max_fee_per_gas.to_string(),
         cost: res.cost,
     })
 }
