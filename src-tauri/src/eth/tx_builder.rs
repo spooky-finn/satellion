@@ -19,6 +19,8 @@ sol!(
     "src/eth/abi/erc20.json"
 );
 
+const ETH_CHAIN_ID: u64 = 1;
+
 #[derive(Debug, Clone)]
 pub struct TransferRequest {
     pub token: Token,
@@ -40,8 +42,6 @@ pub struct TxBuilder {
     pending_tx: Option<TransactionRequest>,
 }
 
-pub struct TransferBuilderFactory;
-
 impl TxBuilder {
     pub fn new(provider: DynProvider) -> Self {
         Self {
@@ -58,21 +58,14 @@ impl TxBuilder {
             .map_err(|e| format!("Failed to get transaction count: {e}"))
     }
 
-    /// Method creates transafer transaction and store it in the memory
-    /// to wait until user confirms and sign transaction later
+    /// Method creates transafer transaction for Ether or ERC20 tokens and store it in the session
     pub async fn create_transfer(
         &mut self,
         req: TransferRequest,
     ) -> Result<TransactionMetadata, String> {
-        let chain_id = self
-            .provider
-            .get_chain_id()
-            .await
-            .map_err(|e| format!("Failed to get chain id: {e}"))?;
         let nonce = self.get_tx_count(req.sender).await?;
         let ctx = TransferContext {
             provider: self.provider.clone(),
-            chain_id,
             nonce,
         };
 
@@ -170,7 +163,6 @@ pub struct Build {
 #[derive(Debug, Clone)]
 pub struct TransferContext {
     pub provider: DynProvider,
-    pub chain_id: u64,
     pub nonce: u64,
 }
 
@@ -231,6 +223,8 @@ impl BalanceChecker for TransferBuilderType {
     }
 }
 
+pub struct TransferBuilderFactory;
+
 impl TransferBuilderFactory {
     pub fn create_builder(&self, token_symbol: &str) -> TransferBuilderType {
         match token_symbol.to_uppercase().as_str() {
@@ -253,7 +247,7 @@ impl TransferBuilder for EtherTransferBuilder {
             .with_from(req.sender)
             .with_to(req.recipient)
             .with_value(value)
-            .with_chain_id(ctx.chain_id)
+            .with_chain_id(ETH_CHAIN_ID)
             .with_nonce(ctx.nonce);
         Ok(tx)
     }
@@ -314,7 +308,7 @@ impl TransferBuilder for TokenTransferBuilder {
         let tx = transfer_call
             .into_transaction_request()
             .with_from(req.sender)
-            .with_chain_id(ctx.chain_id)
+            .with_chain_id(ETH_CHAIN_ID)
             .with_nonce(ctx.nonce);
         Ok(tx)
     }
@@ -347,21 +341,44 @@ mod tests {
 
     #[tokio::test]
     async fn test_send_eth() {
-        let provider = new_provider();
-        let mut builder = TxBuilder::new(provider);
-        let raw_amount = "0.01".to_string();
-        let recipient = Address::from_str("0x0000000000000000000000000000000000000000").unwrap();
-        let sender = Address::from_str("0x0000000000000000000000000000000000000000").unwrap();
-        let res = builder
+        let provider = new_provider_anvil();
+        let mut builder = TxBuilder::new(provider.clone());
+
+        let raw_amount = "0.01".to_string(); // 0.01 ETH 
+        let alice = LocalSigner::random();
+        let bob = LocalSigner::random();
+        // mint eth to alice wallet
+        let alice_initial_balance = parse_ether("1").expect("invalid alice balance"); // 1 ETH
+        provider
+            .anvil_set_balance(alice.address(), alice_initial_balance)
+            .await
+            .expect("failed to mint ETH to alice");
+
+        builder
             .create_transfer(TransferRequest {
                 token: ETH.clone(),
                 raw_amount,
-                sender,
-                recipient,
+                sender: alice.address(),
+                recipient: bob.address(),
             })
             .await
             .unwrap();
-        println!("{:?}", res);
+        // sign and send tx
+        let tx_hash = builder
+            .sign_and_send_tx(&alice)
+            .await
+            .expect("failed to send tx");
+
+        provider
+            .watch_pending_transaction(PendingTransactionConfig::new(tx_hash))
+            .await
+            .unwrap();
+
+        let bob_balance = provider
+            .get_balance(bob.address())
+            .await
+            .expect("failed to get bob balance");
+        assert_eq!(bob_balance, parse_ether("0.01").unwrap());
     }
 
     #[tokio::test]

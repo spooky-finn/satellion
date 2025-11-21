@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,7 +23,6 @@ impl EthereumConfig {
         path.push(".foundry/bin/anvil");
         path
     }
-
 }
 
 impl Default for EthereumConfig {
