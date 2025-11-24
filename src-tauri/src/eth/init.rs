@@ -1,5 +1,5 @@
 use crate::config::CONFIG;
-use crate::eth::token_manager::TokenManager;
+use crate::repository::TokenRepository;
 use crate::{db, eth::constants::DEFAULT_TOKENS};
 use alloy::providers::RootProvider;
 use alloy_provider::{DynProvider, Provider, ProviderBuilder};
@@ -28,7 +28,7 @@ pub fn new_provider_anvil() -> DynProvider {
         .erased()
 }
 
-pub fn init_ethereum(token_manager: &TokenManager, wallet_id: i32) -> Result<usize, String> {
+pub fn init_ethereum(token_repository: &TokenRepository, wallet_id: i32) -> Result<usize, String> {
     let tokens: Vec<db::Token> = DEFAULT_TOKENS
         .iter()
         .map(|token| db::Token {
@@ -40,7 +40,7 @@ pub fn init_ethereum(token_manager: &TokenManager, wallet_id: i32) -> Result<usi
         })
         .collect();
 
-    token_manager
-        .insert_default_tokens(tokens)
+    token_repository
+        .insert_or_ignore_many(tokens)
         .map_err(|e| format!("failed to insert default ethereum tokens {}", e))
 }

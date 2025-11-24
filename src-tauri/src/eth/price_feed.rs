@@ -19,7 +19,7 @@ impl PriceFeed {
         Self { provider }
     }
 
-    pub async fn get_eth(&self, contract_address: Address) -> Result<String, String> {
+    pub async fn get_price(&self, contract_address: Address) -> Result<String, String> {
         let contract = ChainlinkPriceFeed::ChainlinkPriceFeedInstance::new(
             contract_address,
             self.provider.clone(),

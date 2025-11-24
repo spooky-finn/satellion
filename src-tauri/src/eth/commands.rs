@@ -2,9 +2,8 @@ use crate::config::Chain;
 use crate::eth::PriceFeed;
 use crate::eth::constants::ETH_USD_PRICE_FEED;
 use crate::eth::token_manager::Erc20Retriever;
-use crate::eth::{
-    constants::ETH, token::Token, token_manager::TokenManager, tx_builder::TransferRequest,
-};
+use crate::eth::wallet::parse_addres;
+use crate::eth::{constants::ETH, token::Token, tx_builder::TransferRequest};
 use crate::{db, eth, repository::TokenRepository, session, wallet_service::WalletService};
 use alloy::{
     eips::{BlockId, BlockNumberOrTag},
@@ -62,18 +61,18 @@ pub async fn eth_get_balance(
     address: String,
     wallet_id: i32,
     provider: tauri::State<'_, DynProvider>,
-    token_manager: tauri::State<'_, TokenManager>,
+    token_repository: tauri::State<'_, TokenRepository>,
     erc20_retriever: tauri::State<'_, Erc20Retriever>,
     price_feed: tauri::State<'_, PriceFeed>,
 ) -> Result<Balance, String> {
     let provider = provider.inner();
-    let address = Address::from_str(&address).map_err(|e| e.to_string())?;
+    let address = parse_addres(&address)?;
     let wei_balance = provider
         .get_balance(address)
         .await
         .map_err(|e| e.to_string())?;
-    let db_tokens = token_manager
-        .load_all(wallet_id, Chain::Ethereum)
+    let db_tokens = token_repository
+        .load(wallet_id, Chain::Ethereum)
         .map_err(|e| format!("Failed to load token list: {}", e))?;
 
     let tokens: Vec<Token> = db_tokens
@@ -110,7 +109,7 @@ pub async fn eth_get_balance(
         decimals: eth.decimals,
         address: eth.address.to_string(),
     });
-    let eth_price = price_feed.get_eth(ETH_USD_PRICE_FEED).await?.to_string();
+    let eth_price = price_feed.get_price(ETH_USD_PRICE_FEED).await?.to_string();
     Ok(Balance {
         wei: wei_balance.to_string(),
         eth_price,
@@ -135,7 +134,7 @@ pub async fn eth_prepare_send_tx(
     builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
     storage: tauri::State<'_, WalletService>,
-    token_manager: tauri::State<'_, TokenManager>,
+    token_repository: tauri::State<'_, TokenRepository>,
 ) -> Result<PrepareTxReqRes, String> {
     let mut session_store = session_store.lock().await;
     let session = session_store.get(wallet_id);
@@ -150,11 +149,10 @@ pub async fn eth_prepare_send_tx(
         eth::wallet::create_private_key(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
 
     let sender = signer.address();
-    let recipient =
-        Address::from_str(&recipient).map_err(|e| format!("Invalid recipient address: {e}"))?;
+    let recipient = parse_addres(&recipient)?;
 
     let token = if token_symbol.to_uppercase() != "ETH" {
-        match token_manager.load(wallet_id, Chain::Ethereum, token_symbol.clone()) {
+        match token_repository.get(wallet_id, Chain::Ethereum, token_symbol.clone()) {
             Ok(t) => Token::new(
                 Address::from_slice(&t.address),
                 t.symbol.clone(),
@@ -235,9 +233,7 @@ pub async fn eth_track_token(
     token_repository: tauri::State<'_, TokenRepository>,
     erc20_retriever: tauri::State<'_, Erc20Retriever>,
 ) -> Result<TokenType, String> {
-    let token_address =
-        Address::from_str(&address).map_err(|e| format!("Invalid Ethereum address: {}", e))?;
-
+    let token_address = parse_addres(&address)?;
     let token_info = erc20_retriever
         .token_info(token_address)
         .await
@@ -268,9 +264,7 @@ pub async fn eth_untrack_token(
     address: String,
     token_repository: tauri::State<'_, TokenRepository>,
 ) -> Result<bool, String> {
-    let token_address =
-        Address::from_str(&address).map_err(|e| format!("Invalid Ethereum address: {}", e))?;
-
+    let token_address = parse_addres(&address)?;
     let rows_affected = token_repository
         .remove(wallet_id, Chain::Ethereum, token_address.as_slice())
         .map_err(|e| format!("Failed to remove token: {}", e))?;

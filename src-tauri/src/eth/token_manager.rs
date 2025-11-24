@@ -1,11 +1,10 @@
-use crate::{config::Chain, db, eth::token::Token, repository::TokenRepository};
+use crate::eth::token::Token;
 use alloy::{
     primitives::{Address, Uint},
     providers::Provider,
     sol,
 };
 use alloy_provider::DynProvider;
-use diesel::result;
 use futures;
 
 sol!(
@@ -18,46 +17,6 @@ sol!(
 pub struct TokenBalance {
     pub token: Token,
     pub balance: Uint<256, 4>,
-}
-
-#[derive(Debug)]
-pub struct TokenManager {
-    repository: TokenRepository,
-}
-
-impl TokenManager {
-    pub fn new(repository: TokenRepository) -> Self {
-        Self { repository }
-    }
-
-    pub fn insert_default_tokens(&self, tokens: Vec<db::Token>) -> Result<usize, result::Error> {
-        self.repository.insert_or_ignore_many(tokens)
-    }
-
-    pub fn load_all(
-        &self,
-        wallet_id: i32,
-        chain_id: Chain,
-    ) -> Result<Vec<db::Token>, result::Error> {
-        self.repository.load(wallet_id, chain_id)
-    }
-
-    pub fn load(
-        &self,
-        wallet_id: i32,
-        chain_id: Chain,
-        token_symbol: String,
-    ) -> Result<db::Token, result::Error> {
-        self.repository.get(wallet_id, chain_id, token_symbol)
-    }
-}
-
-impl Clone for TokenManager {
-    fn clone(&self) -> Self {
-        Self {
-            repository: self.repository.clone(),
-        }
-    }
 }
 
 #[derive(Debug)]

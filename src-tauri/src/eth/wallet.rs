@@ -1,6 +1,12 @@
+use alloy::primitives::Address;
 use alloy_signer_local::{
     LocalSignerError, MnemonicBuilder, PrivateKeySigner, coins_bip39::English,
 };
+use std::str::FromStr;
+
+pub fn parse_addres(addres: &String) -> Result<Address, String> {
+    Address::from_str(&addres).map_err(|e| format!("Invalid Ethereum address: {}", e))
+}
 
 pub fn create_private_key(
     mnemonic: &str,
