@@ -42,7 +42,7 @@ mod tests {
 
     #[test]
     fn test_construct_private_key() {
-        let mnemonic = mnemonic::new();
+        let mnemonic = mnemonic::new().unwrap();
         let passphrase = "test passphrase";
         let result = create_private_key(&mnemonic, passphrase);
         match result {

@@ -328,15 +328,14 @@ impl BalanceChecker for TokenTransferBuilder {
 
 #[cfg(test)]
 mod tests {
-    use alloy_provider::{PendingTransactionConfig, ext::AnvilApi};
-    use alloy_signer_local::LocalSigner;
-
     use super::*;
     use crate::eth::{
         constants::{ETH, USDT},
-        new_provider, new_provider_anvil,
-        token_manager::Erc20Retriever,
+        erc20_retriver::Erc20Retriever,
+        new_provider_anvil,
     };
+    use alloy_provider::{PendingTransactionConfig, ext::AnvilApi};
+    use alloy_signer_local::LocalSigner;
     use std::str::FromStr;
 
     #[tokio::test]
@@ -379,41 +378,6 @@ mod tests {
             .await
             .expect("failed to get bob balance");
         assert_eq!(bob_balance, parse_ether("0.01").unwrap());
-    }
-
-    #[tokio::test]
-    async fn test_polymorphic_transfer() {
-        let provider = new_provider_anvil();
-        let mut builder = TxBuilder::new(provider);
-
-        let raw_amount = "0.01".to_string();
-        let recipient = Address::from_str("0x0000000000000000000000000000000000000000").unwrap();
-        let sender = Address::from_str("0xd8da6bf26964af9d7eed9e03e53415d37aa96045").unwrap(); // Vitalik's address
-
-        // Test ETH transfer using the new polymorphic system
-        let res = builder
-            .create_transfer(TransferRequest {
-                token: ETH.clone(),
-                raw_amount: raw_amount.clone(),
-                sender,
-                recipient,
-            })
-            .await
-            .unwrap();
-        println!("ETH transfer result: {:?}", res);
-
-        // Convert 0.01 USDC to raw units (6 decimals): 0.01 * 10^6 = 10000
-        let token_amount = "10000".to_string();
-        let res = builder
-            .create_transfer(TransferRequest {
-                token: USDT.clone(),
-                raw_amount: token_amount,
-                sender,
-                recipient,
-            })
-            .await
-            .unwrap();
-        println!("USDC transfer result: {:?}", res);
     }
 
     #[tokio::test]

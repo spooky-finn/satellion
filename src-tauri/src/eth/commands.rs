@@ -1,7 +1,7 @@
 use crate::config::Chain;
 use crate::eth::PriceFeed;
 use crate::eth::constants::ETH_USD_PRICE_FEED;
-use crate::eth::token_manager::Erc20Retriever;
+use crate::eth::erc20_retriver::Erc20Retriever;
 use crate::eth::wallet::parse_addres;
 use crate::eth::{constants::ETH, token::Token, tx_builder::TransferRequest};
 use crate::{db, eth, repository::TokenRepository, session, wallet_service::WalletService};
@@ -131,7 +131,7 @@ pub async fn eth_prepare_send_tx(
     token_symbol: String,
     amount: String,
     recipient: String,
-    builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
+    tx_builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
     storage: tauri::State<'_, WalletService>,
     token_repository: tauri::State<'_, TokenRepository>,
@@ -169,7 +169,7 @@ pub async fn eth_prepare_send_tx(
         ETH.clone()
     };
 
-    let mut builder = builder.try_lock().map_err(|e| e.to_string())?;
+    let mut builder = tx_builder.try_lock().map_err(|e| e.to_string())?;
     let res = builder
         .create_transfer(TransferRequest {
             token,

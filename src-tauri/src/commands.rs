@@ -44,7 +44,7 @@ pub async fn chain_status(
 #[specta]
 #[tauri::command]
 pub async fn generate_mnemonic() -> Result<String, String> {
-    Ok(mnemonic::new())
+    Ok(mnemonic::new()?)
 }
 
 #[specta]
