@@ -1,10 +1,10 @@
-# Satellion - open-source community driven bitcoin wallet
+# Satellion - absolutely open-source community driven bitcoin & ethereum wallet
 
 **Annotation**
 
-We will develop a lightweight, secure, and transparent Bitcoin wallet featuring a friendly, step-by-step ask-and-confirm interaction model. The project is non-profit and aimed primarily at experienced users who want straightforward, trustworthy self-custody without trading functions or unnecessary complexity.
+We will develop a lightweight, secure, and transparent wallet featuring a friendly, step-by-step ask-and-confirm interaction model. The project is non-profit and aimed primarily at experienced users who want straightforward, trustworthy self-custody without trading functions or unnecessary complexity.
 
-The initial release will support Bitcoin and Ethereum. Consideration of other assets will be deferred until much later, and only after careful evaluation.
+The initial release will support Bitcoin and Ethereum. Consideration of other blockchains will be deferred until much later, and only after careful evaluation.
 
 ## Principles
 
