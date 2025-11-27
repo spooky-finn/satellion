@@ -1,10 +1,10 @@
 use crate::config::Config;
-use crate::eth::init::init_ethereum;
 use crate::repository::{AvailableWallet, TokenRepository, WalletRepository};
 use crate::wallet_service::WalletService;
 use crate::{app_state::AppState, db::BlockHeader, schema};
 use crate::{btc, session};
 use crate::{eth, mnemonic};
+use alloy_provider::DynProvider;
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use serde::Serialize;
 use specta::{Type, specta};
@@ -79,6 +79,7 @@ pub struct UnlockMsg {
 pub async fn unlock_wallet(
     wallet_id: i32,
     passphrase: String,
+    provider: tauri::State<'_, DynProvider>,
     wallet_store: tauri::State<'_, WalletService>,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
     token_repository: tauri::State<'_, TokenRepository>,
@@ -93,7 +94,13 @@ pub async fn unlock_wallet(
         Config::session_exp_duration(),
     ));
 
-    init_ethereum(&token_repository, wallet_id)?;
+    crate::eth::init::init_ethereum(
+        provider.inner(),
+        &token_repository,
+        wallet_id,
+        &eth_unlock_data,
+    )
+    .await?;
 
     Ok(UnlockMsg {
         ethereum: eth_unlock_data,

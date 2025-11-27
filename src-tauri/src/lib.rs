@@ -32,7 +32,7 @@ pub fn run() {
     let wallet_service = WalletService::new(wallet_repository.clone());
     let token_repository = TokenRepository::new(db.clone());
     let eth_provider: alloy_provider::DynProvider = eth::new_provider();
-    let eth_batch_provider = eth::new_provider_batched();
+    let eth_batch_provider = eth::new_provider_batched(eth_provider.clone());
     let token_retriever = eth::erc20_retriver::Erc20Retriever::new(eth_provider.clone());
     let tx_builder = eth::TxBuilder::new(eth_batch_provider);
     let price_feed = eth::PriceFeed::new(eth_provider.clone());

@@ -25,7 +25,7 @@ pub fn create_private_key(
 
 #[derive(serde::Serialize, specta::Type)]
 pub struct EthereumUnlock {
-    address: String,
+    pub address: String,
 }
 
 pub fn unlock(mnemonic: &str, passphrase: &str) -> Result<EthereumUnlock, LocalSignerError> {

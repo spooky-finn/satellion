@@ -13,6 +13,13 @@ sol!(
     "src/eth/abi/erc20.json"
 );
 
+pub fn new_contract_api(
+    provider: DynProvider,
+    contract: Address,
+) -> Erc20Contract::Erc20ContractInstance<DynProvider> {
+    Erc20Contract::Erc20ContractInstance::new(contract, provider)
+}
+
 #[derive(Debug, Clone)]
 pub struct TokenBalance {
     pub token: Token,
@@ -34,8 +41,7 @@ impl Erc20Retriever {
         token_address: Address,
     ) -> impl std::future::Future<Output = Result<Token, String>> + Send {
         async move {
-            let erc20 =
-                Erc20Contract::Erc20ContractInstance::new(token_address, self.provider.clone());
+            let erc20 = new_contract_api(self.provider.clone(), token_address);
             let symbol_result = erc20
                 .symbol()
                 .call()
@@ -60,8 +66,7 @@ impl Erc20Retriever {
                 .iter()
                 .map(|token| {
                     let provider_clone = self.provider.root();
-                    let contract =
-                        Erc20Contract::Erc20ContractInstance::new(token.address, provider_clone);
+                    let contract = new_contract_api(self.provider.clone(), token.address);
                     let tx_request = contract.balanceOf(address).into_transaction_request();
                     let balance_future = async move {
                         provider_clone

@@ -4,7 +4,7 @@
 //! including both ETH transfers and ERC20 token transfers. It includes utilities for
 //! gas estimation, balance checking, and transaction signing/broadcasting.
 //!
-use crate::eth::token::Token;
+use crate::eth::{erc20_retriver::new_contract_api, token::Token};
 use alloy::{
     consensus::{SignableTransaction, TxEnvelope},
     network::{TransactionBuilder, TxSignerSync},
@@ -14,7 +14,6 @@ use alloy::{
     },
     providers::Provider,
     rpc::types::TransactionRequest,
-    sol,
 };
 use alloy_provider::{DynProvider, utils::Eip1559Estimation};
 use alloy_signer_local::PrivateKeySigner;
@@ -85,12 +84,6 @@ impl std::fmt::Display for TransferBuilderError {
 }
 
 impl std::error::Error for TransferBuilderError {}
-
-sol!(
-    #[sol(rpc)]
-    Erc20Contract,
-    "src/eth/abi/erc20.json"
-);
 
 const ETH_CHAIN_ID: u64 = 1;
 
@@ -382,8 +375,7 @@ impl TransferBuilder for TokenTransferBuilder {
         let value = parse_units(&req.raw_amount, req.token.decimals)
             .map_err(|e| TransferBuilderError::AmountParse(e.to_string()))?
             .get_absolute();
-        let contract =
-            Erc20Contract::Erc20ContractInstance::new(req.token.address, ctx.provider.clone());
+        let contract = new_contract_api(ctx.provider.clone(), req.token.address);
         let transfer_call = contract.transfer(req.recipient, value);
         let tx = transfer_call
             .into_transaction_request()
@@ -406,8 +398,7 @@ impl BalanceChecker for TokenTransferBuilder {
         estimated_gas: u64,
         estimator: Eip1559Estimation,
     ) -> Result<(), TransferBuilderError> {
-        let contract =
-            Erc20Contract::Erc20ContractInstance::new(req.token.address, ctx.provider.clone());
+        let contract = new_contract_api(ctx.provider.clone(), req.token.address);
         let token_balance = contract
             .balanceOf(req.sender)
             .call()

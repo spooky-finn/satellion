@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-#[cfg(test)]
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,7 +15,6 @@ impl EthereumConfig {
         }
     }
 
-    #[cfg(test)]
     pub fn anvil_bin(&self) -> PathBuf {
         let home = std::env::var("HOME").expect("env HOME is not set");
         let mut path = PathBuf::from(home);
