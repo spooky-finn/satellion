@@ -73,7 +73,7 @@ mod tests {
         let wallet_name = "Test Wallet".to_string();
 
         let repository = WalletRepository::new(db::connect());
-        let storage = WalletService::new(repository);
+        let storage = WalletService::new(repository.clone());
 
         let encrypted_wallet = storage
             .create(mnemonic.to_string(), passphrase.to_string(), wallet_name)
@@ -82,6 +82,7 @@ mod tests {
             .load(encrypted_wallet.id, passphrase.to_string())
             .unwrap();
         assert_eq!(decrypted, mnemonic);
+        repository.delete(encrypted_wallet.id).unwrap();
     }
     #[test]
     fn test_wallet_wrong_passphrase() {
