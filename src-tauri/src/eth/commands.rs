@@ -3,7 +3,7 @@ use crate::eth::PriceFeed;
 use crate::eth::constants::ETH_USD_PRICE_FEED;
 use crate::eth::erc20_retriver::Erc20Retriever;
 use crate::eth::wallet::parse_addres;
-use crate::eth::{constants::ETH, token::Token, tx_builder::TransferRequest};
+use crate::eth::{constants::ETH, token::Token, transfer_builder::TransferRequest};
 use crate::{db, eth, repository::TokenRepository, session, wallet_service::WalletService};
 use alloy::{
     eips::{BlockId, BlockNumberOrTag},
@@ -177,7 +177,9 @@ pub async fn eth_prepare_send_tx(
             sender,
             recipient,
         })
-        .await?;
+        .await
+        .map_err(|e| e.to_string())?;
+
     Ok(PrepareTxReqRes {
         estimated_gas: res.estimated_gas.to_string(),
         max_fee_per_gas: res.estimator.max_fee_per_gas.to_string(),

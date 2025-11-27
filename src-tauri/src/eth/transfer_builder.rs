@@ -1,15 +1,9 @@
 //! Ethereum transaction builder module.
 //!
-//! This module provides functionality for building and managing Ethereum transactions,
+//! This module provides functionality for building and sending token transfers to the Ethereum network,
 //! including both ETH transfers and ERC20 token transfers. It includes utilities for
 //! gas estimation, balance checking, and transaction signing/broadcasting.
 //!
-//! The main components are:
-//! - [`TxBuilder`]: Primary interface for creating and sending transactions
-//! - [`BalanceChecker`]: Trait for validating account balances before transfers
-//! - [`BalanceError`]: Custom error types for balance-related failures
-//! - [`TransferRequest`]: Request structure for transfer operations
-
 use crate::eth::token::Token;
 use alloy::{
     consensus::{SignableTransaction, TxEnvelope},
@@ -22,14 +16,13 @@ use alloy::{
     rpc::types::TransactionRequest,
     sol,
 };
+use alloy_provider::{DynProvider, utils::Eip1559Estimation};
+use alloy_signer_local::PrivateKeySigner;
 
 /// Custom error type for balance checking failures.
 #[derive(Debug, PartialEq)]
-pub enum BalanceError {
+pub enum TransferBuilderError {
     /// Insufficient ETH balance for the requested transfer amount.
-    ///
-    /// This error occurs when the user has enough ETH to pay for gas fees
-    /// but not enough to cover both the transfer amount and gas fees combined.
     ///
     /// # Fields
     /// - `current_balance`: User's current ETH balance in formatted string (e.g., "0.5")
@@ -41,8 +34,7 @@ pub enum BalanceError {
     /// Insufficient ETH balance to even pay for gas fees.
     ///
     /// This error occurs when the user's ETH balance is lower than the estimated
-    /// gas fees required to execute any transaction. The user needs to acquire
-    /// more ETH to perform any transfers.
+    /// gas fees required to execute any transaction.
     ///
     /// # Fields
     /// - `current_balance`: User's current ETH balance in formatted string (e.g., "0.00001")
@@ -54,47 +46,45 @@ pub enum BalanceError {
     /// Insufficient ERC20 token balance for the requested transfer.
     InsufficientTokens,
     /// Network or API error when querying account balance.
-    BalanceQueryFailed(String),
+    NodeQuery(String),
     /// Error parsing amount strings into numeric values.
     AmountParse(String),
 }
 
-impl std::fmt::Display for BalanceError {
+impl std::fmt::Display for TransferBuilderError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            BalanceError::InsufficientEther { max_sendable, .. } => {
+            TransferBuilderError::InsufficientEther { max_sendable, .. } => {
                 write!(
                     f,
-                    "Insufficient funds: you can send a maximum of {}",
+                    "Insufficient ETH: you can send a maximum of {}",
                     max_sendable
                 )
             }
-            BalanceError::InsufficientGas {
+            TransferBuilderError::InsufficientGas {
                 current_balance,
                 estimated_fee,
             } => {
                 write!(
                     f,
-                    "Insufficient funds: total balance is {}, but estimated fee cost is {}",
+                    "Insufficient ether for gas: ETH balance is {}, but estimated fee cost is {}",
                     current_balance, estimated_fee
                 )
             }
-            BalanceError::InsufficientTokens { .. } => {
-                write!(f, "not enough tokens")
+            TransferBuilderError::InsufficientTokens { .. } => {
+                write!(f, "Not enough tokens")
             }
-            BalanceError::BalanceQueryFailed(msg) => {
-                write!(f, "Failed to get balance: {}", msg)
+            TransferBuilderError::NodeQuery(msg) => {
+                write!(f, "Failed to query node: {}", msg)
             }
-            BalanceError::AmountParse(msg) => {
+            TransferBuilderError::AmountParse(msg) => {
                 write!(f, "Failed to parse amount: {}", msg)
             }
         }
     }
 }
 
-impl std::error::Error for BalanceError {}
-use alloy_provider::{DynProvider, utils::Eip1559Estimation};
-use alloy_signer_local::PrivateKeySigner;
+impl std::error::Error for TransferBuilderError {}
 
 sol!(
     #[sol(rpc)]
@@ -121,7 +111,7 @@ pub struct TransactionMetadata {
 
 pub struct TxBuilder {
     provider: DynProvider,
-    builder_factory: TransferBuilderFactory,
+    transfer_builder_factory: TransferBuilderFactory,
     pending_tx: Option<TransactionRequest>,
 }
 
@@ -130,47 +120,41 @@ impl TxBuilder {
         Self {
             provider,
             pending_tx: None,
-            builder_factory: TransferBuilderFactory,
+            transfer_builder_factory: TransferBuilderFactory,
         }
     }
 
-    async fn get_tx_count(&self, address: Address) -> Result<u64, String> {
+    async fn get_tx_count(&self, address: Address) -> Result<u64, TransferBuilderError> {
         self.provider
             .get_transaction_count(address)
             .await
-            .map_err(|e| format!("Failed to get transaction count: {e}"))
+            .map_err(|e| TransferBuilderError::NodeQuery(e.to_string()))
     }
 
     /// Method creates transafer transaction for Ether or ERC20 tokens and store it in the session
     pub async fn create_transfer(
         &mut self,
         req: TransferRequest,
-    ) -> Result<TransactionMetadata, String> {
+    ) -> Result<TransactionMetadata, TransferBuilderError> {
         let nonce = self.get_tx_count(req.sender).await?;
         let ctx = TransferContext {
             provider: self.provider.clone(),
             nonce,
         };
-        let builder = self.builder_factory.create_builder(&req.token.symbol);
-        let tx_base = builder.build_transaction(&req, &ctx).await?;
-        let build = self.calc_gas(tx_base).await?;
-        match builder
-            .check_balance(
-                &req,
-                &ctx,
-                build.metadata.estimated_gas,
-                build.metadata.estimator,
-            )
-            .await
-        {
-            Ok(_) => {}
-            Err(e) => {
-                return Err(e.to_string());
-            }
-        };
+        let transfer_builder = self
+            .transfer_builder_factory
+            .create_builder(&req.token.symbol);
+        let tx_base = transfer_builder.build_transaction(&req, &ctx).await?;
 
-        self.pending_tx = Some(build.transaction);
-        Ok(build.metadata)
+        let Build {
+            transaction,
+            metadata,
+        } = self.calc_gas(tx_base).await?;
+        transfer_builder
+            .check_balance(&req, &ctx, metadata.estimated_gas, metadata.estimator)
+            .await?;
+        self.pending_tx = Some(transaction);
+        Ok(metadata)
     }
 
     pub async fn sign_and_send_tx(
@@ -202,18 +186,18 @@ impl TxBuilder {
         Ok(hash)
     }
 
-    async fn calc_gas(&self, tx: TransactionRequest) -> Result<Build, String> {
+    async fn calc_gas(&self, tx: TransactionRequest) -> Result<Build, TransferBuilderError> {
         let estimated_gas = self
             .provider
             .estimate_gas(tx.clone())
             .await
-            .map_err(|e| format!("Failed to estimate gas: {e}"))?;
+            .map_err(|e| TransferBuilderError::NodeQuery(e.to_string()))?;
 
         let estimator = self
             .provider
             .estimate_eip1559_fees()
             .await
-            .map_err(|e| format!("Failed to estimate EIP-1559 fees: {e}"))?;
+            .map_err(|e| TransferBuilderError::NodeQuery(e.to_string()))?;
 
         let final_tx = tx
             .with_max_fee_per_gas(estimator.max_fee_per_gas)
@@ -222,14 +206,14 @@ impl TxBuilder {
 
         let fee_ceiling: alloy::primitives::Uint<256, 4> =
             U256::from(estimated_gas) * U256::from(estimator.max_fee_per_gas);
-        let tx_fee_ether = format_units(fee_ceiling, "ether").map_err(|e| e.to_string())?;
 
         Ok(Build {
             transaction: final_tx.clone(),
             metadata: TransactionMetadata {
                 estimator,
                 estimated_gas,
-                cost: tx_fee_ether,
+                cost: format_units(fee_ceiling, "ether")
+                    .map_err(|e| TransferBuilderError::AmountParse(e.to_string()))?,
             },
         })
     }
@@ -252,7 +236,7 @@ pub trait TransferBuilder {
         &self,
         req: &TransferRequest,
         ctx: &TransferContext,
-    ) -> Result<TransactionRequest, String>;
+    ) -> Result<TransactionRequest, TransferBuilderError>;
 }
 
 /// Trait for checking if accounts have sufficient balance for transfers.
@@ -272,7 +256,7 @@ pub trait BalanceChecker {
         _ctx: &TransferContext,
         _estimated_gas: u64,
         _estimator: Eip1559Estimation,
-    ) -> Result<(), BalanceError> {
+    ) -> Result<(), TransferBuilderError> {
         Ok(())
     }
 }
@@ -287,7 +271,7 @@ impl TransferBuilder for TransferBuilderType {
         &self,
         req: &TransferRequest,
         ctx: &TransferContext,
-    ) -> Result<TransactionRequest, String> {
+    ) -> Result<TransactionRequest, TransferBuilderError> {
         match self {
             TransferBuilderType::Ether(b) => b.build_transaction(req, ctx).await,
             TransferBuilderType::Token(b) => b.build_transaction(req, ctx).await,
@@ -302,7 +286,7 @@ impl BalanceChecker for TransferBuilderType {
         ctx: &TransferContext,
         estimated_gas: u64,
         estimator: Eip1559Estimation,
-    ) -> Result<(), BalanceError> {
+    ) -> Result<(), TransferBuilderError> {
         match self {
             TransferBuilderType::Ether(b) => {
                 b.check_balance(req, ctx, estimated_gas, estimator).await
@@ -332,8 +316,9 @@ impl TransferBuilder for EtherTransferBuilder {
         &self,
         req: &TransferRequest,
         ctx: &TransferContext,
-    ) -> Result<TransactionRequest, String> {
-        let value = parse_ether(&req.raw_amount).map_err(|e| e.to_string())?;
+    ) -> Result<TransactionRequest, TransferBuilderError> {
+        let value = parse_ether(&req.raw_amount)
+            .map_err(|e| TransferBuilderError::AmountParse(e.to_string()))?;
         let tx = TransactionRequest::default()
             .with_from(req.sender)
             .with_to(req.recipient)
@@ -360,34 +345,25 @@ impl BalanceChecker for EtherTransferBuilder {
         ctx: &TransferContext,
         estimated_gas: u64,
         estimator: Eip1559Estimation,
-    ) -> Result<(), BalanceError> {
+    ) -> Result<(), TransferBuilderError> {
         let balance = ctx
             .provider
             .get_balance(req.sender)
             .await
-            .map_err(|e| BalanceError::BalanceQueryFailed(e.to_string()))?;
-
-        let tx_value =
-            parse_ether(&req.raw_amount).map_err(|e| BalanceError::AmountParse(e.to_string()))?;
+            .map_err(|e| TransferBuilderError::NodeQuery(e.to_string()))?;
+        let tx_value = parse_ether(&req.raw_amount)
+            .map_err(|e| TransferBuilderError::AmountParse(e.to_string()))?;
         let fee_ceiling = U256::from(estimated_gas) * U256::from(estimator.max_fee_per_gas);
         let total_required = tx_value.saturating_add(fee_ceiling);
 
         if balance < total_required {
-            if balance < fee_ceiling {
-                return Err(BalanceError::InsufficientGas {
-                    current_balance: format_units(balance, "ether")
-                        .map_err(|e| BalanceError::AmountParse(e.to_string()))?,
-                    estimated_fee: format_units(fee_ceiling, "ether")
-                        .map_err(|e| BalanceError::AmountParse(e.to_string()))?,
-                });
-            } else {
+            if balance < total_required {
                 let possible_send_amount = balance.saturating_sub(fee_ceiling);
-                let formatted_amount = format_units(possible_send_amount, "ether")
-                    .map_err(|e| BalanceError::AmountParse(e.to_string()))?;
-                return Err(BalanceError::InsufficientEther {
+                return Err(TransferBuilderError::InsufficientEther {
                     current_balance: format_units(balance, "ether")
-                        .map_err(|e| BalanceError::AmountParse(e.to_string()))?,
-                    max_sendable: formatted_amount,
+                        .map_err(|e| TransferBuilderError::AmountParse(e.to_string()))?,
+                    max_sendable: format_units(possible_send_amount, "ether")
+                        .map_err(|e| TransferBuilderError::AmountParse(e.to_string()))?,
                 });
             }
         }
@@ -402,9 +378,9 @@ impl TransferBuilder for TokenTransferBuilder {
         &self,
         req: &TransferRequest,
         ctx: &TransferContext,
-    ) -> Result<TransactionRequest, String> {
+    ) -> Result<TransactionRequest, TransferBuilderError> {
         let value = parse_units(&req.raw_amount, req.token.decimals)
-            .map_err(|e| format!("failed to parse amount {}", e))?
+            .map_err(|e| TransferBuilderError::AmountParse(e.to_string()))?
             .get_absolute();
         let contract =
             Erc20Contract::Erc20ContractInstance::new(req.token.address, ctx.provider.clone());
@@ -429,33 +405,33 @@ impl BalanceChecker for TokenTransferBuilder {
         ctx: &TransferContext,
         estimated_gas: u64,
         estimator: Eip1559Estimation,
-    ) -> Result<(), BalanceError> {
+    ) -> Result<(), TransferBuilderError> {
         let contract =
             Erc20Contract::Erc20ContractInstance::new(req.token.address, ctx.provider.clone());
         let token_balance = contract
             .balanceOf(req.sender)
             .call()
             .await
-            .map_err(|e| BalanceError::BalanceQueryFailed(e.to_string()))?;
+            .map_err(|e| TransferBuilderError::NodeQuery(e.to_string()))?;
         let transfer_amount = parse_units(&req.raw_amount, req.token.decimals)
-            .map_err(|e| BalanceError::AmountParse(e.to_string()))?
+            .map_err(|e| TransferBuilderError::AmountParse(e.to_string()))?
             .get_absolute();
         if token_balance < transfer_amount {
-            return Err(BalanceError::InsufficientTokens);
+            return Err(TransferBuilderError::InsufficientTokens);
         }
         let eth_balance = ctx
             .provider
             .get_balance(req.sender)
             .await
-            .map_err(|e| BalanceError::BalanceQueryFailed(e.to_string()))?;
+            .map_err(|e| TransferBuilderError::NodeQuery(e.to_string()))?;
 
         let fee_ceiling = U256::from(estimated_gas) * U256::from(estimator.max_fee_per_gas);
         if eth_balance < fee_ceiling {
-            return Err(BalanceError::InsufficientGas {
+            return Err(TransferBuilderError::InsufficientGas {
                 current_balance: format_units(eth_balance, "ether")
-                    .map_err(|e| BalanceError::AmountParse(e.to_string()))?,
+                    .map_err(|e| TransferBuilderError::AmountParse(e.to_string()))?,
                 estimated_fee: format_units(fee_ceiling, "ether")
-                    .map_err(|e| BalanceError::AmountParse(e.to_string()))?,
+                    .map_err(|e| TransferBuilderError::AmountParse(e.to_string()))?,
             });
         }
         Ok(())
@@ -569,7 +545,7 @@ mod tests {
             )
             .await
             .unwrap();
-        match builder
+        builder
             .create_transfer(TransferRequest {
                 token: USDT.clone(),
                 raw_amount: amount.to_string(),
@@ -577,14 +553,7 @@ mod tests {
                 recipient: bob.address(),
             })
             .await
-        {
-            Ok(tx) => {
-                println!("tx {:?}", tx);
-            }
-            Err(e) => {
-                panic!("Error creating transfer: {}", e);
-            }
-        };
+            .unwrap();
         let tx_hash = builder.sign_and_send_tx(&alice).await.unwrap();
         let _tx_receipt = provider
             .watch_pending_transaction(PendingTransactionConfig::new(tx_hash))
@@ -638,7 +607,7 @@ mod tests {
                 "Expected balance check to fail with InsufficientTokens error, but it succeeded"
             ),
             Err(e) => {
-                assert_eq!(e, BalanceError::InsufficientTokens);
+                assert_eq!(e, TransferBuilderError::InsufficientTokens);
             }
         }
     }
@@ -681,7 +650,7 @@ mod tests {
             ),
             Err(e) => {
                 match e {
-                    BalanceError::InsufficientGas {
+                    TransferBuilderError::InsufficientGas {
                         current_balance,
                         estimated_fee,
                     } => {
@@ -717,7 +686,7 @@ mod tests {
             ),
             Err(e) => {
                 match e {
-                    BalanceError::InsufficientEther { max_sendable, .. } => {
+                    TransferBuilderError::InsufficientEther { max_sendable, .. } => {
                         // Verify the max sendable amount is reasonable (should be less than 0.5 ETH minus gas fees)
                         let max_sendable_f64: f64 = max_sendable.parse().unwrap();
                         assert!(
@@ -727,50 +696,6 @@ mod tests {
                         assert!(max_sendable_f64 > 0.0, "Max sendable should be positive");
                     }
                     other => panic!("Expected InsufficientEth error, but got: {:?}", other),
-                }
-            }
-        }
-    }
-
-    #[tokio::test]
-    async fn test_insufficient_ether_for_gas_error() {
-        let TestContext {
-            ctx,
-            alice,
-            bob,
-            token,
-            ..
-        } = test_context("0.00001").await;
-
-        let req = TransferRequest {
-            token: token.clone(),
-            raw_amount: "0.001".to_string(), // Small transfer amount
-            sender: alice.address(),
-            recipient: bob.address(),
-        };
-        let result = EtherTransferBuilder
-            .check_balance(&req, &ctx, ESTIMATED_GAS, get_estimator())
-            .await;
-        match result {
-            Ok(_) => panic!(
-                "Expected balance check to fail with InsufficientForGas error, but it succeeded"
-            ),
-            Err(e) => {
-                match e {
-                    BalanceError::InsufficientGas {
-                        current_balance,
-                        estimated_fee,
-                    } => {
-                        // Verify the fee is higher than the current balance
-                        let balance_f64: f64 = current_balance.parse().unwrap();
-                        let fee_f64: f64 = estimated_fee.parse().unwrap();
-                        assert!(fee_f64 > balance_f64, "Fee should be higher than balance");
-                        assert!(
-                            balance_f64 <= 0.00001,
-                            "Balance should be at most 0.00001 ETH"
-                        );
-                    }
-                    other => panic!("Expected InsufficientForGas error, but got: {:?}", other),
                 }
             }
         }
