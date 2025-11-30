@@ -7,8 +7,6 @@ import { LinkButton, P } from '../../shortcuts'
 import { root_store } from '../../stores/root'
 import { BalanceCard } from './balances'
 
-const explorer_url = 'https://etherscan.io/address/'
-
 export const Ethereum = observer(() => {
   return (
     <Stack gap={1}>
@@ -18,10 +16,7 @@ export const Ethereum = observer(() => {
       </P>
       {root_store.wallet.eth && (
         <>
-          <Address
-            addr={root_store.wallet.eth.address}
-            explorer_url={explorer_url + root_store.wallet.eth.address}
-          />
+          <Address addr={root_store.wallet.eth.address} />
           <BalanceCard />
           <LinkButton to={route.ethereum_send} sx={{ width: 'min-content' }}>
             Send

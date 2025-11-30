@@ -1,10 +1,11 @@
-import { Button, Card, Link } from '@mui/joy'
+import { Card } from '@mui/joy'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { route } from '../routes'
+import { OpenExplorerButton } from '../routes/ethereum/utils/shared'
 import { P, Row } from '../shortcuts'
 
-export const Address = (props: { addr: string; explorer_url?: string }) => {
+export const Address = (props: { addr: string }) => {
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -33,13 +34,7 @@ export const Address = (props: { addr: string; explorer_url?: string }) => {
         For secure acceptance of funds, consider generating dedicated child
         address per transaction.
       </P>
-      {props.explorer_url && (
-        <Link href={props.explorer_url} target="_blank">
-          <Button variant="plain" size="sm">
-            View on Explorer
-          </Button>
-        </Link>
-      )}
+      <OpenExplorerButton path={`address/${props.addr}`} />
     </Card>
   )
 }

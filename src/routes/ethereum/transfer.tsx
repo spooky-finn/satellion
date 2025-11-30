@@ -1,10 +1,11 @@
 import { Button, Input, Option, Select, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
+import { useState } from 'react'
 import { Navbar } from '../../components/navbar'
 import { P, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
-import { useState } from 'react'
 import { TransferStore } from './transfer.store'
+import { OpenExplorerButton } from './utils/shared'
 
 export const EthereumTransfer = observer(() => {
   const { wallet } = root_store
@@ -18,13 +19,15 @@ export const EthereumTransfer = observer(() => {
       <Input
         placeholder="Recipient address"
         value={state.address}
-        onChange={e => state.setAddress(e.target.value)}
-        onBlur={() => state.verifyAddress()}
+        onChange={e => {
+          state.setAddress(e.target.value)
+          state.verifyAddress()
+        }}
         error={!!state.address && !state.isAddressValid}
       />
       <TokenSelect state={state} />
-      <CurrentBalance state={state}/>
-      <AmountInput state={state}/>
+      <CurrentBalance state={state} />
+      <AmountInput state={state} />
       {!state.preconfirmInfo && (
         <Button
           loading={state.isEstimating}
@@ -37,7 +40,12 @@ export const EthereumTransfer = observer(() => {
         </Button>
       )}
       <TransactionFee state={state} />
-      <SendTransaction state={state}/>
+
+      {!state.txHash ? (
+        <SendTransaction state={state} />
+      ) : (
+        <TransactionDetails state={state} />
+      )}
     </Stack>
   )
 })
@@ -46,6 +54,7 @@ const TokenSelect = observer(({ state }: { state: TransferStore }) => (
   <Select
     placeholder="Token"
     value={state.selectedToken}
+    sx={{ width: 'fit-content' }}
     onChange={(_, value) => state.setSelectedToken(value ?? undefined)}
   >
     {root_store.wallet.eth.tokens_with_balance.map(t => (
@@ -96,20 +105,16 @@ const TransactionFee = observer(({ state }: { state: TransferStore }) => {
   const usd_tx_cost = Number(state.preconfirmInfo.cost) * wallet.eth.price
   return (
     <P>
-      Network fee: {state.preconfirmInfo.cost} ETH ~ {usd_tx_cost.toFixed(2)} USD
+      Network fee: {state.preconfirmInfo.cost} ETH ~ {usd_tx_cost.toFixed(2)}{' '}
+      USD
     </P>
   )
 })
 
 const SendTransaction = observer(({ state }: { state: TransferStore }) => {
   const { wallet } = root_store
-
   if (!state.preconfirmInfo || !wallet.eth.price) {
     return null
-  }
-
-  if (state.txHash) {
-    return <P>Transaction sent: hash {state.txHash}</P>
   }
   return (
     <Button
@@ -118,7 +123,21 @@ const SendTransaction = observer(({ state }: { state: TransferStore }) => {
       sx={{ width: 'max-content' }}
       size="sm"
     >
-      Sign and send
+      Send
     </Button>
+  )
+})
+
+const TransactionDetails = observer(({ state }: { state: TransferStore }) => {
+  if (!state.txHash) {
+    return null
+  }
+  return (
+    <Stack>
+      <P>
+        Transaction hash <b>{state.txHash}</b>
+      </P>
+      <OpenExplorerButton path={`tx/${state.txHash}`} />
+    </Stack>
   )
 })
