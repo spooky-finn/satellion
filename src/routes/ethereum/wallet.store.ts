@@ -2,10 +2,10 @@ import { makeAutoObservable } from 'mobx'
 import { Balance, ChainInfo, commands } from '../../bindings'
 import { notifier } from '../../components/notifier'
 import { Loader } from '../../stores/loader'
-import { EthereumSendStore } from './send.store'
+import { TransferStore } from './transfer.store'
 
 export class EthereumWallet {
-  readonly send = new EthereumSendStore()
+  readonly send = new TransferStore()
   readonly balance = new Loader<Balance>()
 
   constructor() {

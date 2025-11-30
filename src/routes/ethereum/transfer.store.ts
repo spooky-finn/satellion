@@ -2,7 +2,7 @@ import { makeAutoObservable } from 'mobx'
 import { commands, PrepareTxReqRes } from '../../bindings'
 import { notifier } from '../../components/notifier'
 
-export class EthereumSendStore {
+export class TransferStore {
   constructor() {
     makeAutoObservable(this)
   }
@@ -11,37 +11,30 @@ export class EthereumSendStore {
   setAddress(address: string) {
     this.address = address
   }
-
   isAddressValid = false
   setIsAddressValid(valid: boolean) {
     this.isAddressValid = valid
   }
-
-  amount: number | null = null
-  setAmount(amount: number) {
+  amount?: number 
+  setAmount(amount?: number) {
     this.amount = amount
   }
-
-  selectedToken: string | null = null
-  setSelectedToken(token: string | null) {
+  selectedToken?: string 
+  setSelectedToken(token?: string) {
     this.selectedToken = token
   }
-
-  preconfirmInfo: PrepareTxReqRes | null = null
-  setPreconfirmInfo(res: PrepareTxReqRes | null) {
+  preconfirmInfo?: PrepareTxReqRes 
+  setPreconfirmInfo(res?: PrepareTxReqRes ) {
     this.preconfirmInfo = res
   }
-
-  txHash!: string
-  setTxHash(h: string) {
+  txHash?: string
+  setTxHash(h?: string) {
     this.txHash = h
   }
-
   isEstimating = false
   setIsEstimating(v: boolean) {
     this.isEstimating = v
   }
-
   isSending = false
   setIsSending(v: boolean) {
     this.isSending = v
@@ -89,7 +82,7 @@ export class EthereumSendStore {
     this.setIsSending(false)
     if (r.status === 'error') {
       notifier.err(r.error)
-      this.setPreconfirmInfo(null)
+      this.setPreconfirmInfo(undefined)
       throw Error(r.error)
     }
     this.setTxHash(r.data)
