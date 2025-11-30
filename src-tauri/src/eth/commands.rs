@@ -11,6 +11,7 @@ use alloy::{
     providers::Provider,
 };
 use alloy_provider::DynProvider;
+use alloy_provider::ext::AnvilApi;
 use serde::Serialize;
 use specta::{Type, specta};
 use std::str::FromStr;
@@ -272,4 +273,36 @@ pub async fn eth_untrack_token(
         .map_err(|e| format!("Failed to remove token: {}", e))?;
 
     Ok(rows_affected > 0)
+}
+
+#[specta]
+#[tauri::command]
+pub async fn eth_anvil_set_initial_balances(
+    address: String,
+    provider: tauri::State<'_, DynProvider>,
+) -> Result<String, String> {
+    use crate::eth::constants::USDT;
+    use alloy::primitives::utils::{parse_ether, parse_units};
+
+    let provider = provider.inner();
+    let addr = parse_addres(&address)?;
+
+    provider
+        .anvil_set_balance(addr, parse_ether("10").unwrap())
+        .await
+        .map_err(|e| format!("Failed to set ETH balance: {}", e))?;
+
+    let token = USDT.clone();
+    provider
+        .anvil_deal_erc20(
+            addr,
+            token.address,
+            parse_units("9999999", token.decimals)
+                .unwrap()
+                .get_absolute(),
+        )
+        .await
+        .map_err(|e| format!("Failed to set USDT balance: {}", e))?;
+
+    Ok("Initial balances set successfully: 10 ETH and 9,999,999 USDT".to_string())
 }

@@ -1,14 +1,8 @@
 use crate::config::CONFIG;
-use crate::eth::constants::USDT;
-use crate::eth::wallet::EthereumUnlock;
 use crate::repository::TokenRepository;
 use crate::{db, eth::constants::DEFAULT_TOKENS};
-use alloy::primitives::Address;
-use alloy::primitives::utils::{parse_ether, parse_units};
 use alloy::providers::RootProvider;
-use alloy_provider::ext::AnvilApi;
 use alloy_provider::{DynProvider, Provider, ProviderBuilder};
-use std::str::FromStr;
 use std::time::Duration;
 use tauri::Url;
 
@@ -37,10 +31,8 @@ pub fn new_provider_anvil() -> DynProvider {
 }
 
 pub async fn init_ethereum(
-    provider: &DynProvider,
     token_repository: &TokenRepository,
     wallet_id: i32,
-    unlock_data: &EthereumUnlock,
 ) -> Result<usize, String> {
     let tokens: Vec<db::Token> = DEFAULT_TOKENS
         .iter()
@@ -53,32 +45,7 @@ pub async fn init_ethereum(
         })
         .collect();
 
-    if CONFIG.ethereum.anvil {
-        let wallet_address = Address::from_str(unlock_data.address.as_str())
-            .map_err(|_| "failed to pasrse address")?;
-        anvil_set_initial_balances(provider.clone(), wallet_address).await;
-    }
-
     token_repository
         .insert_or_ignore_many(tokens)
         .map_err(|e| format!("failed to insert default ethereum tokens {}", e))
-}
-
-async fn anvil_set_initial_balances(provider: DynProvider, addr: Address) {
-    let token = USDT.clone();
-    provider
-        .anvil_set_balance(addr, parse_ether("10").unwrap())
-        .await
-        .unwrap();
-
-    provider
-        .anvil_deal_erc20(
-            addr,
-            token.address,
-            parse_units("9999999", token.decimals)
-                .unwrap()
-                .get_absolute(),
-        )
-        .await
-        .unwrap();
 }

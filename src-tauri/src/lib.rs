@@ -12,6 +12,7 @@ mod session;
 mod wallet_service;
 
 use crate::{
+    config::CONFIG,
     repository::{ChainRepository, TokenRepository, WalletRepository},
     wallet_service::WalletService,
 };
@@ -37,8 +38,8 @@ pub fn run() {
     let tx_builder = eth::TxBuilder::new(eth_batch_provider);
     let price_feed = eth::PriceFeed::new(eth_provider.clone());
 
-    let builder =
-        tauri_specta::Builder::<tauri::Wry>::new().commands(tauri_specta::collect_commands![
+    let builder = tauri_specta::Builder::<tauri::Wry>::new()
+        .commands(tauri_specta::collect_commands![
             commands::generate_mnemonic,
             commands::create_wallet,
             commands::chain_status,
@@ -53,7 +54,9 @@ pub fn run() {
             eth::commands::eth_verify_address,
             eth::commands::eth_track_token,
             eth::commands::eth_untrack_token,
-        ]);
+            eth::commands::eth_anvil_set_initial_balances,
+        ])
+        .constant("ETH_ANVIL", CONFIG.ethereum.anvil);
 
     #[cfg(debug_assertions)]
     builder

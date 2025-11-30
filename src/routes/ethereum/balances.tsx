@@ -1,5 +1,6 @@
 import { Remove } from '@mui/icons-material'
 import CachedIcon from '@mui/icons-material/Cached'
+import AddIcon from '@mui/icons-material/Add'
 import {
   Button,
   Card,
@@ -14,7 +15,7 @@ import {
 } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useState, type ChangeEvent } from 'react'
-import { commands, TokenBalance, type TokenType } from '../../bindings'
+import { commands, TokenBalance, type TokenType, ETH_ANVIL } from '../../bindings'
 import { notifier } from '../../components/notifier'
 import { P, Progress, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
@@ -25,12 +26,11 @@ export const BalanceCard = observer(() => (
       <Stack>
         <Balances />
       </Stack>
-      <Row alignItems={'center'} justifyContent={'end'}>
+      <Row alignItems={'center'} justifyContent={'end'} gap={1}>
+        {ETH_ANVIL && <AnvilSetBalanceButton />}
         <SpecifyTokenToTrack />
         <IconButton
-          onClick={() =>
-            root_store.wallet.eth.getBalance(root_store.wallet.id!)
-          }
+          onClick={() => root_store.wallet.eth.getBalance(root_store.wallet.id!)}
           variant="plain"
         >
           <CachedIcon />
@@ -79,6 +79,33 @@ const Balances = observer(() => {
         />
       ))}
     </Grid>
+  )
+})
+
+const AnvilSetBalanceButton = observer(() => {
+  const handleSetAnvilBalance = async () => {
+    if (!root_store.wallet.eth.address) {
+      notifier.err('Wallet address not available')
+      return
+    }
+    const res = await commands.ethAnvilSetInitialBalances(root_store.wallet.eth.address)
+    if (res.status === 'error') {
+      notifier.err(res.error)
+    } else {
+      notifier.ok(res.data)
+      root_store.wallet.eth.getBalance(root_store.wallet.id!)
+    }
+  }
+  return (
+    <Tooltip title="Set initial Anvil balances (10 ETH + 9,999,999 USDT)">
+      <IconButton
+        onClick={handleSetAnvilBalance}
+        variant="plain"
+        color="primary"
+      >
+        <AddIcon />
+      </IconButton>
+    </Tooltip>
   )
 })
 

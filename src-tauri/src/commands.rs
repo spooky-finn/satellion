@@ -79,7 +79,6 @@ pub struct UnlockMsg {
 pub async fn unlock_wallet(
     wallet_id: i32,
     passphrase: String,
-    provider: tauri::State<'_, DynProvider>,
     wallet_store: tauri::State<'_, WalletService>,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
     token_repository: tauri::State<'_, TokenRepository>,
@@ -94,13 +93,7 @@ pub async fn unlock_wallet(
         Config::session_exp_duration(),
     ));
 
-    crate::eth::init::init_ethereum(
-        provider.inner(),
-        &token_repository,
-        wallet_id,
-        &eth_unlock_data,
-    )
-    .await?;
+    crate::eth::init::init_ethereum(&token_repository, wallet_id).await?;
 
     Ok(UnlockMsg {
         ethereum: eth_unlock_data,

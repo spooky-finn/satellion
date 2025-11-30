@@ -116,6 +116,14 @@ async ethUntrackToken(walletId: number, address: string) : Promise<Result<boolea
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async ethAnvilSetInitialBalances(address: string) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("eth_anvil_set_initial_balances", { address }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -125,7 +133,7 @@ async ethUntrackToken(walletId: number, address: string) : Promise<Result<boolea
 
 /** user-defined constants **/
 
-
+export const ETH_ANVIL = true as const;
 
 /** user-defined types **/
 
