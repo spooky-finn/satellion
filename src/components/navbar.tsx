@@ -12,13 +12,13 @@ export const Navbar = ({ hideLedgers }: { hideLedgers?: boolean }) => {
     <Row justifyContent={'space-between'} width={'100%'}>
       {hideLedgers !== true && (
         <Row gap={1}>
-          <LedgerButton
+          <BlockchainLink
             to={route.bitcoin}
             src={new URL('/bitcoin.webp', import.meta.url).toString()}
             alt="Bitcoin"
             label="Bitcoin"
           />
-          <LedgerButton
+          <BlockchainLink
             to={route.ethereum}
             src={new URL('/ethereum.webp', import.meta.url).toString()}
             alt="Ethereum"
@@ -41,7 +41,7 @@ export const Navbar = ({ hideLedgers }: { hideLedgers?: boolean }) => {
   )
 }
 
-const LedgerButton = (props: {
+const BlockchainLink = (props: {
   to: string
   src: string
   alt: string

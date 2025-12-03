@@ -2,6 +2,7 @@ use crate::config::Chain;
 use crate::eth::PriceFeed;
 use crate::eth::constants::ETH_USD_PRICE_FEED;
 use crate::eth::erc20_retriver::Erc20Retriever;
+use crate::eth::fee_estimator::FeeMode;
 use crate::eth::wallet::parse_addres;
 use crate::eth::{constants::ETH, token::Token, transfer_builder::TransferRequest};
 use crate::{db, eth, repository::TokenRepository, session, wallet_service::WalletService};
@@ -122,7 +123,7 @@ pub async fn eth_get_balance(
 pub struct PrepareTxReqRes {
     estimated_gas: String,
     max_fee_per_gas: String,
-    cost: String,
+    fee_ceiling: String,
 }
 
 #[specta]
@@ -132,6 +133,7 @@ pub async fn eth_prepare_send_tx(
     token_symbol: String,
     amount: String,
     recipient: String,
+    fee_mode: FeeMode,
     tx_builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
     storage: tauri::State<'_, WalletService>,
@@ -177,6 +179,7 @@ pub async fn eth_prepare_send_tx(
             raw_amount: amount,
             sender,
             recipient,
+            fee_mode,
         })
         .await
         .map_err(|e| e.to_string())?;
@@ -184,7 +187,7 @@ pub async fn eth_prepare_send_tx(
     Ok(PrepareTxReqRes {
         estimated_gas: res.estimated_gas.to_string(),
         max_fee_per_gas: res.estimator.max_fee_per_gas.to_string(),
-        cost: res.cost,
+        fee_ceiling: res.fee_ceiling,
     })
 }
 

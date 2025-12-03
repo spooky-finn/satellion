@@ -4,7 +4,11 @@
 //! including both ETH transfers and ERC20 token transfers. It includes utilities for
 //! gas estimation, balance checking, and transaction signing/broadcasting.
 //!
-use crate::eth::{erc20_retriver::new_contract_api, token::Token};
+use crate::eth::{
+    erc20_retriver::new_contract_api,
+    fee_estimator::{FeeEstimator, FeeMode},
+    token::Token,
+};
 use alloy::{
     consensus::{SignableTransaction, TxEnvelope},
     network::{TransactionBuilder, TxSignerSync},
@@ -93,17 +97,19 @@ pub struct TransferRequest {
     pub raw_amount: String,
     pub sender: Address,
     pub recipient: Address,
+    pub fee_mode: FeeMode,
 }
 
 #[derive(Debug)]
 pub struct TransactionMetadata {
     pub estimated_gas: u64,
     pub estimator: Eip1559Estimation,
-    pub cost: String,
+    pub fee_ceiling: String,
 }
 
 pub struct TxBuilder {
     provider: DynProvider,
+    fee_estimator: FeeEstimator,
     transfer_builder_factory: TransferBuilderFactory,
     pending_tx: Option<TransactionRequest>,
 }
@@ -111,6 +117,7 @@ pub struct TxBuilder {
 impl TxBuilder {
     pub fn new(provider: DynProvider) -> Self {
         Self {
+            fee_estimator: FeeEstimator::new(provider.clone()),
             provider,
             pending_tx: None,
             transfer_builder_factory: TransferBuilderFactory,
@@ -138,11 +145,10 @@ impl TxBuilder {
             .transfer_builder_factory
             .create_builder(&req.token.symbol);
         let tx_base = transfer_builder.build_transaction(&req, &ctx).await?;
-
         let Build {
             transaction,
             metadata,
-        } = self.calc_gas(tx_base).await?;
+        } = self.calc_gas(tx_base, req.fee_mode).await?;
         transfer_builder
             .check_balance(&req, &ctx, metadata.estimated_gas, metadata.estimator)
             .await?;
@@ -179,18 +185,22 @@ impl TxBuilder {
         Ok(hash)
     }
 
-    async fn calc_gas(&self, tx: TransactionRequest) -> Result<Build, TransferBuilderError> {
+    async fn calc_gas(
+        &self,
+        tx: TransactionRequest,
+        fee_mode: FeeMode,
+    ) -> Result<Build, TransferBuilderError> {
         let estimated_gas = self
             .provider
             .estimate_gas(tx.clone())
             .await
             .map_err(|e| TransferBuilderError::NodeQuery(e.to_string()))?;
 
-        let estimator = self
-            .provider
-            .estimate_eip1559_fees()
-            .await
-            .map_err(|e| TransferBuilderError::NodeQuery(e.to_string()))?;
+        let fees_estimator =
+            self.fee_estimator.calc_fees().await.map_err(|e| {
+                TransferBuilderError::NodeQuery(format!("failed to calc fee {}", e))
+            })?;
+        let estimator = fees_estimator.get(fee_mode).clone();
 
         let final_tx = tx
             .with_max_fee_per_gas(estimator.max_fee_per_gas)
@@ -205,7 +215,7 @@ impl TxBuilder {
             metadata: TransactionMetadata {
                 estimator,
                 estimated_gas,
-                cost: format_units(fee_ceiling, "ether")
+                fee_ceiling: format_units(fee_ceiling, "ether")
                     .map_err(|e| TransferBuilderError::AmountParse(e.to_string()))?,
             },
         })
@@ -498,6 +508,7 @@ mod tests {
                 raw_amount,
                 sender: alice.address(),
                 recipient: bob.address(),
+                fee_mode: FeeMode::Standard,
             })
             .await
             .unwrap();
@@ -542,6 +553,7 @@ mod tests {
                 raw_amount: amount.to_string(),
                 sender: alice.address(),
                 recipient: bob.address(),
+                fee_mode: FeeMode::Standard,
             })
             .await
             .unwrap();
@@ -589,6 +601,7 @@ mod tests {
             raw_amount: transfer_amount.to_string(),
             sender: alice.address(),
             recipient: bob.address(),
+            fee_mode: FeeMode::Standard,
         };
         let result = TokenTransferBuilder
             .check_balance(&req, &ctx, ESTIMATED_GAS, get_estimator())
@@ -631,6 +644,7 @@ mod tests {
             raw_amount: transfer_amount.to_string(),
             sender: alice.address(),
             recipient: bob.address(),
+            fee_mode: FeeMode::Standard,
         };
         let result = token_builder
             .check_balance(&req, &ctx, ESTIMATED_GAS, get_estimator())
@@ -667,6 +681,7 @@ mod tests {
             raw_amount: "1.0".to_string(), // 1 ETH transfer
             sender: alice.address(),
             recipient: bob.address(),
+            fee_mode: FeeMode::Standard,
         };
         let result = EtherTransferBuilder
             .check_balance(&req, &ctx, ESTIMATED_GAS, get_estimator())

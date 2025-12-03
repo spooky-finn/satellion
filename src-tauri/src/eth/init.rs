@@ -6,12 +6,16 @@ use alloy_provider::{DynProvider, Provider, ProviderBuilder};
 use std::time::Duration;
 use tauri::Url;
 
+pub fn select_provider() -> DynProvider {
+    if CONFIG.ethereum.anvil {
+        new_provider_anvil()
+    } else {
+        new_provider()
+    }
+}
+
 pub fn new_provider() -> DynProvider {
     let rpc_url = CONFIG.ethereum.rpc_url.clone();
-    if CONFIG.ethereum.anvil {
-        return new_provider_anvil();
-    }
-
     RootProvider::new_http(Url::parse(&rpc_url).expect("Invalid RPC URL for Ethereum")).erased()
 }
 

@@ -4,7 +4,6 @@ use crate::wallet_service::WalletService;
 use crate::{app_state::AppState, db::BlockHeader, schema};
 use crate::{btc, session};
 use crate::{eth, mnemonic};
-use alloy_provider::DynProvider;
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use serde::Serialize;
 use specta::{Type, specta};

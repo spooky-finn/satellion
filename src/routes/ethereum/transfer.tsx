@@ -102,11 +102,12 @@ const TransactionFee = observer(({ state }: { state: TransferStore }) => {
   if (!state.preconfirmInfo || !wallet.eth.price) {
     return null
   }
-  const usd_tx_cost = Number(state.preconfirmInfo.cost) * wallet.eth.price
+  const usd_tx_cost =
+    Number(state.preconfirmInfo.fee_ceiling) * wallet.eth.price
   return (
     <P>
-      Network fee: {state.preconfirmInfo.cost} ETH ~ {usd_tx_cost.toFixed(2)}{' '}
-      USD
+      Network fee: {state.preconfirmInfo.fee_ceiling} ETH ~{' '}
+      {usd_tx_cost.toFixed(2)} USD
     </P>
   )
 })

@@ -15,16 +15,16 @@ export class TransferStore {
   setIsAddressValid(valid: boolean) {
     this.isAddressValid = valid
   }
-  amount?: number 
+  amount?: number
   setAmount(amount?: number) {
     this.amount = amount
   }
-  selectedToken?: string 
+  selectedToken?: string
   setSelectedToken(token?: string) {
     this.selectedToken = token
   }
-  preconfirmInfo?: PrepareTxReqRes 
-  setPreconfirmInfo(res?: PrepareTxReqRes ) {
+  preconfirmInfo?: PrepareTxReqRes
+  setPreconfirmInfo(res?: PrepareTxReqRes) {
     this.preconfirmInfo = res
   }
   txHash?: string
@@ -66,7 +66,8 @@ export class TransferStore {
       walletId,
       this.selectedToken,
       this.amount.toString(),
-      this.address
+      this.address,
+      'Minimal'
     )
     this.setIsEstimating(false)
     if (r.status === 'error') {

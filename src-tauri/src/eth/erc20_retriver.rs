@@ -98,16 +98,15 @@ impl Erc20Retriever {
 
 #[cfg(test)]
 mod tests {
-    use crate::eth::{constants::DEFAULT_TOKENS, new_provider};
-
     use super::*;
+    use crate::eth::{constants::DEFAULT_TOKENS, select_provider};
     use alloy::primitives::Address;
     use std::str::FromStr;
 
     #[tokio::test]
     async fn test_get_balance() {
         let address = Address::from_str("d8da6bf26964af9d7eed9e03e53415d37aa96045").unwrap();
-        let retriver = Erc20Retriever::new(new_provider());
+        let retriver = Erc20Retriever::new(select_provider());
         let tokens: Vec<Token> = DEFAULT_TOKENS.to_vec();
         let result = retriver.balances(address, tokens).await;
         assert!(result.is_ok(), "get_balances should not error");
@@ -132,7 +131,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_token_info() {
-        let retriver = Erc20Retriever::new(new_provider());
+        let retriver = Erc20Retriever::new(select_provider());
         // Test with USDC contract address
         let usdc_address = Address::from_str("A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48").unwrap();
         let result = retriver.token_info(usdc_address).await;
