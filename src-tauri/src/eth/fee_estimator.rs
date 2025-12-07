@@ -58,12 +58,14 @@ impl FeePercentile {
     }
 }
 
+/// Introduction to Ethereum transaction fee related concepts
+/// https://github.com/LearnWeb3DAO/What-is-Gas
 pub struct FeeEstimator {
     provider: DynProvider,
 }
 
 impl FeeEstimator {
-    const FEE_HISTORY_BLOCKS: u64 = 10;
+    const FEE_HISTORY_BLOCKS: u64 = 100;
 
     pub fn new(provider: DynProvider) -> Self {
         Self { provider }
@@ -90,11 +92,11 @@ impl FeeEstimator {
                 max_priority_fee_per_gas: minimal_priority_fee,
             },
             standard: Eip1559Estimation {
-                max_fee_per_gas: base_fee.saturating_add(standard_priority_fee),
+                max_fee_per_gas: (base_fee * 150 / 100).saturating_add(standard_priority_fee),
                 max_priority_fee_per_gas: standard_priority_fee,
             },
             increased: Eip1559Estimation {
-                max_fee_per_gas: base_fee.saturating_add(increased_priority_fee),
+                max_fee_per_gas: (base_fee * 2).saturating_add(increased_priority_fee),
                 max_priority_fee_per_gas: increased_priority_fee,
             },
         })

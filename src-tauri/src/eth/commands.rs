@@ -124,6 +124,7 @@ pub struct PrepareTxReqRes {
     estimated_gas: String,
     max_fee_per_gas: String,
     fee_ceiling: String,
+    fee_in_usd: f64,
 }
 
 #[specta]
@@ -137,6 +138,7 @@ pub async fn eth_prepare_send_tx(
     tx_builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
     storage: tauri::State<'_, WalletService>,
+    price_feed: tauri::State<'_, PriceFeed>,
     token_repository: tauri::State<'_, TokenRepository>,
 ) -> Result<PrepareTxReqRes, String> {
     let mut session_store = session_store.lock().await;
@@ -184,10 +186,23 @@ pub async fn eth_prepare_send_tx(
         .await
         .map_err(|e| e.to_string())?;
 
+    let eth_price = price_feed.get_price(ETH_USD_PRICE_FEED).await?;
+
+    let fee_in_eth = format_units(res.fee_ceiling, "ether").map_err(|e| e.to_string())?;
+    let eth_price_f64: f64 = eth_price
+        .parse()
+        .map_err(|_| "Failed to parse ETH price".to_string())?;
+    let fee_in_eth_f64: f64 = fee_in_eth
+        .parse()
+        .map_err(|_| "Failed to parse fee".to_string())?;
+    let fee_in_usd = eth_price_f64 * fee_in_eth_f64;
+
+    let fee_ceiling_u64 = res.fee_ceiling.saturating_to::<u64>() / 10u64.pow(9);
     Ok(PrepareTxReqRes {
         estimated_gas: res.estimated_gas.to_string(),
         max_fee_per_gas: res.estimator.max_fee_per_gas.to_string(),
-        fee_ceiling: res.fee_ceiling,
+        fee_ceiling: fee_ceiling_u64.to_string(),
+        fee_in_usd,
     })
 }
 

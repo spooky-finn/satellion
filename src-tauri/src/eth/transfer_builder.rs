@@ -104,7 +104,7 @@ pub struct TransferRequest {
 pub struct TransactionMetadata {
     pub estimated_gas: u64,
     pub estimator: Eip1559Estimation,
-    pub fee_ceiling: String,
+    pub fee_ceiling: U256,
 }
 
 pub struct TxBuilder {
@@ -207,16 +207,12 @@ impl TxBuilder {
             .with_max_priority_fee_per_gas(estimator.max_priority_fee_per_gas)
             .with_gas_limit(estimated_gas);
 
-        let fee_ceiling: alloy::primitives::Uint<256, 4> =
-            U256::from(estimated_gas) * U256::from(estimator.max_fee_per_gas);
-
         Ok(Build {
             transaction: final_tx.clone(),
             metadata: TransactionMetadata {
                 estimator,
                 estimated_gas,
-                fee_ceiling: format_units(fee_ceiling, "ether")
-                    .map_err(|e| TransferBuilderError::AmountParse(e.to_string()))?,
+                fee_ceiling: U256::from(estimated_gas) * U256::from(estimator.max_fee_per_gas),
             },
         })
     }

@@ -1,5 +1,5 @@
 import { makeAutoObservable } from 'mobx'
-import { commands, PrepareTxReqRes } from '../../bindings'
+import { commands, PrepareTxReqRes, type FeeMode } from '../../bindings'
 import { notifier } from '../../components/notifier'
 
 export class TransferStore {
@@ -14,6 +14,10 @@ export class TransferStore {
   isAddressValid = false
   setIsAddressValid(valid: boolean) {
     this.isAddressValid = valid
+  }
+  feeMode: FeeMode | null = 'Standard'
+  setFeeMode(fm: FeeMode | null) {
+    this.feeMode = fm
   }
   amount?: number
   setAmount(amount?: number) {
@@ -67,7 +71,7 @@ export class TransferStore {
       this.selectedToken,
       this.amount.toString(),
       this.address,
-      'Minimal'
+      this.feeMode ?? 'Standard'
     )
     this.setIsEstimating(false)
     if (r.status === 'error') {

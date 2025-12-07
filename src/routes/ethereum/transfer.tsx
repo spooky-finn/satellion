@@ -1,6 +1,14 @@
-import { Button, Input, Option, Select, Stack } from '@mui/joy'
+import {
+  Button,
+  Input,
+  Option,
+  Select,
+  Stack,
+  ToggleButtonGroup
+} from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
+import type { FeeMode } from '../../bindings'
 import { Navbar } from '../../components/navbar'
 import { P, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
@@ -28,17 +36,16 @@ export const EthereumTransfer = observer(() => {
       <TokenSelect state={state} />
       <CurrentBalance state={state} />
       <AmountInput state={state} />
-      {!state.preconfirmInfo && (
-        <Button
-          loading={state.isEstimating}
-          disabled={state.disabled}
-          sx={{ width: 'min-content' }}
-          size="sm"
-          onClick={() => state.createTrasaction(wallet.id!)}
-        >
-          Estimate
-        </Button>
-      )}
+      <FeeModeSelect state={state} />
+      <Button
+        loading={state.isEstimating}
+        disabled={state.disabled}
+        sx={{ width: 'min-content' }}
+        size="sm"
+        onClick={() => state.createTrasaction(wallet.id!)}
+      >
+        Estimate
+      </Button>
       <TransactionFee state={state} />
 
       {!state.txHash ? (
@@ -102,12 +109,10 @@ const TransactionFee = observer(({ state }: { state: TransferStore }) => {
   if (!state.preconfirmInfo || !wallet.eth.price) {
     return null
   }
-  const usd_tx_cost =
-    Number(state.preconfirmInfo.fee_ceiling) * wallet.eth.price
   return (
     <P>
-      Network fee: {state.preconfirmInfo.fee_ceiling} ETH ~{' '}
-      {usd_tx_cost.toFixed(2)} USD
+      Network fee: {state.preconfirmInfo.fee_ceiling} gwei ~{' '}
+      {state.preconfirmInfo.fee_in_usd.toFixed(2)} USD
     </P>
   )
 })
@@ -142,3 +147,14 @@ const TransactionDetails = observer(({ state }: { state: TransferStore }) => {
     </Stack>
   )
 })
+
+const FeeModeSelect = observer(({ state }: { state: TransferStore }) => (
+  <ToggleButtonGroup
+    value={state.feeMode}
+    onChange={(_, v) => state.setFeeMode(v)}
+  >
+    <Button value={'Minimal' satisfies FeeMode}>Slow</Button>
+    <Button value={'Standard' satisfies FeeMode}>Standart</Button>
+    <Button value={'Increased' satisfies FeeMode}>Fast</Button>
+  </ToggleButtonGroup>
+))
