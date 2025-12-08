@@ -93,6 +93,9 @@ jobs:
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.args }}
+          tagName: v__VERSION__
+          releaseName: v__VERSION__
+          releaseAssetNamePattern: '[name]_v[version]_[platform]_[arch][_setup][ext]'
 
   publish-release:
     permissions:
