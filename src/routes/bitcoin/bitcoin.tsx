@@ -16,10 +16,7 @@ const Bitcoin = () => {
       </P>
       {root_store.wallet.btc.address && (
         <>
-          <Address
-            addr={root_store.wallet.btc.address}
-            explorer_url={explorer_url + root_store.wallet.btc.address}
-          />
+          <Address addr={root_store.wallet.btc.address} />
         </>
       )}
     </Stack>
