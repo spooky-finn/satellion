@@ -15,12 +15,7 @@ import {
 } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useState, type ChangeEvent } from 'react'
-import {
-  commands,
-  ETH_ANVIL,
-  TokenBalance,
-  type TokenType
-} from '../../bindings'
+import { commands, TokenBalance, type TokenType } from '../../bindings'
 import { notifier } from '../../components/notifier'
 import { P, Progress, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
@@ -32,7 +27,7 @@ export const BalanceCard = observer(() => (
         <Balances />
       </Stack>
       <Row alignItems={'center'} justifyContent={'end'} gap={1}>
-        {ETH_ANVIL && <AnvilSetBalanceButton />}
+        {root_store.ui_config?.eth_anvil && <AnvilSetBalanceButton />}
         <SpecifyTokenToTrack />
         <IconButton
           onClick={() =>

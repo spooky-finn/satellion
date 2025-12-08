@@ -12,6 +12,7 @@ const UnlockWallet = () => {
   const navigate = useNavigate()
 
   function handleUnlockWallet() {
+    root_store.init()
     unlock.unlockWallet(root_store.wallet).then(() => {
       navigate(route.ethereum)
     })

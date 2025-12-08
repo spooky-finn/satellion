@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::config::{CONFIG, Config};
 use crate::repository::{AvailableWallet, TokenRepository, WalletRepository};
 use crate::wallet_service::WalletService;
 use crate::{app_state::AppState, db::BlockHeader, schema};
@@ -110,4 +110,17 @@ pub async fn forget_wallet(
     session_store.lock().await.end();
     repository.delete(wallet_id).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[derive(Type, Serialize)]
+pub struct UIConfig {
+    eth_anvil: bool,
+}
+
+#[specta]
+#[tauri::command]
+pub async fn get_config() -> Result<UIConfig, String> {
+    Ok(UIConfig {
+        eth_anvil: CONFIG.ethereum.anvil,
+    })
 }

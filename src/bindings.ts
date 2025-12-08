@@ -53,6 +53,14 @@ async forgetWallet(walletId: number) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getConfig() : Promise<Result<UIConfig, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_config") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async startNode() : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("start_node") };
@@ -133,7 +141,7 @@ async ethAnvilSetInitialBalances(address: string) : Promise<Result<string, strin
 
 /** user-defined constants **/
 
-export const ETH_ANVIL = true as const;
+
 
 /** user-defined types **/
 
@@ -148,6 +156,7 @@ export type PrepareTxReqRes = { estimated_gas: string; max_fee_per_gas: string; 
 export type SyncStatus = { height: number; sync_completed: boolean }
 export type TokenBalance = { symbol: string; balance: string; decimals: number; address: string }
 export type TokenType = { chain: Chain; address: string; symbol: string; decimals: number }
+export type UIConfig = { eth_anvil: boolean }
 export type UnlockMsg = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock }
 
 /** tauri-specta globals **/

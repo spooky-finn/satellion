@@ -1,13 +1,25 @@
 import { makeAutoObservable } from 'mobx'
+import { commands, type UIConfig } from '../bindings'
+import { notifier } from '../components/notifier'
 import { Unlock } from './unlock'
 import { Wallet } from './wallet'
 
 class RootStore {
+  ui_config?: UIConfig
   readonly unlock = new Unlock()
   readonly wallet = new Wallet()
 
   constructor() {
     makeAutoObservable(this)
+  }
+
+  async init() {
+    const res = await commands.getConfig()
+    if (res.status != 'ok') {
+      notifier.err(res.error)
+      return
+    }
+    this.ui_config = res.data
   }
 }
 
