@@ -95,7 +95,7 @@ jobs:
           args: ${{ matrix.args }}
           tagName: v__VERSION__
           releaseName: v__VERSION__
-          releaseAssetNamePattern: '[name]_v[version]_[platform]_[arch][_setup][ext]'
+          assetNamePattern: '[name]_v[version]_[platform]_[arch][_setup][ext]'
 
   publish-release:
     permissions:
