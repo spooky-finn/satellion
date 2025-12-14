@@ -141,7 +141,7 @@ impl FeeEstimator {
         fees_at_percentile.sort_unstable();
         let mid = fees_at_percentile.len() / 2;
         let median = fees_at_percentile[mid];
-        Ok(std::cmp::max(median, 1))
+        Ok(std::cmp::max(median, 2))
     }
 }
 
