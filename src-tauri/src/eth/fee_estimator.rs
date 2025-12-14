@@ -72,12 +72,13 @@ impl FeeEstimator {
     }
 
     pub async fn calc_fees(&self) -> Result<FeeEstimations, String> {
-        let fee_history = self.fetch_fee_history().await.map_err(|e| e.to_string())?;
-        let base_fee = fee_history.base_fee_per_gas.last().copied();
-        let base_fee = match base_fee {
-            Some(fee) => fee,
-            None => return Err("No base fee data available".to_string()),
-        };
+        let (fee_history, base_estimator) = tokio::join!(
+            self.fetch_fee_history(),
+            self.provider.estimate_eip1559_fees()
+        );
+        let fee_history = fee_history.map_err(|e| e.to_string())?;
+        let base_estimator = base_estimator.map_err(|e| e.to_string())?;
+        let base_fee = base_estimator.max_fee_per_gas - base_estimator.max_priority_fee_per_gas;
 
         let minimal_priority_fee =
             self.extract_percentile_fee(&fee_history, FeePercentile::Minimal)?;
@@ -85,18 +86,17 @@ impl FeeEstimator {
             self.extract_percentile_fee(&fee_history, FeePercentile::Standard)?;
         let increased_priority_fee =
             self.extract_percentile_fee(&fee_history, FeePercentile::Increased)?;
-
         Ok(FeeEstimations {
             minimal: Eip1559Estimation {
                 max_fee_per_gas: base_fee.saturating_add(minimal_priority_fee),
                 max_priority_fee_per_gas: minimal_priority_fee,
             },
             standard: Eip1559Estimation {
-                max_fee_per_gas: (base_fee * 150 / 100).saturating_add(standard_priority_fee),
+                max_fee_per_gas: base_fee.saturating_add(standard_priority_fee),
                 max_priority_fee_per_gas: standard_priority_fee,
             },
             increased: Eip1559Estimation {
-                max_fee_per_gas: (base_fee * 2).saturating_add(increased_priority_fee),
+                max_fee_per_gas: base_fee.saturating_add(increased_priority_fee),
                 max_priority_fee_per_gas: increased_priority_fee,
             },
         })
