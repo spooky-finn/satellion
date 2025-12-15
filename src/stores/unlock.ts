@@ -60,5 +60,6 @@ export class Unlock {
     }
     walletStrore.init(walletId, r.data)
     this.setUnlocked(true)
+    return r.data.last_used_chain
   }
 }

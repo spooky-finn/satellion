@@ -54,6 +54,7 @@ pub struct Wallet {
     pub kdf_salt: Vec<u8>,
     pub version: i32,
     pub created_at: String,
+    pub last_used_chain: i16,
 }
 
 #[derive(Insertable, Queryable, Debug, PartialEq)]

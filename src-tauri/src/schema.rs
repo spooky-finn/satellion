@@ -14,19 +14,8 @@ diesel::table! {
 }
 
 diesel::table! {
-    wallets (id) {
-        id -> Integer,
-        name -> Nullable<Text>,
-        encrypted_key -> Binary,
-        key_wrapped -> Binary,
-        kdf_salt -> Binary,
-        version -> Integer,
-        created_at -> Timestamp,
-    }
-}
-
-diesel::table! {
-    tokens (wallet_id, chain, address) {
+    tokens (rowid) {
+        rowid -> Integer,
         wallet_id -> Integer,
         chain -> Integer,
         symbol -> Text,
@@ -35,4 +24,17 @@ diesel::table! {
     }
 }
 
-diesel::allow_tables_to_appear_in_same_query!(bitcoin_block_headers, wallets, tokens,);
+diesel::table! {
+    wallets (id) {
+        id -> Integer,
+        name -> Nullable<Text>,
+        encrypted_key -> Binary,
+        key_wrapped -> Binary,
+        kdf_salt -> Binary,
+        version -> Integer,
+        created_at -> Timestamp,
+        last_used_chain -> SmallInt,
+    }
+}
+
+diesel::allow_tables_to_appear_in_same_query!(bitcoin_block_headers, tokens, wallets,);

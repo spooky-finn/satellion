@@ -8,6 +8,7 @@ use crate::eth::{
     transfer_builder::TransferRequest,
     wallet::parse_addres,
 };
+use crate::repository::WalletRepository;
 use crate::{db, eth, repository::TokenRepository, session};
 use alloy::{
     eips::{BlockId, BlockNumberOrTag},
@@ -66,6 +67,7 @@ pub async fn eth_get_balance(
     wallet_id: i32,
     provider: tauri::State<'_, DynProvider>,
     token_repository: tauri::State<'_, TokenRepository>,
+    wallet_repository: tauri::State<'_, WalletRepository>,
     erc20_retriever: tauri::State<'_, Erc20Retriever>,
     price_feed: tauri::State<'_, PriceFeed>,
 ) -> Result<Balance, String> {
@@ -114,6 +116,7 @@ pub async fn eth_get_balance(
         address: eth.address.to_string(),
     });
     let eth_price = price_feed.get_price(ETH_USD_PRICE_FEED).await?.to_string();
+    wallet_repository.set_last_used_chain(wallet_id, Chain::Ethereum)?;
     Ok(Balance {
         wei: wei_balance.to_string(),
         eth_price,

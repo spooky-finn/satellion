@@ -72,6 +72,7 @@ pub async fn list_wallets(
 pub struct UnlockMsg {
     ethereum: eth::wallet::EthereumUnlock,
     bitcoin: btc::wallet::BitcoinUnlock,
+    last_used_chain: Chain,
 }
 
 #[specta]
@@ -82,12 +83,18 @@ pub async fn unlock_wallet(
     wallet_service: tauri::State<'_, WalletService>,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
     token_repository: tauri::State<'_, TokenRepository>,
+    wallet_repository: tauri::State<'_, WalletRepository>,
 ) -> Result<UnlockMsg, String> {
     let mnemonic = wallet_service.load(wallet_id, passphrase.clone())?;
     let (eth_unlock_data, eth_session) =
         eth::wallet::unlock(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
     let (btc_unlock_data, btc_session) =
         btc::wallet::unlock(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
+
+    let wallet = wallet_repository
+        .get(wallet_id)
+        .map_err(|e| e.to_string())?;
+    let last_used_chain = Chain::from(wallet.last_used_chain as i32);
 
     let mut session = session::Session::new(wallet_id, Config::session_exp_duration());
     session.add_chain_data(Chain::Bitcoin, ChainData::from(btc_session));
@@ -99,6 +106,7 @@ pub async fn unlock_wallet(
     Ok(UnlockMsg {
         ethereum: eth_unlock_data,
         bitcoin: btc_unlock_data,
+        last_used_chain,
     })
 }
 

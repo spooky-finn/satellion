@@ -1,3 +1,4 @@
+use crate::config::Chain;
 use crate::db;
 use crate::repository::BaseRepository;
 use crate::schema;
@@ -59,6 +60,17 @@ impl WalletRepository {
         let mut conn = self.base.get_conn()?;
         diesel::delete(schema::wallets::table.filter(schema::wallets::id.eq(wallet_id)))
             .execute(&mut conn)
+    }
+
+    pub fn set_last_used_chain(&self, wallet_id: i32, chain: Chain) -> Result<usize, String> {
+        let mut conn = self
+            .base
+            .get_conn()
+            .map_err(|e| format!("failed to aquire db connection {e}"))?;
+        diesel::update(schema::wallets::table.filter(schema::wallets::id.eq(wallet_id)))
+            .set(schema::wallets::last_used_chain.eq(i32::from(chain) as i16))
+            .execute(&mut conn)
+            .map_err(|e| format!("failed set_last_used_chain {e}"))
     }
 
     pub fn last_used_id(&self) -> Result<i32, Error> {

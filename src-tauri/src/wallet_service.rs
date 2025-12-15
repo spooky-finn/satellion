@@ -40,6 +40,7 @@ impl WalletService {
             kdf_salt: envelope.kdf_salt,
             version: 1,
             created_at: Utc::now().to_string(),
+            last_used_chain: crate::config::Chain::Bitcoin as i16,
         };
         self.repository
             .insert(wallet.clone())

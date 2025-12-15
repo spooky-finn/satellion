@@ -31,7 +31,7 @@ impl TokenRepository {
             .filter(schema::tokens::wallet_id.eq(wallet_id))
             .filter(schema::tokens::chain.eq(i32::from(chain)))
             .filter(schema::tokens::symbol.eq(token_symbol))
-            .select(schema::tokens::all_columns)
+            .select(db::Token::as_select())
             .get_result::<db::Token>(&mut conn)
     }
 
@@ -41,7 +41,7 @@ impl TokenRepository {
         schema::tokens::table
             .filter(schema::tokens::wallet_id.eq(wallet_id))
             .filter(schema::tokens::chain.eq(i32::from(chain)))
-            .select(schema::tokens::all_columns)
+            .select(db::Token::as_select())
             .load::<db::Token>(&mut conn)
     }
 

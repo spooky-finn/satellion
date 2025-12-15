@@ -165,7 +165,7 @@ export type SyncStatus = { height: number; sync_completed: boolean }
 export type TokenBalance = { symbol: string; balance: string; decimals: number; address: string }
 export type TokenType = { chain: Chain; address: string; symbol: string; decimals: number }
 export type UIConfig = { eth_anvil: boolean }
-export type UnlockMsg = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock }
+export type UnlockMsg = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock; last_used_chain: Chain }
 
 /** tauri-specta globals **/
 

@@ -1,0 +1,1 @@
+ALTER TABLE wallets ADD COLUMN last_used_chain SMALLINT NOT NULL DEFAULT 0;
