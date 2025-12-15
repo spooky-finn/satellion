@@ -1,23 +1,45 @@
-import { Stack } from '@mui/joy'
+import { Card, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
-import { Address } from '../../components/address'
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router'
 import { Navbar } from '../../components/navbar'
-import { P } from '../../shortcuts'
+import { route } from '../../routes'
+import { P, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
 
 const explorer_url = 'https://mempool.space/address/'
 
 const Bitcoin = () => {
+  const navigate = useNavigate()
+  const addr = root_store.wallet.btc.address
+
+  useEffect(() => {
+    if (!addr) navigate(route.unlock_wallet)
+  }, [addr, navigate])
+
   return (
     <Stack gap={1}>
       <Navbar />
       <P level="h3" color="primary">
         Bitcoin
       </P>
-      {root_store.wallet.btc.address && (
-        <>
-          <Address addr={root_store.wallet.btc.address} />
-        </>
+      {addr && (
+        <Card size="sm">
+          <Row gap={1}>
+            <P>Main Address</P>
+            <P fontWeight="bold"> {addr}</P>
+          </Row>
+          <P level="body-xs">
+            Do not share this address with untrusted parties who may send
+            tainted or illicit coins.
+            <br />
+            Receiving funds from suspicious sources can link your wallet to
+            illegal activity.
+            <br />
+            For secure acceptance of funds, consider generating dedicated child
+            address per transaction.
+          </P>
+        </Card>
       )}
     </Stack>
   )

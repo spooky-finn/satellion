@@ -1,13 +1,22 @@
-import { Stack } from '@mui/joy'
+import { Card, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
-import { Address } from '../../components/address'
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router'
 import { Navbar } from '../../components/navbar'
 import { route } from '../../routes'
-import { LinkButton, P } from '../../shortcuts'
+import { LinkButton, P, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
 import { BalanceCard } from './balances'
+import { OpenExplorerButton } from './utils/shared'
 
 export const Ethereum = observer(() => {
+  const navigate = useNavigate()
+  const addr = root_store.wallet.eth.address
+
+  useEffect(() => {
+    if (!addr) navigate(route.unlock_wallet)
+  }, [addr, navigate])
+
   return (
     <Stack gap={1}>
       <Navbar />
@@ -16,7 +25,16 @@ export const Ethereum = observer(() => {
       </P>
       {root_store.wallet.eth && (
         <>
-          <Address addr={root_store.wallet.eth.address} />
+          {addr && (
+            <Card size="sm">
+              <Row gap={1}>
+                <P>Main Address</P>
+                <P fontWeight="bold"> {addr}</P>
+              </Row>
+              <OpenExplorerButton path={`address/${addr}`} />
+            </Card>
+          )}
+
           <BalanceCard />
           <LinkButton to={route.ethereum_send} sx={{ width: 'min-content' }}>
             Send
