@@ -1,3 +1,4 @@
+use crate::session::chain_data::EthereumSession;
 use alloy::primitives::Address;
 use alloy_signer_local::{
     LocalSignerError, MnemonicBuilder, PrivateKeySigner, coins_bip39::English,
@@ -28,11 +29,17 @@ pub struct EthereumUnlock {
     pub address: String,
 }
 
-pub fn unlock(mnemonic: &str, passphrase: &str) -> Result<EthereumUnlock, LocalSignerError> {
+pub fn unlock(
+    mnemonic: &str,
+    passphrase: &str,
+) -> Result<(EthereumUnlock, EthereumSession), LocalSignerError> {
     let signer = create_private_key(mnemonic, passphrase)?;
-    Ok(EthereumUnlock {
-        address: signer.address().to_string(),
-    })
+    Ok((
+        EthereumUnlock {
+            address: signer.address().to_string(),
+        },
+        EthereumSession { signer },
+    ))
 }
 
 #[cfg(test)]

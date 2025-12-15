@@ -69,6 +69,14 @@ async startNode() : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async btcDeriveAddress(walletId: number, index: number) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("btc_derive_address", { walletId, index }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async ethChainInfo() : Promise<Result<ChainInfo, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("eth_chain_info") };

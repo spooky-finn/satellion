@@ -26,6 +26,7 @@ export const EthereumTransfer = observer(() => {
       </P>
       <Input
         placeholder="Recipient address"
+        sx={{ maxWidth: '500px' }}
         value={state.address}
         onChange={e => {
           state.setAddress(e.target.value)

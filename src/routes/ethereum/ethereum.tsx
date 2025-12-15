@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { Navbar } from '../../components/navbar'
 import { route } from '../../routes'
-import { LinkButton, P, Row } from '../../shortcuts'
+import { LinkButton, P } from '../../shortcuts'
 import { root_store } from '../../stores/root'
 import { BalanceCard } from './balances'
 import { OpenExplorerButton } from './utils/shared'
@@ -27,10 +27,7 @@ export const Ethereum = observer(() => {
         <>
           {addr && (
             <Card size="sm">
-              <Row gap={1}>
-                <P>Main Address</P>
-                <P fontWeight="bold"> {addr}</P>
-              </Row>
+              <P fontWeight="bold"> {addr}</P>
               <OpenExplorerButton path={`address/${addr}`} />
             </Card>
           )}

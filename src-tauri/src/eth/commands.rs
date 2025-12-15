@@ -1,18 +1,20 @@
 use crate::config::Chain;
-use crate::eth::PriceFeed;
-use crate::eth::constants::ETH_USD_PRICE_FEED;
-use crate::eth::erc20_retriver::Erc20Retriever;
-use crate::eth::fee_estimator::FeeMode;
-use crate::eth::wallet::parse_addres;
-use crate::eth::{constants::ETH, token::Token, transfer_builder::TransferRequest};
-use crate::{db, eth, repository::TokenRepository, session, wallet_service::WalletService};
+use crate::eth::{
+    PriceFeed,
+    constants::{ETH, ETH_USD_PRICE_FEED},
+    erc20_retriver::Erc20Retriever,
+    fee_estimator::FeeMode,
+    token::Token,
+    transfer_builder::TransferRequest,
+    wallet::parse_addres,
+};
+use crate::{db, eth, repository::TokenRepository, session};
 use alloy::{
     eips::{BlockId, BlockNumberOrTag},
     primitives::{Address, utils::format_units},
     providers::Provider,
 };
-use alloy_provider::DynProvider;
-use alloy_provider::ext::AnvilApi;
+use alloy_provider::{DynProvider, ext::AnvilApi};
 use serde::Serialize;
 use specta::{Type, specta};
 use std::str::FromStr;
@@ -137,23 +139,16 @@ pub async fn eth_prepare_send_tx(
     fee_mode: FeeMode,
     tx_builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
-    storage: tauri::State<'_, WalletService>,
     price_feed: tauri::State<'_, PriceFeed>,
     token_repository: tauri::State<'_, TokenRepository>,
 ) -> Result<PrepareTxReqRes, String> {
     let mut session_store = session_store.lock().await;
-    let session = session_store.get(wallet_id);
-    if session.is_none() {
-        return Err("Session not found".to_string());
-    }
-    let passphrase = session.unwrap().passphrase.clone();
-    let mnemonic = storage
-        .load(wallet_id, passphrase.clone())
-        .map_err(|e| e.to_string())?;
-    let signer =
-        eth::wallet::create_private_key(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
+    let session = session_store.get(wallet_id).ok_or("Session not found")?;
+    let eth_session = session
+        .get_ethereum_session()
+        .ok_or("Ethereum session is not initialized")?;
 
-    let sender = signer.address();
+    let sender = eth_session.signer.address();
     let recipient = parse_addres(&recipient)?;
 
     let token = if token_symbol.to_uppercase() != "ETH" {
@@ -211,23 +206,16 @@ pub async fn eth_prepare_send_tx(
 pub async fn eth_sign_and_send_tx(
     wallet_id: i32,
     builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
-    storage: tauri::State<'_, WalletService>,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
 ) -> Result<String, String> {
     let mut session_store = session_store.lock().await;
-    let session = session_store.get(wallet_id);
-    if session.is_none() {
-        return Err("Session not found".to_string());
-    }
-    let passphrase = session.unwrap().passphrase.clone();
-    let mnemonic = storage
-        .load(wallet_id, passphrase.clone())
-        .map_err(|e| e.to_string())?;
-    let signer =
-        eth::wallet::create_private_key(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
+    let session = session_store.get(wallet_id).ok_or("Session not found")?;
+    let eth_session = session
+        .get_ethereum_session()
+        .ok_or("Ethereum session is not initialized")?;
 
     let mut builder = builder.try_lock().map_err(|e| e.to_string())?;
-    let hash = builder.sign_and_send_tx(&signer).await?;
+    let hash = builder.sign_and_send_tx(&eth_session.signer).await?;
     Ok(hash.to_string())
 }
 
@@ -302,25 +290,22 @@ pub async fn eth_anvil_set_initial_balances(
     use crate::eth::constants::USDT;
     use alloy::primitives::utils::{parse_ether, parse_units};
 
-    let provider = provider.inner();
+    let p = provider.inner();
     let addr = parse_addres(&address)?;
+    let token = USDT.clone();
 
-    provider
-        .anvil_set_balance(addr, parse_ether("10").unwrap())
+    p.anvil_set_balance(addr, parse_ether("10").unwrap())
         .await
         .map_err(|e| format!("Failed to set ETH balance: {}", e))?;
-
-    let token = USDT.clone();
-    provider
-        .anvil_deal_erc20(
-            addr,
-            token.address,
-            parse_units("9999999", token.decimals)
-                .unwrap()
-                .get_absolute(),
-        )
-        .await
-        .map_err(|e| format!("Failed to set USDT balance: {}", e))?;
+    p.anvil_deal_erc20(
+        addr,
+        token.address,
+        parse_units("9999999", token.decimals)
+            .unwrap()
+            .get_absolute(),
+    )
+    .await
+    .map_err(|e| format!("Failed to set USDT balance: {}", e))?;
 
     Ok("Initial balances set successfully: 10 ETH and 9,999,999 USDT".to_string())
 }

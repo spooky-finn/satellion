@@ -1,5 +1,6 @@
-use crate::config::{CONFIG, Config};
+use crate::config::{CONFIG, Chain, Config};
 use crate::repository::{AvailableWallet, TokenRepository, WalletRepository};
+use crate::session::chain_data::ChainData;
 use crate::wallet_service::WalletService;
 use crate::{app_state::AppState, db::BlockHeader, schema};
 use crate::{btc, session};
@@ -52,9 +53,9 @@ pub async fn create_wallet(
     mnemonic: String,
     passphrase: String,
     name: String,
-    storage: tauri::State<'_, WalletService>,
+    wallet_service: tauri::State<'_, WalletService>,
 ) -> Result<bool, String> {
-    storage.create(mnemonic, passphrase, name)?;
+    wallet_service.create(mnemonic, passphrase, name)?;
     Ok(true)
 }
 
@@ -78,25 +79,26 @@ pub struct UnlockMsg {
 pub async fn unlock_wallet(
     wallet_id: i32,
     passphrase: String,
-    wallet_store: tauri::State<'_, WalletService>,
+    wallet_service: tauri::State<'_, WalletService>,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
     token_repository: tauri::State<'_, TokenRepository>,
 ) -> Result<UnlockMsg, String> {
-    let mnemonic = wallet_store.load(wallet_id, passphrase.clone())?;
-    let eth_unlock_data = eth::wallet::unlock(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
-    let bitcoin_unlock_data =
+    let mnemonic = wallet_service.load(wallet_id, passphrase.clone())?;
+    let (eth_unlock_data, eth_session) =
+        eth::wallet::unlock(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
+    let (btc_unlock_data, btc_session) =
         btc::wallet::unlock(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
-    session_store.lock().await.start(session::Session::new(
-        wallet_id,
-        passphrase,
-        Config::session_exp_duration(),
-    ));
+
+    let mut session = session::Session::new(wallet_id, Config::session_exp_duration());
+    session.add_chain_data(Chain::Bitcoin, ChainData::from(btc_session));
+    session.add_chain_data(Chain::Ethereum, ChainData::from(eth_session));
+    session_store.lock().await.start(session);
 
     crate::eth::init::init_ethereum(&token_repository, wallet_id).await?;
 
     Ok(UnlockMsg {
         ethereum: eth_unlock_data,
-        bitcoin: bitcoin_unlock_data,
+        bitcoin: btc_unlock_data,
     })
 }
 

@@ -1,15 +1,12 @@
-use std::str::FromStr;
-
+use crate::{config::CONFIG, session::chain_data::BitcoinSession};
 use bip39::Language;
+pub use bitcoin::network::Network;
 use bitcoin::{
     Address,
     bip32::{self, DerivationPath, Xpriv},
     key::{Keypair, Secp256k1},
 };
-
-pub use bitcoin::network::Network;
-
-use crate::config::CONFIG;
+use std::str::FromStr;
 
 pub enum AddressType {
     Receive = 0,
@@ -81,7 +78,7 @@ pub struct BitcoinUnlock {
     change_address: String,
 }
 
-pub fn unlock(mnemonic: &str, passphrase: &str) -> Result<BitcoinUnlock, String> {
+pub fn unlock(mnemonic: &str, passphrase: &str) -> Result<(BitcoinUnlock, BitcoinSession), String> {
     let net = CONFIG.bitcoin.network();
     let bitcoin_xprv =
         create_private_key(net, &mnemonic, &passphrase).map_err(|e| e.to_string())?;
@@ -93,8 +90,11 @@ pub fn unlock(mnemonic: &str, passphrase: &str) -> Result<BitcoinUnlock, String>
         derive_taproot_address(&bitcoin_xprv, net, AddressType::Change, 0)
             .map_err(|e| e.to_string())?;
 
-    Ok(BitcoinUnlock {
-        address: bitcoin_main_receive_address.to_string(),
-        change_address: bitcoin_main_change_address.to_string(),
-    })
+    Ok((
+        BitcoinUnlock {
+            address: bitcoin_main_receive_address.to_string(),
+            change_address: bitcoin_main_change_address.to_string(),
+        },
+        BitcoinSession { xprv: bitcoin_xprv },
+    ))
 }

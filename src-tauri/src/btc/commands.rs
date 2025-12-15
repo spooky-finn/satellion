@@ -1,6 +1,8 @@
-use crate::app_state::AppState;
 use crate::btc;
+use crate::btc::wallet::{AddressType, derive_taproot_address};
+use crate::config::CONFIG;
 use crate::repository::ChainRepository;
+use crate::{app_state::AppState, session};
 use specta::specta;
 use std::sync::Arc;
 
@@ -41,4 +43,21 @@ pub async fn start_node(
     ));
 
     Ok(())
+}
+
+#[specta]
+#[tauri::command]
+pub async fn btc_derive_address(
+    wallet_id: i32,
+    index: u32,
+    session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
+) -> Result<String, String> {
+    let mut session_store = session_store.lock().await;
+    let session = session_store.get(wallet_id).ok_or("Session not found")?;
+    let btc_session = session
+        .get_bitcoin_session()
+        .ok_or("Ethereum session is not initialized")?;
+    let net = CONFIG.bitcoin.network();
+    let child = derive_taproot_address(&btc_session.xprv, net, AddressType::Receive, index)?;
+    Ok(child.1.to_string())
 }

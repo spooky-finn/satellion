@@ -21,7 +21,7 @@ use tauri::Manager;
 use tauri_specta;
 use tokio::sync::Mutex;
 
-const ENABLE_DEVTOOLS: bool = true;
+const ENABLE_DEVTOOLS: bool = false;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -47,6 +47,7 @@ pub fn run() {
             commands::forget_wallet,
             commands::get_config,
             btc::commands::start_node,
+            btc::commands::btc_derive_address,
             eth::commands::eth_chain_info,
             eth::commands::eth_get_balance,
             eth::commands::eth_prepare_send_tx,
