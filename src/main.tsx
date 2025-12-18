@@ -9,11 +9,11 @@ import Bitcoin from './routes/bitcoin/bitcoin'
 import CreateWallet from './routes/create_wallet'
 import { Ethereum } from './routes/ethereum/ethereum'
 import { EthereumTransfer } from './routes/ethereum/transfer'
-import CreatePassphrase from './routes/mnemonic/create_passphrase'
-import GenMnemonic from './routes/mnemonic/gen'
-import ImportMnemonic from './routes/mnemonic/import'
-import VerifyMnemonic from './routes/mnemonic/verify'
 import UnlockWallet from './routes/unlock_wallet'
+import ImportMnemonic from './routes/wallet/import'
+import GenMnemonic from './routes/wallet/mnemonic_generate'
+import VerifyMnemonic from './routes/wallet/mnemonic_verify'
+import CreatePassphrase from './routes/wallet/passphrase_create'
 
 const theme = extendTheme({
   cssVarPrefix: 'mode-toggle',

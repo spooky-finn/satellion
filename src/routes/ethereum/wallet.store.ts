@@ -24,11 +24,6 @@ export class EthereumWallet {
     this.chainInfo = c
   }
 
-  get eth_balance() {
-    const bigintBalance = BigInt(this.balance?.data?.wei ?? '0')
-    return bigintBalance
-  }
-
   get tokens_with_balance() {
     return this.balance?.data?.tokens.filter(t => Number(t.balance) > 0) ?? []
   }

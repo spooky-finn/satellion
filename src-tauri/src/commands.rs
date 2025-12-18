@@ -1,4 +1,4 @@
-use crate::config::{CONFIG, Chain, Config};
+use crate::config::{CONFIG, Chain, Config, constants};
 use crate::repository::{AvailableWallet, TokenRepository, WalletRepository};
 use crate::session::chain_data::ChainData;
 use crate::wallet_service::WalletService;
@@ -55,6 +55,12 @@ pub async fn create_wallet(
     name: String,
     wallet_service: tauri::State<'_, WalletService>,
 ) -> Result<bool, String> {
+    if passphrase.len() < constants::MIN_PASSPHRASE_LEN {
+        return Err(format!(
+            "Passphrase must contain at least {} characters",
+            constants::MIN_PASSPHRASE_LEN
+        ));
+    }
     wallet_service.create(mnemonic, passphrase, name)?;
     Ok(true)
 }

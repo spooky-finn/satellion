@@ -85,7 +85,7 @@ class MnemonicStore {
     )
     if (resp.status === 'error') {
       notifier.err(resp.error)
-      return
+      throw Error(resp.error)
     }
     return resp.data
   }

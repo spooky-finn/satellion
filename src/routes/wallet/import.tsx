@@ -5,7 +5,7 @@ import { Navbar } from '../../components/navbar'
 import { notifier } from '../../components/notifier'
 import { route, useNavigate } from '../../routes'
 import { P } from '../../shortcuts'
-import { PassphraseInput } from './create_passphrase'
+import { PassphraseInput } from './passphrase_create'
 import { store } from './store'
 
 const ImportMnemonic = observer(() => {
@@ -34,11 +34,7 @@ const ImportMnemonic = observer(() => {
     store.setWalletName(walletName)
 
     const success = await store.createWallet()
-    if (success) {
-      navigate(route.unlock_wallet)
-    } else {
-      notifier.err('Failed to create wallet')
-    }
+    navigate(route.unlock_wallet)
   }
 
   const isFormValid = () => {
@@ -50,11 +46,10 @@ const ImportMnemonic = observer(() => {
   }
 
   return (
-    <Stack gap={3} alignItems={'center'}>
+    <Stack gap={1} alignItems={'center'}>
       <Navbar hideLedgers />
       <P level="h2">Import</P>
-
-      <Stack gap={2} alignItems={'center'}>
+      <Stack gap={1} alignItems={'center'}>
         <Input
           sx={{ width: '200px' }}
           placeholder="Wallet name"

@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+pub const MIN_PASSPHRASE_LEN: usize = 4;
+
 #[derive(Type, Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Chain {
     Bitcoin = 0,

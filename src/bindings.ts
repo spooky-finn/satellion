@@ -149,7 +149,7 @@ async ethAnvilSetInitialBalances(address: string) : Promise<Result<string, strin
 
 /** user-defined constants **/
 
-
+export const MIN_PASSPHRASE_LEN = 4 as const;
 
 /** user-defined types **/
 
