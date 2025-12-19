@@ -8,7 +8,7 @@ pub fn new() -> Result<String, String> {
     Ok(mnemnonic.to_phrase())
 }
 
-pub fn verify(mnemonic: String) -> Result<bool, String> {
+pub fn verify(mnemonic: &str) -> Result<bool, String> {
     let mnemonic = coins_bip39::Mnemonic::<English>::new_from_phrase(&mnemonic);
     match mnemonic {
         Ok(_) => Ok(true),

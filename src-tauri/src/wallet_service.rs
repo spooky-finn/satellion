@@ -19,22 +19,18 @@ impl WalletService {
         }
     }
 
-    pub fn create(
-        &self,
-        mnemonic: String,
-        passphrase: String,
-        name: String,
-    ) -> Result<Wallet, String> {
-        mnemonic::verify(mnemonic.clone()).map_err(|e| e.to_string())?;
+    pub fn create(&self, mnemonic: &str, passphrase: &str, name: &str) -> Result<Wallet, String> {
+        mnemonic::verify(mnemonic).map_err(|e| e.to_string())?;
+        let default_name = self.generate_default_wallet_name()?;
 
         let mut name = name;
         if name.is_empty() {
-            name = self.generate_default_wallet_name()?;
+            name = default_name.as_ref();
         }
 
         let envelope = encryptor::encrypt(mnemonic.as_bytes(), passphrase.as_bytes())?;
         let wallet = Wallet {
-            name: name.clone(),
+            name: name.to_string(),
             encrypted_key: envelope.ciphertext,
             key_wrapped: envelope.wrapped_key,
             kdf_salt: envelope.kdf_salt,
@@ -109,11 +105,7 @@ mod tests {
             .expect("fail to generate wallet name");
 
         wallet_service
-            .create(
-                mnemonic.to_string(),
-                passphrase.to_string(),
-                wallet_name.clone(),
-            )
+            .create(mnemonic, &passphrase, &wallet_name)
             .unwrap();
         let decrypted = wallet_service
             .load(&wallet_name, passphrase.to_string())
@@ -134,11 +126,7 @@ mod tests {
             .expect("fail to generate wallet name");
 
         let encrypted_wallet = wallet_service
-            .create(
-                mnemonic.to_string(),
-                passphrase.to_string(),
-                wallet_name.clone(),
-            )
+            .create(mnemonic, passphrase, wallet_name.as_ref())
             .map_err(|e| e.to_string());
         assert!(encrypted_wallet.is_err()); // Invalid mnemonic should fail
     }

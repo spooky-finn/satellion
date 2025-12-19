@@ -7,7 +7,6 @@ use crate::{
     session::{BitcoinSession, ChainSession, EthereumSession},
 };
 
-#[derive(Clone)]
 pub struct Session {
     pub wallet_name: String,
     pub created_at: DateTime<Utc>,
@@ -56,16 +55,14 @@ impl Store {
         Self { session: None }
     }
 
-    pub fn get(&mut self, wallet_name: &str) -> Option<Session> {
-        match &self.session {
-            None => None,
-            Some(session) if session.is_expired() => {
+    pub fn get(&mut self, wallet_name: &str) -> Option<&Session> {
+        if let Some(session) = &self.session {
+            if session.is_expired() || session.wallet_name != wallet_name {
                 self.session = None;
-                None
+                return None;
             }
-            Some(session) if session.wallet_name != wallet_name => None,
-            Some(session) => Some(session.clone()),
         }
+        self.session.as_ref()
     }
 
     pub fn start(&mut self, session: Session) {

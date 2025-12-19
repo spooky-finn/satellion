@@ -1,17 +1,16 @@
+use zeroize::Zeroize;
+
 use alloy_signer_local::PrivateKeySigner;
 use bitcoin::bip32::Xpriv;
 
-#[derive(Clone)]
 pub struct BitcoinSession {
     pub xprv: Xpriv,
 }
 
-#[derive(Clone)]
 pub struct EthereumSession {
     pub signer: PrivateKeySigner,
 }
 
-#[derive(Clone)]
 pub enum ChainSession {
     Bitcoin(BitcoinSession),
     Ethereum(EthereumSession),
@@ -42,5 +41,18 @@ impl From<BitcoinSession> for ChainSession {
 impl From<EthereumSession> for ChainSession {
     fn from(config: EthereumSession) -> Self {
         ChainSession::Ethereum(config)
+    }
+}
+
+impl Drop for ChainSession {
+    fn drop(&mut self) {
+        match self {
+            ChainSession::Bitcoin(btc) => {
+                btc.xprv.private_key.secret_bytes().zeroize();
+            }
+            ChainSession::Ethereum(eth) => {
+                eth.signer.to_bytes().zeroize();
+            }
+        }
     }
 }

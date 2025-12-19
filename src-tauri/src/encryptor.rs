@@ -13,6 +13,7 @@
 //! - `kdf_salt`: 32 bytes for Argon2 KDF
 use aes_gcm::Aes256Gcm;
 use aes_gcm::aead::{Aead, KeyInit};
+use zeroize::Zeroize;
 
 pub const NONCE_SIZE: usize = 12;
 pub const KEY_SIZE: usize = 32;
@@ -25,13 +26,17 @@ pub struct EncryptedData {
 }
 
 pub fn encrypt(plaintext: &[u8], passphrase: &[u8]) -> Result<EncryptedData, String> {
-    let dek = rand::random::<[u8; KEY_SIZE]>();
+    let mut dek = rand::random::<[u8; KEY_SIZE]>();
     let dek_nonce = rand::random::<[u8; NONCE_SIZE]>();
     let kek_nonce = rand::random::<[u8; NONCE_SIZE]>();
     let kdf_salt = rand::random::<[u8; SALT_SIZE]>();
-    let kek = derive_kek_from_passphrase(passphrase, &kdf_salt)?;
+
+    let mut kek = derive_kek_from_passphrase(passphrase, &kdf_salt)?;
+
     let data_ciphertext = aes_encrypt(&dek, &dek_nonce, plaintext)?;
     let wrapped_dek = aes_encrypt(&kek, &kek_nonce, &dek)?;
+    dek.zeroize();
+    kek.zeroize();
 
     // Format: [dek_nonce][data_ciphertext]
     let mut ciphertext = dek_nonce.to_vec();
@@ -47,7 +52,7 @@ pub fn encrypt(plaintext: &[u8], passphrase: &[u8]) -> Result<EncryptedData, Str
     })
 }
 pub fn decrypt(encrypted: &EncryptedData, passphrase: &[u8]) -> Result<Vec<u8>, String> {
-    let kek = derive_kek_from_passphrase(passphrase, &encrypted.kdf_salt)?;
+    let mut kek = derive_kek_from_passphrase(passphrase, &encrypted.kdf_salt)?;
     if encrypted.wrapped_key.len() < NONCE_SIZE {
         return Err("Invalid wrapped_key format".to_string());
     }
@@ -55,11 +60,17 @@ pub fn decrypt(encrypted: &EncryptedData, passphrase: &[u8]) -> Result<Vec<u8>, 
     let kek_nonce: [u8; NONCE_SIZE] = kek_nonce_slice
         .try_into()
         .map_err(|_| "Invalid KEK nonce")?;
-    let dek_bytes = aes_decrypt(&kek, &kek_nonce, wrapped_dek).map_err(|_| "Invalid passphrase")?;
-    let dek: [u8; KEY_SIZE] = dek_bytes
+
+    let mut dek_bytes =
+        aes_decrypt(&kek, &kek_nonce, wrapped_dek).map_err(|_| "Invalid passphrase")?;
+    kek.zeroize();
+
+    let mut dek: [u8; KEY_SIZE] = dek_bytes
         .as_slice()
         .try_into()
         .map_err(|_| "Invalid DEK size")?;
+    dek_bytes.zeroize();
+
     if encrypted.ciphertext.len() < NONCE_SIZE {
         return Err("Invalid ciphertext format".to_string());
     }
@@ -68,12 +79,22 @@ pub fn decrypt(encrypted: &EncryptedData, passphrase: &[u8]) -> Result<Vec<u8>, 
         .try_into()
         .map_err(|_| "Invalid DEK nonce")?;
     let plaintext = aes_decrypt(&dek, &dek_nonce, data_ciphertext)?;
+    dek.zeroize();
     Ok(plaintext)
 }
 
 fn derive_kek_from_passphrase(passphrase: &[u8], salt: &[u8]) -> Result<[u8; KEY_SIZE], String> {
     let mut kek = [0u8; KEY_SIZE];
-    argon2::Argon2::default()
+    let params = argon2::Params::new(
+        64 * 1024, // 64 MB memory
+        3,         // iterations
+        1,         // parallelism
+        Some(32),
+    )
+    .unwrap();
+    let argon2_instance =
+        argon2::Argon2::new(argon2::Algorithm::Argon2id, argon2::Version::V0x13, params);
+    argon2_instance
         .hash_password_into(passphrase, salt, &mut kek)
         .map_err(|e| format!("KDF failed: {:?}", e))?;
     Ok(kek)

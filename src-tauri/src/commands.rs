@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use zeroize::Zeroize;
 
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use serde::Serialize;
@@ -57,8 +58,8 @@ pub async fn generate_mnemonic() -> Result<String, String> {
 #[specta]
 #[tauri::command]
 pub async fn create_wallet(
-    mnemonic: String,
-    passphrase: String,
+    mut mnemonic: String,
+    mut passphrase: String,
     name: String,
     wallet_service: tauri::State<'_, WalletService>,
 ) -> Result<bool, String> {
@@ -68,7 +69,10 @@ pub async fn create_wallet(
             constants::MIN_PASSPHRASE_LEN
         ));
     }
-    wallet_service.create(mnemonic, passphrase, name)?;
+    wallet_service.create(&mnemonic, &passphrase, &name)?;
+
+    mnemonic.zeroize();
+    passphrase.zeroize();
     Ok(true)
 }
 
@@ -92,7 +96,7 @@ pub struct UnlockMsg {
 #[tauri::command]
 pub async fn unlock_wallet(
     wallet_name: String,
-    passphrase: String,
+    mut passphrase: String,
     wallet_service: tauri::State<'_, WalletService>,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
     wallet_repository: tauri::State<'_, WalletRepositoryImpl>,
@@ -113,6 +117,7 @@ pub async fn unlock_wallet(
     session.add_chain_data(Chain::Ethereum, ChainSession::from(eth_session));
     session_store.lock().await.start(session);
 
+    passphrase.zeroize();
     Ok(UnlockMsg {
         ethereum: eth_unlock_data,
         bitcoin: btc_unlock_data,
