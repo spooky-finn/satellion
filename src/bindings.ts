@@ -29,7 +29,7 @@ async chainStatus() : Promise<Result<SyncStatus, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async listWallets() : Promise<Result<AvailableWallet[], string>> {
+async listWallets() : Promise<Result<string[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("list_wallets") };
 } catch (e) {
@@ -37,17 +37,17 @@ async listWallets() : Promise<Result<AvailableWallet[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async unlockWallet(walletId: number, passphrase: string) : Promise<Result<UnlockMsg, string>> {
+async unlockWallet(walletName: string, passphrase: string) : Promise<Result<UnlockMsg, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("unlock_wallet", { walletId, passphrase }) };
+    return { status: "ok", data: await TAURI_INVOKE("unlock_wallet", { walletName, passphrase }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async forgetWallet(walletId: number) : Promise<Result<null, string>> {
+async forgetWallet(walletName: string) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("forget_wallet", { walletId }) };
+    return { status: "ok", data: await TAURI_INVOKE("forget_wallet", { walletName }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -69,9 +69,9 @@ async startNode() : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async btcDeriveAddress(walletId: number, index: number) : Promise<Result<string, string>> {
+async btcDeriveAddress(walletName: string, index: number) : Promise<Result<string, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("btc_derive_address", { walletId, index }) };
+    return { status: "ok", data: await TAURI_INVOKE("btc_derive_address", { walletName, index }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -85,25 +85,25 @@ async ethChainInfo() : Promise<Result<ChainInfo, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async ethGetBalance(address: string, walletId: number) : Promise<Result<Balance, string>> {
+async ethGetBalance(address: string, walletName: string) : Promise<Result<Balance, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("eth_get_balance", { address, walletId }) };
+    return { status: "ok", data: await TAURI_INVOKE("eth_get_balance", { address, walletName }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async ethPrepareSendTx(walletId: number, tokenSymbol: string, amount: string, recipient: string, feeMode: FeeMode) : Promise<Result<PrepareTxReqRes, string>> {
+async ethPrepareSendTx(walletName: string, tokenSymbol: string, amount: string, recipient: string, feeMode: FeeMode) : Promise<Result<PrepareTxReqRes, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("eth_prepare_send_tx", { walletId, tokenSymbol, amount, recipient, feeMode }) };
+    return { status: "ok", data: await TAURI_INVOKE("eth_prepare_send_tx", { walletName, tokenSymbol, amount, recipient, feeMode }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async ethSignAndSendTx(walletId: number) : Promise<Result<string, string>> {
+async ethSignAndSendTx(walletName: string) : Promise<Result<string, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("eth_sign_and_send_tx", { walletId }) };
+    return { status: "ok", data: await TAURI_INVOKE("eth_sign_and_send_tx", { walletName }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -117,17 +117,17 @@ async ethVerifyAddress(address: string) : Promise<Result<boolean, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async ethTrackToken(walletId: number, address: string) : Promise<Result<TokenType, string>> {
+async ethTrackToken(walletName: string, address: string) : Promise<Result<TokenType, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("eth_track_token", { walletId, address }) };
+    return { status: "ok", data: await TAURI_INVOKE("eth_track_token", { walletName, address }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async ethUntrackToken(walletId: number, address: string) : Promise<Result<boolean, string>> {
+async ethUntrackToken(walletName: string, tokenAddress: string) : Promise<Result<boolean, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("eth_untrack_token", { walletId, address }) };
+    return { status: "ok", data: await TAURI_INVOKE("eth_untrack_token", { walletName, tokenAddress }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -153,7 +153,6 @@ export const MIN_PASSPHRASE_LEN = 4 as const;
 
 /** user-defined types **/
 
-export type AvailableWallet = { id: number; name: string | null }
 export type Balance = { wei: string; eth_price: string; tokens: TokenBalance[] }
 export type BitcoinUnlock = { address: string; change_address: string }
 export type Chain = "Bitcoin" | "Ethereum"

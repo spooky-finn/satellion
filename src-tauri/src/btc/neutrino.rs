@@ -1,4 +1,5 @@
-use crate::{app_state::AppState, db::BlockHeader, repository::ChainRepository};
+use std::{net::SocketAddrV4, str::FromStr, sync::Arc, time::Duration};
+
 use bip157::{
     BlockHash, Builder, Event, Header, TrustedPeer,
     chain::{BlockHeaderChanges, ChainState, IndexedHeader},
@@ -7,7 +8,8 @@ use bitcoin::{
     blockdata::block::{TxMerkleNode, Version},
     pow::CompactTarget,
 };
-use std::{net::SocketAddrV4, str::FromStr, sync::Arc, time::Duration};
+
+use crate::{app_state::AppState, db::BlockHeader, repository::ChainRepository};
 
 const REGTEST_PEER: &str = "127.0.0.1:18444";
 

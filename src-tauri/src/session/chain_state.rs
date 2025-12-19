@@ -12,35 +12,35 @@ pub struct EthereumSession {
 }
 
 #[derive(Clone)]
-pub enum ChainData {
+pub enum ChainSession {
     Bitcoin(BitcoinSession),
     Ethereum(EthereumSession),
 }
 
-impl ChainData {
+impl ChainSession {
     pub fn as_bitcoin(&self) -> Option<&BitcoinSession> {
         match self {
-            ChainData::Bitcoin(config) => Some(config),
+            ChainSession::Bitcoin(config) => Some(config),
             _ => None,
         }
     }
 
     pub fn as_ethereum(&self) -> Option<&EthereumSession> {
         match self {
-            ChainData::Ethereum(config) => Some(config),
+            ChainSession::Ethereum(config) => Some(config),
             _ => None,
         }
     }
 }
 
-impl From<BitcoinSession> for ChainData {
+impl From<BitcoinSession> for ChainSession {
     fn from(config: BitcoinSession) -> Self {
-        ChainData::Bitcoin(config)
+        ChainSession::Bitcoin(config)
     }
 }
 
-impl From<EthereumSession> for ChainData {
+impl From<EthereumSession> for ChainSession {
     fn from(config: EthereumSession) -> Self {
-        ChainData::Ethereum(config)
+        ChainSession::Ethereum(config)
     }
 }

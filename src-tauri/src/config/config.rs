@@ -1,8 +1,9 @@
-use crate::{btc::config::BitcoinConfig, eth::config::EthereumConfig};
+use std::{fs, path::PathBuf};
+
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::PathBuf;
+
+use crate::{btc::config::BitcoinConfig, eth::config::EthereumConfig};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -12,7 +13,9 @@ pub struct Config {
 
 impl Config {
     pub fn new() -> Self {
-        Self::load().unwrap_or_else(|_| Self::default())
+        let config = Self::load().unwrap_or_else(|_| Self::default());
+        Self::ensure_wallets_dir();
+        config
     }
 
     pub fn load() -> Result<Self, Box<dyn std::error::Error>> {
@@ -58,6 +61,16 @@ impl Config {
         let mut path = Self::config_dir();
         path.push("blockchain.db");
         path
+    }
+
+    pub fn wallets_dir() -> PathBuf {
+        let mut path = Self::config_dir();
+        path.push("wallets");
+        path
+    }
+
+    pub fn ensure_wallets_dir() {
+        fs::create_dir_all(&Self::wallets_dir()).expect("Failed to create wallets directory");
     }
 
     pub fn session_exp_duration() -> chrono::TimeDelta {

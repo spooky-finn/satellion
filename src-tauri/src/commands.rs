@@ -1,14 +1,21 @@
-use crate::config::{CONFIG, Chain, Config, constants};
-use crate::repository::{AvailableWallet, TokenRepository, WalletRepository};
-use crate::session::chain_data::ChainData;
-use crate::wallet_service::WalletService;
-use crate::{app_state::AppState, db::BlockHeader, schema};
-use crate::{btc, session};
-use crate::{eth, mnemonic};
+use std::sync::Arc;
+
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use serde::Serialize;
 use specta::{Type, specta};
-use std::sync::Arc;
+
+use crate::{
+    app_state::AppState,
+    btc,
+    config::{CONFIG, Chain, Config, constants},
+    db::BlockHeader,
+    eth, mnemonic,
+    repository::wallet_repository::WalletRepositoryImpl,
+    schema,
+    session::{self, ChainSession},
+    wallet::WalletRepository,
+    wallet_service::WalletService,
+};
 
 #[derive(Type, Serialize)]
 pub struct SyncStatus {
@@ -68,10 +75,10 @@ pub async fn create_wallet(
 #[specta]
 #[tauri::command]
 pub async fn list_wallets(
-    repository: tauri::State<'_, WalletRepository>,
-) -> Result<Vec<AvailableWallet>, String> {
-    let wallets_info = repository.list().map_err(|e| e.to_string())?;
-    Ok(wallets_info)
+    repository: tauri::State<'_, WalletRepositoryImpl>,
+) -> Result<Vec<String>, String> {
+    let available_wallets = repository.list_available().map_err(|e| e.to_string())?;
+    Ok(available_wallets)
 }
 
 #[derive(Type, Serialize)]
@@ -84,30 +91,27 @@ pub struct UnlockMsg {
 #[specta]
 #[tauri::command]
 pub async fn unlock_wallet(
-    wallet_id: i32,
+    wallet_name: String,
     passphrase: String,
     wallet_service: tauri::State<'_, WalletService>,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
-    token_repository: tauri::State<'_, TokenRepository>,
-    wallet_repository: tauri::State<'_, WalletRepository>,
+    wallet_repository: tauri::State<'_, WalletRepositoryImpl>,
 ) -> Result<UnlockMsg, String> {
-    let mnemonic = wallet_service.load(wallet_id, passphrase.clone())?;
+    let mnemonic = wallet_service.load(&wallet_name, passphrase.clone())?;
     let (eth_unlock_data, eth_session) =
         eth::wallet::unlock(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
     let (btc_unlock_data, btc_session) =
         btc::wallet::unlock(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
 
     let wallet = wallet_repository
-        .get(wallet_id)
+        .get(&wallet_name)
         .map_err(|e| e.to_string())?;
-    let last_used_chain = Chain::from(wallet.last_used_chain as i32);
+    let last_used_chain = Chain::from(wallet.last_used_chain as u16);
 
-    let mut session = session::Session::new(wallet_id, Config::session_exp_duration());
-    session.add_chain_data(Chain::Bitcoin, ChainData::from(btc_session));
-    session.add_chain_data(Chain::Ethereum, ChainData::from(eth_session));
+    let mut session = session::Session::new(wallet_name, Config::session_exp_duration());
+    session.add_chain_data(Chain::Bitcoin, ChainSession::from(btc_session));
+    session.add_chain_data(Chain::Ethereum, ChainSession::from(eth_session));
     session_store.lock().await.start(session);
-
-    crate::eth::init::init_ethereum(&token_repository, wallet_id).await?;
 
     Ok(UnlockMsg {
         ethereum: eth_unlock_data,
@@ -119,12 +123,12 @@ pub async fn unlock_wallet(
 #[specta]
 #[tauri::command]
 pub async fn forget_wallet(
-    wallet_id: i32,
-    repository: tauri::State<'_, WalletRepository>,
-    session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
+    wallet_name: String,
+    repository: tauri::State<'_, WalletRepositoryImpl>,
+    session_store: tauri::State<'_, tokio::sync::Mutex<session::session::Store>>,
 ) -> Result<(), String> {
     session_store.lock().await.end();
-    repository.delete(wallet_id).map_err(|e| e.to_string())?;
+    repository.delete(&wallet_name).map_err(|e| e.to_string())?;
     Ok(())
 }
 

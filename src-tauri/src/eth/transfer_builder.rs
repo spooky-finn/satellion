@@ -4,11 +4,6 @@
 //! including both ETH transfers and ERC20 token transfers. It includes utilities for
 //! gas estimation, balance checking, and transaction signing/broadcasting.
 //!
-use crate::eth::{
-    erc20_retriver::new_contract_api,
-    fee_estimator::{FeeEstimator, FeeMode},
-    token::Token,
-};
 use alloy::{
     consensus::{SignableTransaction, TxEnvelope},
     network::{TransactionBuilder, TxSignerSync},
@@ -21,6 +16,12 @@ use alloy::{
 };
 use alloy_provider::{DynProvider, utils::Eip1559Estimation};
 use alloy_signer_local::PrivateKeySigner;
+
+use crate::eth::{
+    erc20_retriver::new_contract_api,
+    fee_estimator::{FeeEstimator, FeeMode},
+    token::Token,
+};
 
 /// Custom error type for balance checking failures.
 #[derive(Debug, PartialEq)]

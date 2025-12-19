@@ -1,15 +1,5 @@
-use crate::config::Chain;
-use crate::eth::{
-    PriceFeed,
-    constants::{ETH, ETH_USD_PRICE_FEED},
-    erc20_retriver::Erc20Retriever,
-    fee_estimator::FeeMode,
-    token::Token,
-    transfer_builder::TransferRequest,
-    wallet::parse_addres,
-};
-use crate::repository::WalletRepository;
-use crate::{db, eth, repository::TokenRepository, session};
+use std::str::FromStr;
+
 use alloy::{
     eips::{BlockId, BlockNumberOrTag},
     primitives::{Address, utils::format_units},
@@ -18,7 +8,22 @@ use alloy::{
 use alloy_provider::{DynProvider, ext::AnvilApi};
 use serde::Serialize;
 use specta::{Type, specta};
-use std::str::FromStr;
+
+use crate::{
+    config::Chain,
+    eth::{
+        self, PriceFeed,
+        constants::{ETH, ETH_USD_PRICE_FEED},
+        erc20_retriver::Erc20Retriever,
+        fee_estimator::FeeMode,
+        token::Token,
+        transfer_builder::TransferRequest,
+        wallet::parse_addres,
+    },
+    repository::wallet_repository::WalletRepositoryImpl,
+    session,
+    wallet::{self, WalletRepository},
+};
 
 #[derive(Serialize, Type)]
 pub struct ChainInfo {
@@ -64,10 +69,9 @@ pub struct Balance {
 #[tauri::command]
 pub async fn eth_get_balance(
     address: String,
-    wallet_id: i32,
+    wallet_name: String,
     provider: tauri::State<'_, DynProvider>,
-    token_repository: tauri::State<'_, TokenRepository>,
-    wallet_repository: tauri::State<'_, WalletRepository>,
+    wallet_repository: tauri::State<'_, WalletRepositoryImpl>,
     erc20_retriever: tauri::State<'_, Erc20Retriever>,
     price_feed: tauri::State<'_, PriceFeed>,
 ) -> Result<Balance, String> {
@@ -77,15 +81,14 @@ pub async fn eth_get_balance(
         .get_balance(address)
         .await
         .map_err(|e| e.to_string())?;
-    let db_tokens = token_repository
-        .load(wallet_id, Chain::Ethereum)
+    let wallet_tokens = wallet_repository
+        .get_tokens(&wallet_name, Chain::Ethereum)
         .map_err(|e| format!("Failed to load token list: {}", e))?;
-
-    let tokens: Vec<Token> = db_tokens
+    let tokens: Vec<Token> = wallet_tokens
         .into_iter()
         .map(|t| {
             Token::new(
-                Address::from_slice(&t.address),
+                Address::from_str(&t.address).expect("invalid token address"),
                 t.symbol.clone(),
                 t.decimals as u8,
             )
@@ -116,7 +119,7 @@ pub async fn eth_get_balance(
         address: eth.address.to_string(),
     });
     let eth_price = price_feed.get_price(ETH_USD_PRICE_FEED).await?.to_string();
-    wallet_repository.set_last_used_chain(wallet_id, Chain::Ethereum)?;
+    wallet_repository.set_last_used_chain(&wallet_name, Chain::Ethereum)?;
     Ok(Balance {
         wei: wei_balance.to_string(),
         eth_price,
@@ -135,7 +138,7 @@ pub struct PrepareTxReqRes {
 #[specta]
 #[tauri::command]
 pub async fn eth_prepare_send_tx(
-    wallet_id: i32,
+    wallet_name: String,
     token_symbol: String,
     amount: String,
     recipient: String,
@@ -143,10 +146,10 @@ pub async fn eth_prepare_send_tx(
     tx_builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
     price_feed: tauri::State<'_, PriceFeed>,
-    token_repository: tauri::State<'_, TokenRepository>,
+    wallet_repository: tauri::State<'_, WalletRepositoryImpl>,
 ) -> Result<PrepareTxReqRes, String> {
     let mut session_store = session_store.lock().await;
-    let session = session_store.get(wallet_id).ok_or("Session not found")?;
+    let session = session_store.get(&wallet_name).ok_or("Session not found")?;
     let eth_session = session
         .get_ethereum_session()
         .ok_or("Ethereum session is not initialized")?;
@@ -155,9 +158,9 @@ pub async fn eth_prepare_send_tx(
     let recipient = parse_addres(&recipient)?;
 
     let token = if token_symbol.to_uppercase() != "ETH" {
-        match token_repository.get(wallet_id, Chain::Ethereum, token_symbol.clone()) {
+        match wallet_repository.get_token(&wallet_name, Chain::Ethereum, &token_symbol) {
             Ok(t) => Token::new(
-                Address::from_slice(&t.address),
+                Address::from_str(&t.address).expect("invalid token address"),
                 t.symbol.clone(),
                 t.decimals as u8,
             ),
@@ -207,12 +210,12 @@ pub async fn eth_prepare_send_tx(
 #[specta]
 #[tauri::command]
 pub async fn eth_sign_and_send_tx(
-    wallet_id: i32,
+    wallet_name: String,
     builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
 ) -> Result<String, String> {
     let mut session_store = session_store.lock().await;
-    let session = session_store.get(wallet_id).ok_or("Session not found")?;
+    let session = session_store.get(&wallet_name).ok_or("Session not found")?;
     let eth_session = session
         .get_ethereum_session()
         .ok_or("Ethereum session is not initialized")?;
@@ -240,10 +243,10 @@ pub struct TokenType {
 #[specta]
 #[tauri::command]
 pub async fn eth_track_token(
-    wallet_id: i32,
+    wallet_name: String,
     address: String,
-    token_repository: tauri::State<'_, TokenRepository>,
     erc20_retriever: tauri::State<'_, Erc20Retriever>,
+    wallet_repository: tauri::State<'_, WalletRepositoryImpl>,
 ) -> Result<TokenType, String> {
     let token_address = parse_addres(&address)?;
     let token_info = erc20_retriever
@@ -251,16 +254,15 @@ pub async fn eth_track_token(
         .await
         .map_err(|e| format!("Failed to fetch token info: {}", e))?;
 
-    let token_entity = db::Token {
-        wallet_id,
-        chain: i32::from(Chain::Ethereum),
+    let token = wallet::Token {
+        chain: Chain::Ethereum as u16,
         symbol: token_info.symbol.clone(),
-        address: token_address.as_slice().to_vec(),
-        decimals: token_info.decimals as i32,
+        address: token_address.to_string(),
+        decimals: token_info.decimals as u8,
     };
-    token_repository
-        .insert(token_entity)
-        .map_err(|e| format!("Failed to insert token: {}", e))?;
+    wallet_repository
+        .add_token(&wallet_name, token)
+        .map_err(|e| format!("Failed to add token: {}", e))?;
     Ok(TokenType {
         address,
         chain: Chain::Ethereum,
@@ -272,16 +274,25 @@ pub async fn eth_track_token(
 #[specta]
 #[tauri::command]
 pub async fn eth_untrack_token(
-    wallet_id: i32,
-    address: String,
-    token_repository: tauri::State<'_, TokenRepository>,
+    wallet_name: String,
+    token_address: String,
+    wallet_repository: tauri::State<'_, WalletRepositoryImpl>,
 ) -> Result<bool, String> {
-    let token_address = parse_addres(&address)?;
-    let rows_affected = token_repository
-        .remove(wallet_id, Chain::Ethereum, token_address.as_slice())
+    let token_address = parse_addres(&token_address)?;
+    let wallet_tokens = wallet_repository
+        .get_tokens(&wallet_name, Chain::Ethereum)
+        .map_err(|e| format!("Failed to load tokens: {}", e))?;
+
+    let target_token = wallet_tokens
+        .into_iter()
+        .find(|t| t.address == token_address.to_string())
+        .ok_or("Token not found")?;
+
+    wallet_repository
+        .remove_token(&wallet_name, Chain::Ethereum, &target_token.symbol)
         .map_err(|e| format!("Failed to remove token: {}", e))?;
 
-    Ok(rows_affected > 0)
+    Ok(true)
 }
 
 #[specta]

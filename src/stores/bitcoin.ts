@@ -18,11 +18,14 @@ class ChildDeriver {
     this.address = a
   }
 
-  async derive(walletId: number) {
-    if (!this.index) {
+  async derive(walletName: string) {
+    if (this.index == null) {
       throw Error('index not specified')
     }
-    const res = await commands.btcDeriveAddress(walletId, this.index)
+    if (this.index < 0) {
+      throw Error('index should be positive')
+    }
+    const res = await commands.btcDeriveAddress(walletName, this.index)
     if (res.status != 'ok') {
       notifier.err(res.error)
       return

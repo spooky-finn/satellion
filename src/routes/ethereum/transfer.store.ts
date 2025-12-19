@@ -62,12 +62,12 @@ export class TransferStore {
     this.setIsAddressValid(true)
   }
 
-  async createTrasaction(walletId: number) {
+  async createTrasaction(walletName: string) {
     if (!this.amount) throw Error('amount is not set')
     if (!this.selectedToken) throw Error('token symbol not set')
     this.setIsEstimating(true)
     const r = await commands.ethPrepareSendTx(
-      walletId,
+      walletName,
       this.selectedToken,
       this.amount.toString(),
       this.address,
@@ -81,9 +81,9 @@ export class TransferStore {
     this.setPreconfirmInfo(r.data)
   }
 
-  async signAndSend(walletId: number) {
+  async signAndSend(walletName: string) {
     this.setIsSending(true)
-    const r = await commands.ethSignAndSendTx(walletId)
+    const r = await commands.ethSignAndSendTx(walletName)
     this.setIsSending(false)
     if (r.status === 'error') {
       notifier.err(r.error)

@@ -1,5 +1,5 @@
 import LockIcon from '@mui/icons-material/Lock'
-import { Button } from '@mui/joy'
+import { Button, Tooltip } from '@mui/joy'
 import { Link, useNavigate } from 'react-router'
 import { route } from '../routes'
 import { Row } from '../shortcuts'
@@ -29,13 +29,15 @@ export const Navbar = ({ hideLedgers }: { hideLedgers?: boolean }) => {
       <Row ml="auto" gap={0}>
         <ThemeSwitcher />
         <AppMenu />
-        <Button
-          variant="plain"
-          color="neutral"
-          onClick={() => navigate(route.unlock_wallet)}
-        >
-          <LockIcon />
-        </Button>
+        <Tooltip title="Lock wallet" size="sm">
+          <Button
+            variant="plain"
+            color="neutral"
+            onClick={() => navigate(route.unlock_wallet)}
+          >
+            <LockIcon />
+          </Button>
+        </Tooltip>
       </Row>
     </Row>
   )

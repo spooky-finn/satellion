@@ -1,9 +1,11 @@
-use crate::session::chain_data::EthereumSession;
+use std::str::FromStr;
+
 use alloy::primitives::Address;
 use alloy_signer_local::{
     LocalSignerError, MnemonicBuilder, PrivateKeySigner, coins_bip39::English,
 };
-use std::str::FromStr;
+
+use crate::session::EthereumSession;
 
 pub fn parse_addres(addres: &String) -> Result<Address, String> {
     Address::from_str(&addres).map_err(|e| format!("Invalid Ethereum address: {}", e))

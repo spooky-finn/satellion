@@ -9,6 +9,6 @@ export const OpenExplorerButton = (props: { path: string }) => (
     sx={{ width: 'fit-content' }}
     onClick={() => openUrl(`${explorer_endpoint}/${props.path}`)}
   >
-    View on Explorer
+    Open explorer
   </Button>
 )

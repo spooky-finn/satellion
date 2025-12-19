@@ -3,14 +3,14 @@ use specta::Type;
 
 pub const MIN_PASSPHRASE_LEN: usize = 4;
 
-#[derive(Type, Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Type, Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Chain {
     Bitcoin = 0,
     Ethereum = 1,
 }
 
-impl From<i32> for Chain {
-    fn from(value: i32) -> Self {
+impl From<u16> for Chain {
+    fn from(value: u16) -> Self {
         match value {
             0 => Chain::Bitcoin,
             1 => Chain::Ethereum,
@@ -19,8 +19,8 @@ impl From<i32> for Chain {
     }
 }
 
-impl From<Chain> for i32 {
+impl From<Chain> for u16 {
     fn from(chain: Chain) -> Self {
-        chain as i32
+        chain as u16
     }
 }

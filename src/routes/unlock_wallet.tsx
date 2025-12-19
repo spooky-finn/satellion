@@ -55,16 +55,14 @@ const UnlockWallet = () => {
         sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}
         width={'fit-content'}
       >
-        {unlock.availableWallets.map(key => (
+        {unlock.availableWallets.map(name => (
           <Button
-            key={key.id}
+            key={name}
             color="neutral"
-            onClick={() => unlock.setUnlockWallet(key)}
-            variant={
-              unlock.walletToUnlock?.id === key.id ? 'solid' : 'outlined'
-            }
+            onClick={() => unlock.setUnlockWallet(name)}
+            variant={unlock.walletToUnlock === name ? 'solid' : 'outlined'}
           >
-            {key.name}
+            {name}
           </Button>
         ))}
         <Divider orientation="vertical" />

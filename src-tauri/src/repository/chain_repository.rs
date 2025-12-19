@@ -1,12 +1,8 @@
-use crate::db::BlockHeader;
-use crate::repository::BaseRepository;
-use crate::schema;
 use bip157::chain::IndexedHeader;
-use diesel::SqliteConnection;
-use diesel::prelude::*;
-use diesel::r2d2::ConnectionManager;
-use diesel::result::Error;
+use diesel::{SqliteConnection, prelude::*, r2d2::ConnectionManager, result::Error};
 use r2d2::Pool;
+
+use crate::{db::BlockHeader, repository::BaseRepository, schema};
 
 #[derive(Clone)]
 pub struct ChainRepository {

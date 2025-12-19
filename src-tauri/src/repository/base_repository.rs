@@ -1,8 +1,5 @@
-use diesel::SqliteConnection;
-use diesel::r2d2::ConnectionManager;
-use diesel::result::Error;
-use r2d2::Pool;
-use r2d2::PooledConnection;
+use diesel::{SqliteConnection, r2d2::ConnectionManager, result::Error};
+use r2d2::{Pool, PooledConnection};
 
 #[derive(Clone, Debug)]
 pub struct BaseRepository {

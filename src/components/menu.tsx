@@ -13,14 +13,14 @@ export const AppMenu = () => {
         <SettingsIcon />
       </MenuButton>
       <Menu>
-        {root_store.wallet.id && (
+        {root_store.wallet.name && (
           <MenuItem
             onClick={async () => {
-              await root_store.wallet.forget(root_store.wallet.id!)
+              await root_store.wallet.forget(root_store.wallet.name!)
               navigate(route.unlock_wallet)
             }}
           >
-            Forget
+            Forget wallet
           </MenuItem>
         )}
       </Menu>

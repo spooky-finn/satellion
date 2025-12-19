@@ -25,7 +25,7 @@ const Bitcoin = () => {
         Bitcoin
       </P>
       {addr && (
-        <Card size="sm">
+        <Card size="sm" variant="soft">
           <Row gap={1}>
             <P>Main Address</P>
             <P fontWeight="bold"> {addr}</P>
@@ -40,9 +40,9 @@ const Bitcoin = () => {
             For secure acceptance of funds, consider generating dedicated child
             address per transaction.
           </P>
+          <DeriveChildAddress />
         </Card>
       )}
-      <DeriveChildAddress />
     </Stack>
   )
 }
@@ -50,7 +50,7 @@ const Bitcoin = () => {
 const DeriveChildAddress = observer(() => {
   const { childDeriver } = root_store.wallet.btc
   return (
-    <Row>
+    <Row alignItems={'center'}>
       <NumberInput
         size="sm"
         sx={{ maxWidth: 70 }}
@@ -59,8 +59,9 @@ const DeriveChildAddress = observer(() => {
       />
       <Button
         size="sm"
+        variant="soft"
         sx={{ width: 'fit-content' }}
-        onClick={() => childDeriver.derive(root_store.wallet.id!)}
+        onClick={() => childDeriver.derive(root_store.wallet.name!)}
       >
         Derive
       </Button>

@@ -1,5 +1,5 @@
 import { makeAutoObservable } from 'mobx'
-import { AvailableWallet, commands } from '../bindings'
+import { commands } from '../bindings'
 import { notifier } from '../components/notifier'
 import { Wallet } from './wallet'
 
@@ -13,8 +13,8 @@ export class Unlock {
     this.unlocked = c
   }
 
-  walletToUnlock: AvailableWallet | null = null
-  setUnlockWallet(w: AvailableWallet) {
+  walletToUnlock: string | null = null
+  setUnlockWallet(w: string) {
     this.walletToUnlock = w
   }
   passphrase: string = ''
@@ -22,8 +22,8 @@ export class Unlock {
     this.passphrase = p
   }
 
-  availableWallets: AvailableWallet[] = []
-  setAvailableWallets(w: AvailableWallet[]) {
+  availableWallets: string[] = []
+  setAvailableWallets(w: string[]) {
     this.availableWallets = w
   }
 
@@ -52,13 +52,13 @@ export class Unlock {
     if (!this.walletToUnlock) {
       throw new Error('No wallet selected to unlock')
     }
-    const walletId = this.walletToUnlock.id
-    const r = await commands.unlockWallet(walletId, this.passphrase)
+    const walletName = this.walletToUnlock
+    const r = await commands.unlockWallet(walletName, this.passphrase)
     if (r.status === 'error') {
       notifier.err(r.error)
       throw Error(r.error)
     }
-    walletStrore.init(walletId, r.data)
+    walletStrore.init(walletName, r.data)
     this.setUnlocked(true)
     return r.data.last_used_chain
   }

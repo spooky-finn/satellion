@@ -1,31 +1,31 @@
+use std::collections::HashMap;
+
+use chrono::{DateTime, TimeDelta, Utc};
+
 use crate::{
     config::Chain,
-    session::chain_data::{BitcoinSession, EthereumSession},
+    session::{BitcoinSession, ChainSession, EthereumSession},
 };
-use chain_data::ChainData;
-use chrono::{DateTime, TimeDelta, Utc};
-use std::collections::HashMap;
-pub mod chain_data;
 
 #[derive(Clone)]
 pub struct Session {
-    pub wallet_id: i32,
+    pub wallet_name: String,
     pub created_at: DateTime<Utc>,
     pub session_exp_duration: TimeDelta,
-    chain_data: HashMap<Chain, ChainData>,
+    chain_data: HashMap<Chain, ChainSession>,
 }
 
 impl Session {
-    pub fn new(wallet_id: i32, session_exp_duration: TimeDelta) -> Self {
+    pub fn new(wallet_name: String, session_exp_duration: TimeDelta) -> Self {
         Self {
-            wallet_id,
+            wallet_name,
             created_at: Utc::now(),
             session_exp_duration,
             chain_data: HashMap::new(),
         }
     }
 
-    pub fn add_chain_data(&mut self, chain: Chain, data: ChainData) {
+    pub fn add_chain_data(&mut self, chain: Chain, data: ChainSession) {
         self.chain_data.insert(chain, data);
     }
 
@@ -56,14 +56,14 @@ impl Store {
         Self { session: None }
     }
 
-    pub fn get(&mut self, wallet_id: i32) -> Option<Session> {
+    pub fn get(&mut self, wallet_name: &str) -> Option<Session> {
         match &self.session {
             None => None,
             Some(session) if session.is_expired() => {
                 self.session = None;
                 None
             }
-            Some(session) if session.wallet_id != wallet_id => None,
+            Some(session) if session.wallet_name != wallet_name => None,
             Some(session) => Some(session.clone()),
         }
     }
@@ -90,26 +90,27 @@ mod tests {
     fn test_store_get() {
         let session_exp_duration = TimeDelta::seconds(2);
         let mut store = Store::new();
-        let session = Session::new(1, session_exp_duration);
+        let wallet_name = "test_wallet".to_string();
+        let session = Session::new(wallet_name.clone(), session_exp_duration);
         store.start(session);
-        assert!(store.get(1).is_some());
-        assert!(store.get(2).is_none());
-        assert!(store.get(1).unwrap().is_expired() == false);
-        assert!(store.get(1).unwrap().wallet_id == 1);
+        assert!(store.get(&wallet_name).is_some());
+        assert!(store.get("other_wallet").is_none());
+        assert!(store.get(&wallet_name).unwrap().is_expired() == false);
+        assert!(store.get(&wallet_name).unwrap().wallet_name == wallet_name);
 
         thread::sleep(std::time::Duration::from_secs(1));
-        assert!(store.get(1).unwrap().is_expired() == false);
+        assert!(store.get(&wallet_name).unwrap().is_expired() == false);
 
         thread::sleep(std::time::Duration::from_secs(1));
-        assert!(store.get(1).is_none());
+        assert!(store.get(&wallet_name).is_none());
     }
 
     #[test]
     fn test_session_add_chain_data() {
-        use crate::session::chain_data::{BitcoinSession, EthereumSession};
+        use crate::session::chain_state::{BitcoinSession, EthereumSession};
         use Chain;
 
-        let mut session = Session::new(1, TimeDelta::hours(1));
+        let mut session = Session::new("test_wallet".to_string(), TimeDelta::hours(1));
 
         assert!(session.get_bitcoin_session().is_none());
         assert!(session.get_ethereum_session().is_none());
@@ -125,8 +126,8 @@ mod tests {
             signer: PrivateKeySigner::random(),
         };
 
-        session.add_chain_data(Chain::Bitcoin, ChainData::from(btc_session));
-        session.add_chain_data(Chain::Ethereum, ChainData::from(eth_session));
+        session.add_chain_data(Chain::Bitcoin, ChainSession::from(btc_session));
+        session.add_chain_data(Chain::Ethereum, ChainSession::from(eth_session));
 
         assert!(session.get_bitcoin_session().is_some());
         assert!(session.get_ethereum_session().is_some());

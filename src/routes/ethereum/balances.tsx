@@ -21,7 +21,7 @@ import { P, Progress, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
 
 export const BalanceCard = observer(() => (
-  <Card variant="outlined" size="sm">
+  <Card variant="soft" size="sm">
     <Row alignItems={'start'} justifyContent={'space-between'}>
       <Stack>
         <Balances />
@@ -31,7 +31,7 @@ export const BalanceCard = observer(() => (
         <SpecifyTokenToTrack />
         <IconButton
           onClick={() =>
-            root_store.wallet.eth.getBalance(root_store.wallet.id!)
+            root_store.wallet.eth.getBalance(root_store.wallet.name!)
           }
           variant="plain"
         >
@@ -42,23 +42,28 @@ export const BalanceCard = observer(() => (
   </Card>
 ))
 
-const Token = (props: { t: TokenBalance; handleUntrack: () => void }) => (
-  <>
-    <Grid xs={1}>
-      <P color="neutral">{props.t.symbol}</P>
-    </Grid>
-    <Grid xs={10} px={1}>
-      <P>{props.t.balance}</P>
-    </Grid>
-    <Grid xs={1}>
-      <Tooltip title="Do not track">
-        <IconButton size="sm" onClick={props.handleUntrack}>
-          <Remove />
-        </IconButton>
-      </Tooltip>
-    </Grid>
-  </>
-)
+const Token = (props: { t: TokenBalance; handleUntrack: () => void }) => {
+  const { symbol, balance } = props.t
+  return (
+    <>
+      <Grid xs={1}>
+        <P color="neutral">{symbol}</P>
+      </Grid>
+      <Grid xs={10} px={1}>
+        <P>{balance}</P>
+      </Grid>
+      {symbol !== 'ETH' && (
+        <Grid xs={1}>
+          <Tooltip title="Do not track">
+            <IconButton size="sm" onClick={props.handleUntrack}>
+              <Remove />
+            </IconButton>
+          </Tooltip>
+        </Grid>
+      )}
+    </>
+  )
+}
 
 const Balances = observer(() => {
   const { eth } = root_store.wallet
@@ -67,7 +72,7 @@ const Balances = observer(() => {
   if (!tokens?.length) return <P color="neutral">Tokens not found</P>
 
   const handleTokenUntrack = async (token_address: string) => {
-    await commands.ethUntrackToken(root_store.wallet.id!, token_address)
+    await commands.ethUntrackToken(root_store.wallet.name!, token_address)
     eth.removeTokenFromBalance(token_address)
   }
 
@@ -97,7 +102,7 @@ const AnvilSetBalanceButton = observer(() => {
       notifier.err(res.error)
     } else {
       notifier.ok(res.data)
-      root_store.wallet.eth.getBalance(root_store.wallet.id!)
+      root_store.wallet.eth.getBalance(root_store.wallet.name!)
     }
   }
   return (
@@ -120,7 +125,7 @@ const SpecifyTokenToTrack = observer(() => {
   const handleAddressInput = async (e: ChangeEvent<HTMLInputElement>) => {
     const address = e.target.value
     if (address.length >= 40) {
-      const res = await commands.ethTrackToken(root_store.wallet.id!, address)
+      const res = await commands.ethTrackToken(root_store.wallet.name!, address)
       if (res.status === 'error') {
         setOpen(false)
         notifier.err(res.error)
@@ -135,7 +140,10 @@ const SpecifyTokenToTrack = observer(() => {
       <Button
         variant="plain"
         size="sm"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setOpen(true)
+          setData(null)
+        }}
         sx={{ width: 'max-content', fontWeight: 400 }}
         color="neutral"
       >
@@ -148,6 +156,7 @@ const SpecifyTokenToTrack = observer(() => {
             <P>{data.symbol} now is trackable</P>
           ) : (
             <Input
+              autoFocus
               placeholder="Token Contract Address"
               onChange={handleAddressInput}
             />

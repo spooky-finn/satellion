@@ -1,4 +1,5 @@
-use crate::{config::CONFIG, session::chain_data::BitcoinSession};
+use std::str::FromStr;
+
 use bip39::Language;
 pub use bitcoin::network::Network;
 use bitcoin::{
@@ -6,7 +7,8 @@ use bitcoin::{
     bip32::{self, DerivationPath, Xpriv},
     key::{Keypair, Secp256k1},
 };
-use std::str::FromStr;
+
+use crate::{config::CONFIG, session::BitcoinSession};
 
 pub enum AddressType {
     Receive = 0,

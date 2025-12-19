@@ -1,8 +1,7 @@
-use crate::config::Config;
-use crate::schema;
-use diesel::prelude::*;
-use diesel::r2d2::ConnectionManager;
+use diesel::{prelude::*, r2d2::ConnectionManager};
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
+
+use crate::{config::Config, schema};
 
 // Nice mapping of Diesel to Rust types:
 // https://kotiri.com/2018/01/31/postgresql-diesel-rust-types.html
@@ -44,19 +43,6 @@ pub fn connect() -> Pool {
         .expect("Error creating DB pool")
 }
 
-#[derive(Insertable, Queryable, Selectable, Debug, PartialEq, Clone)]
-#[diesel(table_name = schema::wallets)]
-pub struct Wallet {
-    pub id: i32,
-    pub name: Option<String>,
-    pub encrypted_key: Vec<u8>,
-    pub key_wrapped: Vec<u8>,
-    pub kdf_salt: Vec<u8>,
-    pub version: i32,
-    pub created_at: String,
-    pub last_used_chain: i16,
-}
-
 #[derive(Insertable, Queryable, Debug, PartialEq)]
 #[diesel(table_name = schema::bitcoin_block_headers)]
 pub struct BlockHeader {
@@ -67,14 +53,4 @@ pub struct BlockHeader {
     pub version: i32,
     pub bits: i32,
     pub nonce: i32,
-}
-
-#[derive(Insertable, Queryable, Selectable, Debug, PartialEq, Clone)]
-#[diesel(table_name = schema::tokens)]
-pub struct Token {
-    pub wallet_id: i32,
-    pub chain: i32,
-    pub symbol: String,
-    pub address: Vec<u8>,
-    pub decimals: i32,
 }

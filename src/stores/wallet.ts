@@ -8,25 +8,25 @@ export class Wallet {
   readonly eth = new EthereumWallet()
   readonly btc = new BitcoinWallet()
 
-  id: number | null = null
+  name?: string
   constructor() {
     makeAutoObservable(this)
   }
 
   initialized: boolean = false
 
-  init(walletId: number, unlockmsg: UnlockMsg) {
-    this.id = walletId
+  init(name: string, unlockmsg: UnlockMsg) {
+    this.name = name
     this.eth.address = unlockmsg.ethereum.address
     this.btc.address = unlockmsg.bitcoin.address
     this.initialized = true
 
     this.eth.getChainInfo()
-    this.eth.getBalance(walletId)
+    this.eth.getBalance(name)
   }
 
-  async forget(id: number) {
-    const r = await commands.forgetWallet(id)
+  async forget(name: string) {
+    const r = await commands.forgetWallet(name)
     if (r.status === 'error') {
       notifier.err(r.error)
       return
@@ -35,7 +35,7 @@ export class Wallet {
   }
 
   async reset() {
-    this.id = null
+    this.name = undefined
     this.initialized = false
   }
 }

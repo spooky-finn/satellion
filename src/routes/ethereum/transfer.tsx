@@ -43,7 +43,7 @@ export const EthereumTransfer = observer(() => {
         disabled={state.disabled}
         sx={{ width: 'min-content' }}
         size="sm"
-        onClick={() => state.createTrasaction(wallet.id!)}
+        onClick={() => state.createTrasaction(wallet.name!)}
       >
         Estimate
       </Button>
@@ -126,7 +126,7 @@ const SendTransaction = observer(({ state }: { state: TransferStore }) => {
   return (
     <Button
       loading={state.isSending}
-      onClick={() => state.signAndSend(wallet.id!)}
+      onClick={() => state.signAndSend(wallet.name!)}
       sx={{ width: 'max-content' }}
       size="sm"
     >

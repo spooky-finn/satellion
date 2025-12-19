@@ -1,10 +1,18 @@
-use crate::btc;
-use crate::btc::wallet::{AddressType, derive_taproot_address};
-use crate::config::{CONFIG, Chain};
-use crate::repository::{ChainRepository, WalletRepository};
-use crate::{app_state::AppState, session};
-use specta::specta;
 use std::sync::Arc;
+
+use specta::specta;
+
+use crate::{
+    app_state::AppState,
+    btc::{
+        self,
+        wallet::{AddressType, derive_taproot_address},
+    },
+    config::{CONFIG, Chain},
+    repository::{ChainRepository, wallet_repository::WalletRepositoryImpl},
+    session,
+    wallet::WalletRepository,
+};
 
 #[specta]
 #[tauri::command]
@@ -48,18 +56,18 @@ pub async fn start_node(
 #[specta]
 #[tauri::command]
 pub async fn btc_derive_address(
-    wallet_id: i32,
+    wallet_name: String,
     index: u32,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
-    wallet_repository: tauri::State<'_, WalletRepository>,
+    wallet_repository: tauri::State<'_, WalletRepositoryImpl>,
 ) -> Result<String, String> {
     let mut session_store = session_store.lock().await;
-    let session = session_store.get(wallet_id).ok_or("Session not found")?;
+    let session = session_store.get(&wallet_name).ok_or("Session not found")?;
     let btc_session = session
         .get_bitcoin_session()
-        .ok_or("Ethereum session is not initialized")?;
+        .ok_or("Bitcoin session is not initialized")?;
     let net = CONFIG.bitcoin.network();
     let child = derive_taproot_address(&btc_session.xprv, net, AddressType::Receive, index)?;
-    wallet_repository.set_last_used_chain(wallet_id, Chain::Bitcoin)?;
+    wallet_repository.set_last_used_chain(&wallet_name, Chain::Bitcoin)?;
     Ok(child.1.to_string())
 }
