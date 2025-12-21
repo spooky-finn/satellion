@@ -1,7 +1,7 @@
 use std::{net::SocketAddrV4, str::FromStr, sync::Arc, time::Duration};
 
 use bip157::{
-    BlockHash, Builder, Event, Header, TrustedPeer,
+    BlockHash, Builder, Event, Header, Network, TrustedPeer,
     chain::{BlockHeaderChanges, ChainState, IndexedHeader},
 };
 use bitcoin::{
@@ -9,19 +9,22 @@ use bitcoin::{
     pow::CompactTarget,
 };
 
-use crate::{app_state::AppState, btc, db::BlockHeader, repository::ChainRepository};
+use crate::{
+    app_state::AppState, btc, config::CONFIG, db::BlockHeader, repository::ChainRepository,
+};
 
 const REGTEST_PEER: &str = "127.0.0.1:18444";
 
 pub struct NeutrinoStarter;
 
 impl NeutrinoStarter {
-    pub fn new(repository: ChainRepository) -> Result<(), String> {
+    pub async fn new(repository: ChainRepository) -> Result<(), String> {
         let block_headers = repository
-            .load_block_headers(10)
+            .get_block_headers(10)
             .map_err(|e| format!("Failed to load block headers: {}", e))?;
 
-        let neutrino = Neutrino::connect_regtest(block_headers)
+        let (network, trusted_peers) = NeutrinoStarter::select_network().await?;
+        let neutrino = Neutrino::connect(network, trusted_peers, block_headers)
             .map_err(|e| format!("Failed to connect to regtest: {}", e))?;
 
         let node = neutrino.node;
@@ -41,6 +44,22 @@ impl NeutrinoStarter {
 
         Ok(())
     }
+
+    async fn select_network() -> Result<(Network, Vec<TrustedPeer>), String> {
+        if CONFIG.bitcoin.regtest {
+            let socket_addr = SocketAddrV4::from_str(REGTEST_PEER)
+                .map_err(|e| format!("error parsing regtest socket address: {e:?}"))?;
+            let peer = TrustedPeer::from_socket_addr(socket_addr);
+            return Ok((bip157::Network::Regtest, vec![peer]));
+        }
+
+        let seeds = bip157::lookup_host("seed.bitcoin.sipa.be").await;
+        let peers: Vec<TrustedPeer> = seeds
+            .into_iter()
+            .map(|addr| TrustedPeer::from_ip(addr))
+            .collect();
+        return Ok((bip157::Network::Bitcoin, peers));
+    }
 }
 
 pub struct Neutrino {
@@ -49,10 +68,11 @@ pub struct Neutrino {
 }
 
 impl Neutrino {
-    pub fn connect_regtest(block_headers: Vec<BlockHeader>) -> Result<Self, String> {
-        let socket_addr = SocketAddrV4::from_str(REGTEST_PEER)
-            .map_err(|e| format!("Error parsing socket address: {e:?}"))?;
-        let peer = TrustedPeer::from_socket_addr(socket_addr);
+    pub fn connect(
+        network: Network,
+        trusted_peers: Vec<TrustedPeer>,
+        block_headers: Vec<BlockHeader>,
+    ) -> Result<Self, String> {
         let indexed_headers = block_headers
             .iter()
             .map(|h| IndexedHeader {
@@ -68,11 +88,10 @@ impl Neutrino {
             })
             .collect();
         let chain_state = ChainState::Snapshot(indexed_headers);
-
-        let (node, client) = Builder::new(bip157::Network::Regtest)
+        let (node, client) = Builder::new(network)
             .required_peers(1)
             .chain_state(chain_state)
-            .add_peers(vec![peer])
+            .add_peers(trusted_peers)
             .response_timeout(Duration::from_secs(10))
             .build();
 

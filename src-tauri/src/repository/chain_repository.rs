@@ -31,7 +31,7 @@ impl ChainRepository {
             .execute(&mut conn)
     }
 
-    pub fn load_block_headers(&self, limit: i64) -> Result<Vec<BlockHeader>, Error> {
+    pub fn get_block_headers(&self, limit: i64) -> Result<Vec<BlockHeader>, Error> {
         let mut conn = self.base.get_conn()?;
         schema::bitcoin_block_headers::table
             .select(schema::bitcoin_block_headers::all_columns)
