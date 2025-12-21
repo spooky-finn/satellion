@@ -9,9 +9,39 @@ use bitcoin::{
     pow::CompactTarget,
 };
 
-use crate::{app_state::AppState, db::BlockHeader, repository::ChainRepository};
+use crate::{app_state::AppState, btc, db::BlockHeader, repository::ChainRepository};
 
 const REGTEST_PEER: &str = "127.0.0.1:18444";
+
+pub struct NeutrinoStarter;
+
+impl NeutrinoStarter {
+    pub fn new(repository: ChainRepository) -> Result<(), String> {
+        let block_headers = repository
+            .load_block_headers(10)
+            .map_err(|e| format!("Failed to load block headers: {}", e))?;
+
+        let neutrino = Neutrino::connect_regtest(block_headers)
+            .map_err(|e| format!("Failed to connect to regtest: {}", e))?;
+
+        let node = neutrino.node;
+        let client = neutrino.client;
+        let app_state = Arc::new(AppState::new());
+        let repository = Arc::new(repository.clone());
+
+        tauri::async_runtime::spawn(async move {
+            if let Err(e) = node.run().await {
+                eprintln!("Neutrino node error: {}", e);
+            }
+        });
+
+        tauri::async_runtime::spawn(btc::neutrino::handle_chain_updates(
+            client, app_state, repository,
+        ));
+
+        Ok(())
+    }
+}
 
 pub struct Neutrino {
     pub node: bip157::Node,
@@ -20,12 +50,8 @@ pub struct Neutrino {
 
 impl Neutrino {
     pub fn connect_regtest(block_headers: Vec<BlockHeader>) -> Result<Self, String> {
-        let socket_addr = match SocketAddrV4::from_str(REGTEST_PEER) {
-            Ok(addr) => addr,
-            Err(e) => {
-                return Err(format!("Error parsing socket address: {e:?}"));
-            }
-        };
+        let socket_addr = SocketAddrV4::from_str(REGTEST_PEER)
+            .map_err(|e| format!("Error parsing socket address: {e:?}"))?;
         let peer = TrustedPeer::from_socket_addr(socket_addr);
         let indexed_headers = block_headers
             .iter()
@@ -49,6 +75,7 @@ impl Neutrino {
             .add_peers(vec![peer])
             .response_timeout(Duration::from_secs(10))
             .build();
+
         Ok(Self { node, client })
     }
 }

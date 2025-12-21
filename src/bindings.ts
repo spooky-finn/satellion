@@ -61,14 +61,6 @@ async getConfig() : Promise<Result<UIConfig, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async startNode() : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("start_node") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 async btcDeriveAddress(walletName: string, index: number) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("btc_derive_address", { walletName, index }) };

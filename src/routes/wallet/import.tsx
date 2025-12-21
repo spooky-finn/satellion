@@ -33,7 +33,7 @@ const ImportMnemonic = observer(() => {
     store.passphraseStore.setPassphrase(passphrase)
     store.setWalletName(walletName)
 
-    const success = await store.createWallet()
+    await store.createWallet()
     navigate(route.unlock_wallet)
   }
 

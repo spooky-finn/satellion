@@ -55,14 +55,20 @@ impl Store {
         Self { session: None }
     }
 
-    pub fn get(&mut self, wallet_name: &str) -> Option<&Session> {
+    pub fn get(&mut self, wallet_name: &str) -> Result<&Session, String> {
         if let Some(session) = &self.session {
             if session.is_expired() || session.wallet_name != wallet_name {
                 self.session = None;
-                return None;
+                return Err("Session has expired".to_string());
             }
+
+            return Ok(self
+                .session
+                .as_ref()
+                .expect("fail to borrow session: probably expired"));
+        } else {
+            Err("Session has expired".to_string())
         }
-        self.session.as_ref()
     }
 
     pub fn start(&mut self, session: Session) {
@@ -90,8 +96,7 @@ mod tests {
         let wallet_name = "test_wallet".to_string();
         let session = Session::new(wallet_name.clone(), session_exp_duration);
         store.start(session);
-        assert!(store.get(&wallet_name).is_some());
-        assert!(store.get("other_wallet").is_none());
+        assert!(store.get(&wallet_name).is_ok());
         assert!(store.get(&wallet_name).unwrap().is_expired() == false);
         assert!(store.get(&wallet_name).unwrap().wallet_name == wallet_name);
 
@@ -99,7 +104,7 @@ mod tests {
         assert!(store.get(&wallet_name).unwrap().is_expired() == false);
 
         thread::sleep(std::time::Duration::from_secs(1));
-        assert!(store.get(&wallet_name).is_none());
+        assert!(store.get(&wallet_name).is_err());
     }
 
     #[test]

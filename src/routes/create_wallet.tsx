@@ -4,9 +4,8 @@ import { Navbar } from '../components/navbar'
 import { route, useNavigate } from '../routes'
 import { P, Row } from '../shortcuts'
 
-const CreateWallet = observer(() => {
+export const CreateWallet = observer(() => {
   const navigate = useNavigate()
-
   return (
     <Stack gap={2} alignItems={'center'}>
       <Navbar hideLedgers />
@@ -30,5 +29,3 @@ const CreateWallet = observer(() => {
     </Stack>
   )
 })
-
-export default CreateWallet

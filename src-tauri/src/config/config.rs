@@ -74,7 +74,7 @@ impl Config {
     }
 
     pub fn session_exp_duration() -> chrono::TimeDelta {
-        chrono::TimeDelta::hours(1)
+        chrono::TimeDelta::minutes(10)
     }
 }
 

@@ -149,7 +149,7 @@ pub async fn eth_prepare_send_tx(
     wallet_repository: tauri::State<'_, WalletRepositoryImpl>,
 ) -> Result<PrepareTxReqRes, String> {
     let mut session_store = session_store.lock().await;
-    let session = session_store.get(&wallet_name).ok_or("Session not found")?;
+    let session = session_store.get(&wallet_name)?;
     let eth_session = session
         .get_ethereum_session()
         .ok_or("Ethereum session is not initialized")?;
@@ -215,7 +215,7 @@ pub async fn eth_sign_and_send_tx(
     session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
 ) -> Result<String, String> {
     let mut session_store = session_store.lock().await;
-    let session = session_store.get(&wallet_name).ok_or("Session not found")?;
+    let session = session_store.get(&wallet_name)?;
     let eth_session = session
         .get_ethereum_session()
         .ok_or("Ethereum session is not initialized")?;

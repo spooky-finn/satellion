@@ -13,13 +13,10 @@ export class Wallet {
     makeAutoObservable(this)
   }
 
-  initialized: boolean = false
-
-  init(name: string, unlockmsg: UnlockMsg) {
+  init(name: string, unlock: UnlockMsg) {
     this.name = name
-    this.eth.address = unlockmsg.ethereum.address
-    this.btc.address = unlockmsg.bitcoin.address
-    this.initialized = true
+    this.eth.address = unlock.ethereum.address
+    this.btc.address = unlock.bitcoin.address
 
     this.eth.getChainInfo()
     this.eth.getBalance(name)
@@ -31,11 +28,9 @@ export class Wallet {
       notifier.err(r.error)
       return
     }
-    this.initialized = false
   }
 
   async reset() {
     this.name = undefined
-    this.initialized = false
   }
 }

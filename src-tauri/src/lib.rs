@@ -20,6 +20,7 @@ use tauri_specta;
 use tokio::sync::Mutex;
 
 use crate::{
+    btc::neutrino::NeutrinoStarter,
     repository::{ChainRepository, wallet_repository::WalletRepositoryImpl},
     wallet::WalletRepository,
     wallet_service::WalletService,
@@ -41,6 +42,9 @@ pub fn run() {
     let token_retriever = eth::erc20_retriver::Erc20Retriever::new(eth_provider.clone());
     let tx_builder = eth::TxBuilder::new(eth_batch_provider);
     let price_feed = eth::PriceFeed::new(eth_provider.clone());
+    let chain_repository = ChainRepository::new(db.clone());
+
+    let _ = NeutrinoStarter::new(chain_repository);
 
     let builder = tauri_specta::Builder::<tauri::Wry>::new()
         .commands(tauri_specta::collect_commands![
@@ -51,7 +55,6 @@ pub fn run() {
             commands::unlock_wallet,
             commands::forget_wallet,
             commands::get_config,
-            btc::commands::start_node,
             btc::commands::btc_derive_address,
             eth::commands::eth_chain_info,
             eth::commands::eth_get_balance,
@@ -76,7 +79,6 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(Arc::new(app_state::AppState::new()))
         .manage(db.clone())
-        .manage(ChainRepository::new(db.clone()))
         .manage(wallet_repository_impl.clone())
         .manage(wallet_service)
         .manage(eth_provider.clone())
