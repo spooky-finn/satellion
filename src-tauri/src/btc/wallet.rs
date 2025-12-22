@@ -1,6 +1,7 @@
-use std::str::FromStr;
+use std::{collections::HashSet, str::FromStr};
 
 use bip39::Language;
+use bip157::ScriptBuf;
 pub use bitcoin::network::Network;
 use bitcoin::{
     Address,
@@ -99,4 +100,20 @@ pub fn unlock(mnemonic: &str, passphrase: &str) -> Result<(BitcoinUnlock, Bitcoi
         },
         BitcoinSession { xprv: bitcoin_xprv },
     ))
+}
+
+pub fn derive_scripts_of_interes(xpriv: &Xpriv) -> HashSet<ScriptBuf> {
+    let mut scripts_of_interes: HashSet<bip157::ScriptBuf> = HashSet::new();
+    let net = CONFIG.bitcoin.network();
+
+    // TODO: remember last index to check
+    for i in 0..1000 {
+        let (_, bitcoin_main_receive_address) =
+            derive_taproot_address(xpriv, net, AddressType::Receive, i)
+                .expect("Failed to derive taproot address");
+        let scriptbuf = bitcoin_main_receive_address.script_pubkey();
+        scripts_of_interes.insert(scriptbuf);
+    }
+
+    scripts_of_interes
 }

@@ -13,7 +13,7 @@ use crate::{
 pub async fn btc_derive_address(
     wallet_name: String,
     index: u32,
-    session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
+    session_store: tauri::State<'_, tokio::sync::Mutex<session::SessionKeeper>>,
     wallet_repository: tauri::State<'_, WalletRepositoryImpl>,
 ) -> Result<String, String> {
     let mut session_store = session_store.lock().await;

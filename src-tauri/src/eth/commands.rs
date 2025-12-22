@@ -144,7 +144,7 @@ pub async fn eth_prepare_send_tx(
     recipient: String,
     fee_mode: FeeMode,
     tx_builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
-    session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
+    session_store: tauri::State<'_, tokio::sync::Mutex<session::SessionKeeper>>,
     price_feed: tauri::State<'_, PriceFeed>,
     wallet_repository: tauri::State<'_, WalletRepositoryImpl>,
 ) -> Result<PrepareTxReqRes, String> {
@@ -212,7 +212,7 @@ pub async fn eth_prepare_send_tx(
 pub async fn eth_sign_and_send_tx(
     wallet_name: String,
     builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
-    session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
+    session_store: tauri::State<'_, tokio::sync::Mutex<session::SessionKeeper>>,
 ) -> Result<String, String> {
     let mut session_store = session_store.lock().await;
     let session = session_store.get(&wallet_name)?;

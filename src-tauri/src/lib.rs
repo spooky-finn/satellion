@@ -42,9 +42,9 @@ pub fn run() {
     let token_retriever = eth::erc20_retriver::Erc20Retriever::new(eth_provider.clone());
     let tx_builder = eth::TxBuilder::new(eth_batch_provider);
     let price_feed = eth::PriceFeed::new(eth_provider.clone());
-    let chain_repository = ChainRepository::new(db.clone());
 
-    let _ = NeutrinoStarter::new(chain_repository);
+    let chain_repository = ChainRepository::new(db.clone());
+    let neutrino_starter = NeutrinoStarter::new(chain_repository);
 
     let builder = tauri_specta::Builder::<tauri::Wry>::new()
         .commands(tauri_specta::collect_commands![
@@ -84,8 +84,9 @@ pub fn run() {
         .manage(eth_provider.clone())
         .manage(token_retriever)
         .manage(price_feed)
+        .manage(neutrino_starter)
         .manage(Mutex::new(tx_builder))
-        .manage(tokio::sync::Mutex::new(session::Store::new()))
+        .manage(tokio::sync::Mutex::new(session::SessionKeeper::new()))
         .setup(move |app| {
             #[cfg(debug_assertions)]
             if ENABLE_DEVTOOLS {

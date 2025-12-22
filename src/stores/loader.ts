@@ -5,6 +5,9 @@ export class Loader<D> {
   start() {
     this.loading = true
   }
+  stop() {
+    this.loading = false
+  }
 
   data: D | undefined
   set(data: D) {

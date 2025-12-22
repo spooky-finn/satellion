@@ -1,4 +1,9 @@
 ## 1. Starting the regtest bitcoin node
+
+```bash
+brew install bitcoin
+```
+
 ```bash
 bitcoind \
   -regtest \
@@ -9,11 +14,13 @@ bitcoind \
 ```
 
 ## 2. Load/create wallet
+
 ```bash
 bitcoin-cli -regtest loadwallet test
 ```
 
 ## 3. Generate blocks
+
 ```bash
 bitcoin-cli \
   -regtest \

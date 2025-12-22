@@ -2,7 +2,7 @@ use bip157::chain::IndexedHeader;
 use diesel::{SqliteConnection, prelude::*, r2d2::ConnectionManager, result::Error};
 use r2d2::Pool;
 
-use crate::{db::BlockHeader, repository::BaseRepository, schema};
+use crate::{btc::utxo::UTxO, db::BlockHeader, repository::BaseRepository, schema};
 
 #[derive(Clone)]
 pub struct ChainRepository {
@@ -38,5 +38,9 @@ impl ChainRepository {
             .limit(limit)
             .order(schema::bitcoin_block_headers::height.desc())
             .load::<BlockHeader>(&mut conn)
+    }
+
+    pub async fn insert_utxos(&self, txs: Vec<UTxO>) {
+        println!("inserting txs {}", txs.len())
     }
 }

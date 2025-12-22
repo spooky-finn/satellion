@@ -54,3 +54,26 @@ pub struct BlockHeader {
     pub bits: i32,
     pub nonce: i32,
 }
+
+#[derive(Insertable, Queryable, Debug, PartialEq, Clone)]
+#[diesel(table_name = schema::utxos)]
+pub struct Utxo {
+    /// Transaction hash (32 bytes)
+    pub txid: String,
+    /// Output index within the transaction
+    pub vout: i32,
+    /// Value in satoshis
+    pub value: i64,
+    /// ScriptPubKey (raw hex)
+    pub script_pubkey: String,
+    /// Block height where this UTXO was created
+    pub block_height: i32,
+    /// Block hash for additional integrity
+    pub block_hash: String,
+    /// Whether the output has been spent (0 = unspent, 1 = spent)
+    pub spent: i32,
+    /// Timestamp when UTXO was created (unix seconds)
+    pub created_at: i64,
+    /// Timestamp when UTXO was spent (unix seconds, null if unspent)
+    pub spent_at: Option<i64>,
+}

@@ -46,11 +46,11 @@ impl Session {
 }
 
 #[derive(Default)]
-pub struct Store {
+pub struct SessionKeeper {
     session: Option<Session>,
 }
 
-impl Store {
+impl SessionKeeper {
     pub fn new() -> Self {
         Self { session: None }
     }
@@ -92,7 +92,7 @@ mod tests {
     #[test]
     fn test_store_get() {
         let session_exp_duration = TimeDelta::seconds(2);
-        let mut store = Store::new();
+        let mut store = SessionKeeper::new();
         let wallet_name = "test_wallet".to_string();
         let session = Session::new(wallet_name.clone(), session_exp_duration);
         store.start(session);

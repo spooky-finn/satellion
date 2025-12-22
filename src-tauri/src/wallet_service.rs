@@ -46,6 +46,7 @@ impl WalletService {
     }
 
     pub fn load(&self, wallet_name: &str, passphrase: String) -> Result<String, String> {
+        let now = std::time::Instant::now();
         let wallet = self
             .repository
             .get(wallet_name)
@@ -60,6 +61,7 @@ impl WalletService {
         let mnemonic =
             String::from_utf8(mnemonic_bytes).map_err(|_| "Invalid UTF-8 in decrypted mnemonic")?;
 
+        println!("Wallet loading took {:?}", now.elapsed());
         Ok(mnemonic)
     }
 

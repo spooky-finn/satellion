@@ -4,7 +4,8 @@ import {
   CircularProgress,
   Stack,
   StackProps,
-  Typography
+  Typography,
+  type CircularProgressProps
 } from '@mui/joy'
 import { useNavigate } from 'react-router'
 import { route } from './routes'
@@ -17,7 +18,9 @@ export const LinkButton = (props: ButtonProps & { to: string }) => {
   const navigate = useNavigate()
   return <Button size="sm" {...props} onClick={() => navigate(props.to)} />
 }
-export const Progress = () => <CircularProgress size="sm" color="neutral" />
+export const Progress = (props: CircularProgressProps) => (
+  <CircularProgress size="sm" color="neutral" {...props} />
+)
 
 export const NavigateUnlock = (props: ButtonProps) => {
   const navigate = useNavigate()

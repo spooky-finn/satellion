@@ -3,7 +3,7 @@ import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { route } from '../routes'
-import { P } from '../shortcuts'
+import { P, Progress } from '../shortcuts'
 import { root_store } from '../stores/root'
 import { PassphraseInput } from './wallet/passphrase_create'
 
@@ -78,16 +78,22 @@ const UnlockWallet = () => {
           Add
         </Button>
       </Box>
-      {unlock.walletToUnlock && (
-        <PassphraseInput
-          autoFocus
-          variant="soft"
-          color="primary"
-          placeholder={`Passphrase`}
-          value={unlock.passphrase}
-          onChange={e => unlock.setPassphrase(e.target.value)}
-        />
-      )}
+      {unlock.walletToUnlock &&
+        (unlock.loader.loading ? (
+          <>
+            <Progress color="primary" />
+            <P level="body-sm">Inspecting blockchain ... </P>
+          </>
+        ) : (
+          <PassphraseInput
+            autoFocus
+            variant="soft"
+            color="primary"
+            placeholder={`Passphrase`}
+            value={unlock.passphrase}
+            onChange={e => unlock.setPassphrase(e.target.value)}
+          />
+        ))}
     </Stack>
   )
 }

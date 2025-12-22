@@ -7,7 +7,7 @@ use specta::{Type, specta};
 
 use crate::{
     app_state::AppState,
-    btc,
+    btc::{self, neutrino::NeutrinoStarter},
     config::{CONFIG, Chain, Config, constants},
     db::BlockHeader,
     eth, mnemonic,
@@ -98,8 +98,9 @@ pub async fn unlock_wallet(
     wallet_name: String,
     mut passphrase: String,
     wallet_service: tauri::State<'_, WalletService>,
-    session_store: tauri::State<'_, tokio::sync::Mutex<session::Store>>,
+    session_keeper: tauri::State<'_, tokio::sync::Mutex<session::SessionKeeper>>,
     wallet_repository: tauri::State<'_, WalletRepositoryImpl>,
+    neutrino_starter: tauri::State<'_, NeutrinoStarter>,
 ) -> Result<UnlockMsg, String> {
     let mnemonic = wallet_service.load(&wallet_name, passphrase.clone())?;
     let (eth_unlock_data, eth_session) =
@@ -112,10 +113,21 @@ pub async fn unlock_wallet(
         .map_err(|e| e.to_string())?;
     let last_used_chain = Chain::from(wallet.last_used_chain as u16);
 
+    let btc_xpriv = btc_session.xprv;
+
     let mut session = session::Session::new(wallet_name, Config::session_exp_duration());
     session.add_chain_data(Chain::Bitcoin, ChainSession::from(btc_session));
     session.add_chain_data(Chain::Ethereum, ChainSession::from(eth_session));
-    session_store.lock().await.start(session);
+    session_keeper.lock().await.start(session);
+
+    // Start Bitcoin sync in background without waiting
+    let scripts = btc::wallet::derive_scripts_of_interes(&btc_xpriv);
+    let neutrino_starter_clone = (*neutrino_starter).clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = neutrino_starter_clone.sync(scripts).await {
+            eprintln!("Failed to start Bitcoin sync: {}", e);
+        }
+    });
 
     passphrase.zeroize();
     Ok(UnlockMsg {
@@ -130,9 +142,9 @@ pub async fn unlock_wallet(
 pub async fn forget_wallet(
     wallet_name: String,
     repository: tauri::State<'_, WalletRepositoryImpl>,
-    session_store: tauri::State<'_, tokio::sync::Mutex<session::session::Store>>,
+    session_keeper: tauri::State<'_, tokio::sync::Mutex<session::SessionKeeper>>,
 ) -> Result<(), String> {
-    session_store.lock().await.end();
+    session_keeper.lock().await.end();
     repository.delete(&wallet_name).map_err(|e| e.to_string())?;
     Ok(())
 }
