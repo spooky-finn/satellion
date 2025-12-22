@@ -153,19 +153,17 @@ pub async fn handle_chain_updates(
             Event::Block(_block) => {}
             Event::IndexedFilter(filter) => {
                 if filter.contains_any(scripts_of_interes.iter()) {
-                    let hash = filter.block_hash();
-                    let indexed_block = requester
-                        .get_block(hash)
-                        .await
-                        .map_err(|e| format!("fail to request block: {}", e));
+                    let block_hash = filter.block_hash();
+                    let block = match requester.get_block(block_hash).await {
+                        Ok(b) => b,
+                        Err(e) => {
+                            eprintln!("Error processing indexed filter: {}", e);
+                            continue;
+                        }
+                    };
+                    let block_height = block.height;
 
-                    if indexed_block.is_err() {
-                        // eprintln!(indexed_block);
-                        return;
-                    }
-
-                    let unspent_outputs = indexed_block
-                        .unwrap()
+                    let unspent_outputs = block
                         .block
                         .txdata
                         .iter()
@@ -179,6 +177,8 @@ pub async fn handle_chain_updates(
                             for (vout_idx, vout) in tx.output.iter().enumerate() {
                                 if scripts_of_interes.contains(&vout.script_pubkey) {
                                     utxos.push(UTxO {
+                                        block_hash,
+                                        block_height,
                                         tx_hash: tx.compute_ntxid(),
                                         output: vout.clone(),
                                         vout_idx,
@@ -189,7 +189,9 @@ pub async fn handle_chain_updates(
                         })
                         .collect::<Vec<UTxO>>();
 
-                    repository.insert_utxos(unspent_outputs).await;
+                    if let Err(e) = repository.insert_utxos(unspent_outputs).await {
+                        eprintln!("Failed to insert UTXOs for block {}: {}", block_hash, e);
+                    }
                 }
             }
         }
