@@ -62,10 +62,10 @@ impl SessionKeeper {
                 return Err("Session has expired".to_string());
             }
 
-            return Ok(self
+            Ok(self
                 .session
                 .as_ref()
-                .expect("fail to borrow session: probably expired"));
+                .expect("fail to borrow session: probably expired"))
         } else {
             Err("Session has expired".to_string())
         }

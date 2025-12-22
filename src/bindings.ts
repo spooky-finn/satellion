@@ -85,9 +85,9 @@ async ethGetBalance(address: string, walletName: string) : Promise<Result<Balanc
     else return { status: "error", error: e  as any };
 }
 },
-async ethPrepareSendTx(walletName: string, tokenSymbol: string, amount: string, recipient: string, feeMode: FeeMode) : Promise<Result<PrepareTxReqRes, string>> {
+async ethPrepareSendTx(req: PrepareTxReqReq) : Promise<Result<PrepareTxReqRes, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("eth_prepare_send_tx", { walletName, tokenSymbol, amount, recipient, feeMode }) };
+    return { status: "ok", data: await TAURI_INVOKE("eth_prepare_send_tx", { req }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -151,6 +151,7 @@ export type Chain = "Bitcoin" | "Ethereum"
 export type ChainInfo = { block_number: string; block_hash: string; base_fee_per_gas: string | null }
 export type EthereumUnlock = { address: string }
 export type FeeMode = "Minimal" | "Standard" | "Increased"
+export type PrepareTxReqReq = { wallet_name: string; token_symbol: string; amount: string; recipient: string; fee_mode: FeeMode }
 export type PrepareTxReqRes = { estimated_gas: string; max_fee_per_gas: string; fee_ceiling: string; fee_in_usd: number }
 export type SyncStatus = { height: number; sync_completed: boolean }
 export type TokenBalance = { symbol: string; balance: string; decimals: number; address: string }

@@ -6,7 +6,7 @@ use alloy::{
     providers::Provider,
 };
 use alloy_provider::{DynProvider, ext::AnvilApi};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use specta::{Type, specta};
 
 use crate::{
@@ -90,7 +90,7 @@ pub async fn eth_get_balance(
             Token::new(
                 Address::from_str(&t.address).expect("invalid token address"),
                 t.symbol.clone(),
-                t.decimals as u8,
+                t.decimals,
             )
         })
         .collect();
@@ -127,6 +127,15 @@ pub async fn eth_get_balance(
     })
 }
 
+#[derive(Type, Deserialize, Debug, PartialEq)]
+pub struct PrepareTxReqReq {
+    wallet_name: String,
+    token_symbol: String,
+    amount: String,
+    recipient: String,
+    fee_mode: FeeMode,
+}
+
 #[derive(Type, Serialize, Debug, PartialEq)]
 pub struct PrepareTxReqRes {
     estimated_gas: String,
@@ -138,16 +147,19 @@ pub struct PrepareTxReqRes {
 #[specta]
 #[tauri::command]
 pub async fn eth_prepare_send_tx(
-    wallet_name: String,
-    token_symbol: String,
-    amount: String,
-    recipient: String,
-    fee_mode: FeeMode,
+    req: PrepareTxReqReq,
     tx_builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
     session_store: tauri::State<'_, tokio::sync::Mutex<session::SessionKeeper>>,
     price_feed: tauri::State<'_, PriceFeed>,
     wallet_repository: tauri::State<'_, WalletRepositoryImpl>,
 ) -> Result<PrepareTxReqRes, String> {
+    let PrepareTxReqReq {
+        wallet_name,
+        amount,
+        fee_mode,
+        recipient,
+        token_symbol,
+    } = req;
     let mut session_store = session_store.lock().await;
     let session = session_store.get(&wallet_name)?;
     let eth_session = session
@@ -162,7 +174,7 @@ pub async fn eth_prepare_send_tx(
             Ok(t) => Token::new(
                 Address::from_str(&t.address).expect("invalid token address"),
                 t.symbol.clone(),
-                t.decimals as u8,
+                t.decimals,
             ),
             Err(e) => {
                 return Err(format!(

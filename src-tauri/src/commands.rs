@@ -52,7 +52,7 @@ pub async fn chain_status(
 #[specta]
 #[tauri::command]
 pub async fn generate_mnemonic() -> Result<String, String> {
-    Ok(mnemonic::new()?)
+    mnemonic::new()
 }
 
 #[specta]
@@ -111,7 +111,7 @@ pub async fn unlock_wallet(
     let wallet = wallet_repository
         .get(&wallet_name)
         .map_err(|e| e.to_string())?;
-    let last_used_chain = Chain::from(wallet.last_used_chain as u16);
+    let last_used_chain = Chain::from(wallet.last_used_chain);
 
     let btc_xpriv = btc_session.xprv;
 

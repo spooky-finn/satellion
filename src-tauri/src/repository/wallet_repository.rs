@@ -101,13 +101,13 @@ impl WalletRepository for WalletRepositoryImpl {
         let wallet_file = WalletFile::from(wallet.clone());
         let content = serde_json::to_string_pretty(&wallet_file)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        fs::write(&self.get_file_path(&wallet.name), content)?;
+        fs::write(self.get_file_path(&wallet.name), content)?;
         Ok(())
     }
 
     fn get(&self, wname: &str) -> io::Result<Wallet> {
         self.assert_exists(wname)?;
-        let content = fs::read_to_string(&self.get_file_path(wname))?;
+        let content = fs::read_to_string(self.get_file_path(wname))?;
         let wallet_file = serde_json::from_str::<WalletFile>(&content)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         Ok(Wallet::from(wallet_file))
@@ -115,7 +115,7 @@ impl WalletRepository for WalletRepositoryImpl {
 
     fn delete(&self, wname: &str) -> io::Result<()> {
         self.assert_exists(wname)?;
-        fs::remove_file(&self.get_file_path(&wname))?;
+        fs::remove_file(self.get_file_path(wname))?;
         Ok(())
     }
 
@@ -127,13 +127,13 @@ impl WalletRepository for WalletRepositoryImpl {
         let content = serde_json::to_string_pretty(&wallet_file)
             .map_err(|e| format!("Failed to serialize wallet: {}", e))?;
 
-        fs::write(&self.get_file_path(wname), content)
+        fs::write(self.get_file_path(wname), content)
             .map_err(|e| format!("Failed to write wallet file: {}", e))?;
         Ok(())
     }
 
     fn assert_exists(&self, wname: &str) -> io::Result<bool> {
-        let exists = self.get_file_path(&wname).exists();
+        let exists = self.get_file_path(wname).exists();
         if !exists {
             return Err(io::Error::new(
                 io::ErrorKind::NotFound,
@@ -224,7 +224,7 @@ impl WalletRepositoryImpl {
 
     /// Helper method to get wallet file directly
     fn get_wallet_file(&self, wallet_name: &str) -> Result<WalletFile, String> {
-        let wallet_path = self.get_file_path(&wallet_name);
+        let wallet_path = self.get_file_path(wallet_name);
 
         if !wallet_path.exists() {
             return Err(format!("Wallet with name '{}' not found", wallet_name));

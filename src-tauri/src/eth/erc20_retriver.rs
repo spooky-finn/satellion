@@ -38,63 +38,55 @@ impl Erc20Retriever {
         Self { provider }
     }
 
-    pub fn token_info(
-        &self,
-        token_address: Address,
-    ) -> impl std::future::Future<Output = Result<Token, String>> + Send {
-        async move {
-            let erc20 = new_contract_api(self.provider.clone(), token_address);
-            let symbol_result = erc20
-                .symbol()
-                .call()
-                .await
-                .map_err(|e| format!("Failed to fetch token symbol: {}", e))?;
-            let decimals_result = erc20
-                .decimals()
-                .call()
-                .await
-                .map_err(|e| format!("Failed to fetch token decimals: {}", e))?;
-            Ok(Token::new(token_address, symbol_result, decimals_result))
-        }
+    pub async fn token_info(&self, token_address: Address) -> Result<Token, String> {
+        let erc20 = new_contract_api(self.provider.clone(), token_address);
+        let symbol_result = erc20
+            .symbol()
+            .call()
+            .await
+            .map_err(|e| format!("Failed to fetch token symbol: {}", e))?;
+        let decimals_result = erc20
+            .decimals()
+            .call()
+            .await
+            .map_err(|e| format!("Failed to fetch token decimals: {}", e))?;
+        Ok(Token::new(token_address, symbol_result, decimals_result))
     }
 
-    pub fn balances(
+    pub async fn balances(
         &self,
         address: Address,
         tokens: Vec<Token>,
-    ) -> impl std::future::Future<Output = Result<Vec<TokenBalance>, String>> + Send {
-        async move {
-            let balance_futures: Vec<_> = tokens
-                .iter()
-                .map(|token| {
-                    let provider_clone = self.provider.root();
-                    let contract = new_contract_api(self.provider.clone(), token.address);
-                    let tx_request = contract.balanceOf(address).into_transaction_request();
-                    let balance_future = async move {
-                        provider_clone
-                            .call(tx_request)
-                            .decode_resp::<Erc20Contract::balanceOfCall>()
-                            .await
-                    };
-                    balance_future
-                })
-                .collect();
+    ) -> Result<Vec<TokenBalance>, String> {
+        let balance_futures: Vec<_> = tokens
+            .iter()
+            .map(|token| {
+                let provider_clone = self.provider.root();
+                let contract = new_contract_api(self.provider.clone(), token.address);
+                let tx_request = contract.balanceOf(address).into_transaction_request();
+                async {
+                    provider_clone
+                        .call(tx_request)
+                        .decode_resp::<Erc20Contract::balanceOfCall>()
+                        .await
+                }
+            })
+            .collect();
 
-            let results = futures::future::join_all(balance_futures).await;
-            let balances: Result<Vec<_>, String> = results
-                .into_iter()
-                .zip(tokens)
-                .map(|(result, token)| {
-                    let token_symbol = token.symbol.clone();
-                    result
-                        .map_err(|e| format!("Failed to execute batch call: {}", e))?
-                        .map(|balance| TokenBalance { token, balance })
-                        .map_err(|e| format!("Failed to fetch balance for {}: {}", token_symbol, e))
-                })
-                .collect();
+        let results = futures::future::join_all(balance_futures).await;
+        let balances: Result<Vec<_>, String> = results
+            .into_iter()
+            .zip(tokens)
+            .map(|(result, token)| {
+                let token_symbol = token.symbol.clone();
+                result
+                    .map_err(|e| format!("Failed to execute batch call: {}", e))?
+                    .map(|balance| TokenBalance { token, balance })
+                    .map_err(|e| format!("Failed to fetch balance for {}: {}", token_symbol, e))
+            })
+            .collect();
 
-            Ok(balances?)
-        }
+        balances
     }
 }
 

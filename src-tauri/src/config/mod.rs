@@ -1,5 +1,5 @@
-pub mod config;
+pub mod config_impl;
 pub mod constants;
 
-pub use config::*;
+pub use config_impl::*;
 pub use constants::*;

@@ -16,7 +16,6 @@ use std::sync::Arc;
 
 use specta_typescript::Typescript;
 use tauri::Manager;
-use tauri_specta;
 use tokio::sync::Mutex;
 
 use crate::{

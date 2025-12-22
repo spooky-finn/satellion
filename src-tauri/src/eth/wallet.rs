@@ -7,8 +7,8 @@ use alloy_signer_local::{
 
 use crate::session::EthereumSession;
 
-pub fn parse_addres(addres: &String) -> Result<Address, String> {
-    Address::from_str(&addres).map_err(|e| format!("Invalid Ethereum address: {}", e))
+pub fn parse_addres(addres: &str) -> Result<Address, String> {
+    Address::from_str(addres).map_err(|e| format!("Invalid Ethereum address: {}", e))
 }
 
 pub fn create_private_key(

@@ -67,11 +67,8 @@ impl NeutrinoStarter {
         }
 
         let seeds = bip157::lookup_host("seed.bitcoin.sipa.be").await;
-        let peers: Vec<TrustedPeer> = seeds
-            .into_iter()
-            .map(|addr| TrustedPeer::from_ip(addr))
-            .collect();
-        return Ok((bip157::Network::Bitcoin, peers));
+        let peers: Vec<TrustedPeer> = seeds.into_iter().map(TrustedPeer::from_ip).collect();
+        Ok((bip157::Network::Bitcoin, peers))
     }
 }
 
@@ -94,7 +91,7 @@ impl Neutrino {
                     merkle_root: TxMerkleNode::from_str(&h.merkle_root).unwrap(),
                     prev_blockhash: BlockHash::from_str(&h.prev_blockhash).unwrap(),
                     time: h.time as u32,
-                    version: Version::from_consensus(h.version as i32),
+                    version: Version::from_consensus(h.version),
                     bits: CompactTarget::from_consensus(h.bits as u32),
                     nonce: h.nonce as u32,
                 },

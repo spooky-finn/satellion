@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{btc::config::BitcoinConfig, eth::config::EthereumConfig};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub ethereum: EthereumConfig,
     pub bitcoin: BitcoinConfig,
@@ -70,20 +70,11 @@ impl Config {
     }
 
     pub fn ensure_wallets_dir() {
-        fs::create_dir_all(&Self::wallets_dir()).expect("Failed to create wallets directory");
+        fs::create_dir_all(Self::wallets_dir()).expect("Failed to create wallets directory");
     }
 
     pub fn session_exp_duration() -> chrono::TimeDelta {
         chrono::TimeDelta::minutes(10)
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            ethereum: EthereumConfig::default(),
-            bitcoin: BitcoinConfig::default(),
-        }
     }
 }
 

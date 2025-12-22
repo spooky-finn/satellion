@@ -83,8 +83,7 @@ pub struct BitcoinUnlock {
 
 pub fn unlock(mnemonic: &str, passphrase: &str) -> Result<(BitcoinUnlock, BitcoinSession), String> {
     let net = CONFIG.bitcoin.network();
-    let bitcoin_xprv =
-        create_private_key(net, &mnemonic, &passphrase).map_err(|e| e.to_string())?;
+    let bitcoin_xprv = create_private_key(net, mnemonic, passphrase).map_err(|e| e.to_string())?;
 
     let (_, bitcoin_main_receive_address) =
         derive_taproot_address(&bitcoin_xprv, net, AddressType::Receive, 0)

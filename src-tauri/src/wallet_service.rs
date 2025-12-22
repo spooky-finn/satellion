@@ -78,10 +78,10 @@ impl WalletService {
                 continue;
             }
 
-            if let Some(ordinal_str) = wallet_name.strip_prefix("Wallet_") {
-                if let Ok(ordinal) = ordinal_str.parse::<u32>() {
-                    max_ordinal = max_ordinal.max(ordinal);
-                }
+            if let Some(ordinal_str) = wallet_name.strip_prefix("Wallet_")
+                && let Ok(ordinal) = ordinal_str.parse::<u32>()
+            {
+                max_ordinal = max_ordinal.max(ordinal);
             }
         }
 

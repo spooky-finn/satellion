@@ -75,7 +75,7 @@ impl std::fmt::Display for TransferBuilderError {
                     current_balance, estimated_fee
                 )
             }
-            TransferBuilderError::InsufficientTokens { .. } => {
+            TransferBuilderError::InsufficientTokens => {
                 write!(f, "Not enough tokens")
             }
             TransferBuilderError::NodeQuery(msg) => {
@@ -182,8 +182,7 @@ impl TxBuilder {
             .map_err(|e| format!("Failed to send transaction: {e}"))?;
 
         self.pending_tx = None;
-        let hash = pending_tx.tx_hash().clone();
-        Ok(hash)
+        Ok(*pending_tx.tx_hash())
     }
 
     async fn calc_gas(
@@ -201,7 +200,7 @@ impl TxBuilder {
             self.fee_estimator.calc_fees().await.map_err(|e| {
                 TransferBuilderError::NodeQuery(format!("failed to calc fee {}", e))
             })?;
-        let estimator = fees_estimator.get(fee_mode).clone();
+        let estimator = *fees_estimator.get(fee_mode);
 
         let final_tx = tx
             .with_max_fee_per_gas(estimator.max_fee_per_gas)
@@ -357,15 +356,13 @@ impl BalanceChecker for EtherTransferBuilder {
         let total_required = tx_value.saturating_add(fee_ceiling);
 
         if balance < total_required {
-            if balance < total_required {
-                let possible_send_amount = balance.saturating_sub(fee_ceiling);
-                return Err(TransferBuilderError::InsufficientEther {
-                    current_balance: format_units(balance, "ether")
-                        .map_err(|e| TransferBuilderError::AmountParse(e.to_string()))?,
-                    max_sendable: format_units(possible_send_amount, "ether")
-                        .map_err(|e| TransferBuilderError::AmountParse(e.to_string()))?,
-                });
-            }
+            let possible_send_amount = balance.saturating_sub(fee_ceiling);
+            return Err(TransferBuilderError::InsufficientEther {
+                current_balance: format_units(balance, "ether")
+                    .map_err(|e| TransferBuilderError::AmountParse(e.to_string()))?,
+                max_sendable: format_units(possible_send_amount, "ether")
+                    .map_err(|e| TransferBuilderError::AmountParse(e.to_string()))?,
+            });
         }
         Ok(())
     }

@@ -1,5 +1,5 @@
-pub mod chain_state;
-pub mod session;
+mod chain_state;
+mod session_keeper;
 
 pub use chain_state::*;
-pub use session::*;
+pub use session_keeper::*;
