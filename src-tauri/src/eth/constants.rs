@@ -1,7 +1,7 @@
 use alloy::primitives::{Address, address};
 use once_cell::sync::Lazy;
 
-use crate::{config::Chain, eth::token::Token, wallet};
+use crate::eth::token::Token;
 
 pub static ETH: Lazy<Token> = Lazy::<Token>::new(|| {
     Token::new(
@@ -29,16 +29,8 @@ pub static USDT: Lazy<Token> = Lazy::<Token>::new(|| {
     )
 });
 
-pub fn get_default_tokens() -> Vec<wallet::Token> {
-    [&USDC, &USDT]
-        .iter()
-        .map(|token| wallet::Token {
-            address: token.address.to_string(),
-            chain: Chain::Ethereum as u16,
-            decimals: token.decimals,
-            symbol: token.symbol.to_string(),
-        })
-        .collect()
-}
-
 pub const ETH_USD_PRICE_FEED: Address = address!("0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419");
+
+pub fn default_tokens() -> Vec<Token> {
+    vec![USDC.to_owned(), USDT.to_owned()]
+}

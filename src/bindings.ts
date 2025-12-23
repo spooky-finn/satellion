@@ -61,9 +61,17 @@ async getConfig() : Promise<Result<UIConfig, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async btcDeriveAddress(walletName: string, index: number) : Promise<Result<string, string>> {
+async btcDeriveAddress(walletName: string, label: string, index: number) : Promise<Result<string, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("btc_derive_address", { walletName, index }) };
+    return { status: "ok", data: await TAURI_INVOKE("btc_derive_address", { walletName, label, index }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async btcUnoccupiedDeriviationIndex(walletName: string) : Promise<Result<number, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("btc_unoccupied_deriviation_index", { walletName }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -117,7 +125,7 @@ async ethTrackToken(walletName: string, address: string) : Promise<Result<TokenT
     else return { status: "error", error: e  as any };
 }
 },
-async ethUntrackToken(walletName: string, tokenAddress: string) : Promise<Result<boolean, string>> {
+async ethUntrackToken(walletName: string, tokenAddress: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("eth_untrack_token", { walletName, tokenAddress }) };
 } catch (e) {
@@ -146,16 +154,16 @@ export const MIN_PASSPHRASE_LEN = 4 as const;
 /** user-defined types **/
 
 export type Balance = { wei: string; eth_price: string; tokens: TokenBalance[] }
-export type BitcoinUnlock = { address: string; change_address: string }
+export type BitcoinUnlock = { address: string }
 export type Chain = "Bitcoin" | "Ethereum"
 export type ChainInfo = { block_number: string; block_hash: string; base_fee_per_gas: string | null }
 export type EthereumUnlock = { address: string }
 export type FeeMode = "Minimal" | "Standard" | "Increased"
-export type PrepareTxReqReq = { wallet_name: string; token_symbol: string; amount: string; recipient: string; fee_mode: FeeMode }
+export type PrepareTxReqReq = { wallet_name: string; token_address: string; amount: string; recipient: string; fee_mode: FeeMode }
 export type PrepareTxReqRes = { estimated_gas: string; max_fee_per_gas: string; fee_ceiling: string; fee_in_usd: number }
 export type SyncStatus = { height: number; sync_completed: boolean }
 export type TokenBalance = { symbol: string; balance: string; decimals: number; address: string }
-export type TokenType = { chain: Chain; address: string; symbol: string; decimals: number }
+export type TokenType = { chain: Chain; symbol: string; decimals: number }
 export type UIConfig = { eth_anvil: boolean }
 export type UnlockMsg = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock; last_used_chain: Chain }
 

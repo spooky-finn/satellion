@@ -51,7 +51,7 @@ const CreatePassphrase = observer(() => {
           />
           <Button
             sx={{ width: 'min-content' }}
-            disabled={passphraseStore.passphrase.length < MIN_PASSPHRASE_LEN}
+            disabled={!passphraseStore.isValid()}
             onClick={() => {
               passphraseStore.verifyPassphrase()
               store.createWallet().then(() => {

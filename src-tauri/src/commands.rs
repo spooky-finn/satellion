@@ -10,12 +10,9 @@ use crate::{
     btc::{self, neutrino::NeutrinoStarter},
     config::{CONFIG, Chain, Config, constants},
     db::BlockHeader,
-    eth, mnemonic,
-    repository::wallet_repository::WalletRepositoryImpl,
-    schema,
-    session::{self, ChainSession},
-    wallet::WalletRepository,
-    wallet_service::WalletService,
+    eth, mnemonic, schema,
+    session::{AppSession, Session},
+    wallet_keeper::WalletKeeper,
 };
 
 #[derive(Type, Serialize)]
@@ -31,7 +28,6 @@ pub async fn chain_status(
     db_pool: tauri::State<'_, crate::db::Pool>,
 ) -> Result<SyncStatus, String> {
     let mut conn = db_pool.get().expect("Error getting connection from pool");
-
     let sync_completed = state
         .sync_completed
         .lock()
@@ -61,7 +57,7 @@ pub async fn create_wallet(
     mut mnemonic: String,
     mut passphrase: String,
     name: String,
-    wallet_service: tauri::State<'_, WalletService>,
+    wallet_keeper: tauri::State<'_, WalletKeeper>,
 ) -> Result<bool, String> {
     if passphrase.len() < constants::MIN_PASSPHRASE_LEN {
         return Err(format!(
@@ -69,7 +65,7 @@ pub async fn create_wallet(
             constants::MIN_PASSPHRASE_LEN
         ));
     }
-    wallet_service.create(&mnemonic, &passphrase, &name)?;
+    wallet_keeper.create(&mnemonic, &passphrase, &name)?;
 
     mnemonic.zeroize();
     passphrase.zeroize();
@@ -79,10 +75,9 @@ pub async fn create_wallet(
 #[specta]
 #[tauri::command]
 pub async fn list_wallets(
-    repository: tauri::State<'_, WalletRepositoryImpl>,
+    wallet_keeper: tauri::State<'_, WalletKeeper>,
 ) -> Result<Vec<String>, String> {
-    let available_wallets = repository.list_available().map_err(|e| e.to_string())?;
-    Ok(available_wallets)
+    wallet_keeper.ls().map_err(|e| e.to_string())
 }
 
 #[derive(Type, Serialize)]
@@ -97,42 +92,32 @@ pub struct UnlockMsg {
 pub async fn unlock_wallet(
     wallet_name: String,
     mut passphrase: String,
-    wallet_service: tauri::State<'_, WalletService>,
-    session_keeper: tauri::State<'_, tokio::sync::Mutex<session::SessionKeeper>>,
-    wallet_repository: tauri::State<'_, WalletRepositoryImpl>,
+    wallet_keeper: tauri::State<'_, WalletKeeper>,
+    session_keeper: tauri::State<'_, AppSession>,
     neutrino_starter: tauri::State<'_, NeutrinoStarter>,
 ) -> Result<UnlockMsg, String> {
-    let mnemonic = wallet_service.load(&wallet_name, passphrase.clone())?;
-    let (eth_unlock_data, eth_session) =
-        eth::wallet::unlock(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
-    let (btc_unlock_data, btc_session) =
-        btc::wallet::unlock(&mnemonic, &passphrase).map_err(|e| e.to_string())?;
+    let wallet = wallet_keeper.load(&wallet_name, &passphrase)?;
 
-    let wallet = wallet_repository
-        .get(&wallet_name)
-        .map_err(|e| e.to_string())?;
-    let last_used_chain = Chain::from(wallet.last_used_chain);
+    let ethereum = wallet.eth.unlock();
+    let bitcoin = wallet.btc.unlock()?;
 
-    let btc_xpriv = btc_session.xprv;
+    let scripts = wallet.btc.derive_scripts_of_interes()?;
+    let last_used_chain = wallet.last_used_chain;
 
-    let mut session = session::Session::new(wallet_name, Config::session_exp_duration());
-    session.add_chain_data(Chain::Bitcoin, ChainSession::from(btc_session));
-    session.add_chain_data(Chain::Ethereum, ChainSession::from(eth_session));
+    let session = Session::new(wallet, passphrase.clone(), Config::session_exp_duration());
     session_keeper.lock().await.start(session);
 
     // Start Bitcoin sync in background without waiting
-    let scripts = btc::wallet::derive_scripts_of_interes(&btc_xpriv);
     let neutrino_starter_clone = (*neutrino_starter).clone();
     tauri::async_runtime::spawn(async move {
         if let Err(e) = neutrino_starter_clone.sync(scripts).await {
             eprintln!("Failed to start Bitcoin sync: {}", e);
         }
     });
-
     passphrase.zeroize();
     Ok(UnlockMsg {
-        ethereum: eth_unlock_data,
-        bitcoin: btc_unlock_data,
+        ethereum,
+        bitcoin,
         last_used_chain,
     })
 }
@@ -141,11 +126,13 @@ pub async fn unlock_wallet(
 #[tauri::command]
 pub async fn forget_wallet(
     wallet_name: String,
-    repository: tauri::State<'_, WalletRepositoryImpl>,
-    session_keeper: tauri::State<'_, tokio::sync::Mutex<session::SessionKeeper>>,
+    wallet_keeper: tauri::State<'_, WalletKeeper>,
+    session_keeper: tauri::State<'_, AppSession>,
 ) -> Result<(), String> {
     session_keeper.lock().await.end();
-    repository.delete(&wallet_name).map_err(|e| e.to_string())?;
+    wallet_keeper
+        .delete(&wallet_name)
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 

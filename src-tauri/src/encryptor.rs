@@ -13,19 +13,21 @@
 //! - `kdf_salt`: 32 bytes for Argon2 KDF
 use aes_gcm::Aes256Gcm;
 use aes_gcm::aead::{Aead, KeyInit};
+use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
 pub const NONCE_SIZE: usize = 12;
 pub const KEY_SIZE: usize = 32;
 pub const SALT_SIZE: usize = 32;
 
-pub struct EncryptedData {
+#[derive(Serialize, Deserialize)]
+pub struct Envelope {
     pub ciphertext: Vec<u8>,
     pub wrapped_key: Vec<u8>,
     pub kdf_salt: Vec<u8>,
 }
 
-pub fn encrypt(plaintext: &[u8], passphrase: &[u8]) -> Result<EncryptedData, String> {
+pub fn encrypt(plaintext: &[u8], passphrase: &[u8]) -> Result<Envelope, String> {
     let mut dek = rand::random::<[u8; KEY_SIZE]>();
     let dek_nonce = rand::random::<[u8; NONCE_SIZE]>();
     let kek_nonce = rand::random::<[u8; NONCE_SIZE]>();
@@ -45,13 +47,13 @@ pub fn encrypt(plaintext: &[u8], passphrase: &[u8]) -> Result<EncryptedData, Str
     ciphertext.extend_from_slice(&data_ciphertext);
     wrapped_key.extend_from_slice(&wrapped_dek);
 
-    Ok(EncryptedData {
+    Ok(Envelope {
         ciphertext,
         wrapped_key,
         kdf_salt: kdf_salt.to_vec(),
     })
 }
-pub fn decrypt(encrypted: &EncryptedData, passphrase: &[u8]) -> Result<Vec<u8>, String> {
+pub fn decrypt(encrypted: &Envelope, passphrase: &[u8]) -> Result<Vec<u8>, String> {
     let mut kek = derive_kek_from_passphrase(passphrase, &encrypted.kdf_salt)?;
     if encrypted.wrapped_key.len() < NONCE_SIZE {
         return Err("Invalid wrapped_key format".to_string());

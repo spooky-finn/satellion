@@ -1,28 +1,55 @@
 use specta::specta;
 
 use crate::{
-    btc::wallet::{AddressType, derive_taproot_address},
+    btc::wallet::AddressPurpose,
     config::{CONFIG, Chain},
-    repository::wallet_repository::WalletRepositoryImpl,
-    session,
-    wallet::WalletRepository,
+    session::AppSession,
+    wallet_keeper::WalletKeeper,
 };
 
 #[specta]
 #[tauri::command]
 pub async fn btc_derive_address(
     wallet_name: String,
+    label: String,
     index: u32,
-    session_store: tauri::State<'_, tokio::sync::Mutex<session::SessionKeeper>>,
-    wallet_repository: tauri::State<'_, WalletRepositoryImpl>,
+    session_keeper: tauri::State<'_, AppSession>,
+    wallet_keeper: tauri::State<'_, WalletKeeper>,
 ) -> Result<String, String> {
-    let mut session_store = session_store.lock().await;
-    let session = session_store.get(&wallet_name)?;
-    let btc_session = session
-        .get_bitcoin_session()
-        .ok_or("Bitcoin session is not initialized")?;
+    let mut session_keeper = session_keeper.lock().await;
+    let session = session_keeper.get(&wallet_name)?;
+    let purpose = AddressPurpose::Receive;
+    if !session
+        .wallet
+        .btc
+        .is_deriviation_index_available(purpose.clone(), index)
+    {
+        return Err(format!("Deriviation index {} already occupied", index));
+    }
+
     let net = CONFIG.bitcoin.network();
-    let child = derive_taproot_address(&btc_session.xprv, net, AddressType::Receive, index)?;
-    wallet_repository.set_last_used_chain(&wallet_name, Chain::Bitcoin)?;
+    let child = session
+        .wallet
+        .btc
+        .derive_child(net, purpose.clone(), index)?;
+
+    session.wallet.last_used_chain = Chain::Bitcoin;
+    session.wallet.btc.add_child(label, purpose, index);
+
+    wallet_keeper.save_wallet(session)?;
     Ok(child.1.to_string())
+}
+
+#[specta]
+#[tauri::command]
+pub async fn btc_unoccupied_deriviation_index(
+    wallet_name: String,
+    session_keeper: tauri::State<'_, AppSession>,
+) -> Result<u32, String> {
+    let mut session_keeper = session_keeper.lock().await;
+    let session = session_keeper.get(&wallet_name)?;
+    Ok(session
+        .wallet
+        .btc
+        .unoccupied_deriviation_index(AddressPurpose::Receive))
 }

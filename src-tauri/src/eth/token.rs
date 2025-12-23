@@ -4,7 +4,8 @@ use bigdecimal::{
     num_bigint::{BigInt, Sign},
 };
 
-#[derive(Debug, Clone)]
+/// Represents an ERC-20 token tracked by the wallet
+#[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub address: Address,
     pub symbol: String,
@@ -25,11 +26,5 @@ impl Token {
             BigInt::from_bytes_be(Sign::Plus, &amount.to_be_bytes::<{ U256::BYTES }>()),
             self.decimals as i64,
         ))
-    }
-}
-
-impl PartialEq for Token {
-    fn eq(&self, other: &Self) -> bool {
-        self.symbol == other.symbol
     }
 }

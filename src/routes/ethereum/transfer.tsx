@@ -66,7 +66,7 @@ const TokenSelect = observer(({ state }: { state: TransferStore }) => (
     onChange={(_, value) => state.setSelectedToken(value ?? undefined)}
   >
     {root_store.wallet.eth.tokens_with_balance.map(t => (
-      <Option key={t.symbol} value={t.symbol}>
+      <Option key={t.address} value={t.address}>
         {t.symbol}
       </Option>
     ))}
@@ -78,7 +78,7 @@ const CurrentBalance = observer(({ state }: { state: TransferStore }) => {
   const selectedToken = state.selectedToken
   if (!selectedToken) return null
   const token = eth.balance?.data?.tokens.find(
-    token => token.symbol === selectedToken
+    token => token.address === selectedToken
   )
   return (
     <P>

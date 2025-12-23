@@ -9,11 +9,128 @@ use bitcoin::{
     key::{Keypair, Secp256k1},
 };
 
-use crate::{config::CONFIG, session::BitcoinSession};
+use crate::config::CONFIG;
 
-pub enum AddressType {
+/// Bitcoin-specific wallet data
+#[derive(Debug, PartialEq)]
+pub struct WalletData {
+    pub xpriv: Xpriv,
+    pub derived_addresses: Vec<BitcoinAddress>,
+}
+
+/// Represents a child derived address
+#[derive(Debug, Clone, PartialEq)]
+pub struct BitcoinAddress {
+    pub label: String,
+    pub purpose: AddressPurpose,
+    pub index: u32,
+}
+
+impl WalletData {
+    pub fn derive_scripts_of_interes(&self) -> Result<HashSet<ScriptBuf>, String> {
+        let mut scripts_of_interes: HashSet<bip157::ScriptBuf> = HashSet::new();
+        let network = CONFIG.bitcoin.network();
+
+        for ba in self.derived_addresses.iter() {
+            let (_, address) = self
+                .derive_child(network, ba.purpose.clone(), ba.index)
+                .map_err(|e| format!("derived bitcoin address corrupted {e}"))?;
+
+            let scriptbuf = address.script_pubkey();
+            scripts_of_interes.insert(scriptbuf);
+        }
+
+        Ok(scripts_of_interes)
+    }
+
+    pub fn derive_child(
+        &self,
+        network: Network,
+        purpose: AddressPurpose,
+        index: u32,
+    ) -> Result<(Keypair, Address), String> {
+        let secp = Secp256k1::new();
+        let path = create_diriviation_path(network, purpose, index);
+
+        // derive child private key
+        let keypair = self
+            .xpriv
+            .derive_priv(&secp, &path)
+            .map_err(|e| format!("Derivation error: {}", e))?
+            .to_keypair(&secp);
+
+        // x-only pubkey for taproot
+        let (xonly_pk, _parity) = keypair.x_only_public_key();
+
+        // Create taproot address (BIP341 tweak is done automatically by rust-bitcoin)
+        let address = Address::p2tr(
+            &secp, xonly_pk, None, // no script tree = BIP86 key-path spend
+            network,
+        );
+
+        Ok((keypair, address))
+    }
+
+    pub fn unlock(&self) -> Result<BitcoinUnlock, String> {
+        let (_, btc_main_address) = self
+            .derive_child(CONFIG.bitcoin.network(), AddressPurpose::Receive, 0)
+            .map_err(|e| e.to_string())?;
+
+        Ok(BitcoinUnlock {
+            address: btc_main_address.to_string(),
+        })
+    }
+
+    pub fn is_deriviation_index_available(&self, purpose: AddressPurpose, index: u32) -> bool {
+        !self
+            .derived_addresses
+            .iter()
+            .any(|a| a.index == index && a.purpose == purpose)
+    }
+
+    pub fn unoccupied_deriviation_index(&self, purpose: AddressPurpose) -> u32 {
+        let occupied: HashSet<u32> = self
+            .derived_addresses
+            .iter()
+            .filter(|a| a.purpose == purpose)
+            .map(|a| a.index)
+            .collect();
+
+        match (1..).find(|i| !occupied.contains(i)) {
+            Some(i) => i,
+            None => 1,
+        }
+    }
+
+    pub fn add_child(&mut self, label: String, purpose: AddressPurpose, index: u32) {
+        self.derived_addresses.push(BitcoinAddress {
+            label,
+            purpose,
+            index,
+        });
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum AddressPurpose {
     Receive = 0,
     Change = 1,
+}
+
+impl From<u8> for AddressPurpose {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => AddressPurpose::Receive,
+            1 => AddressPurpose::Change,
+            _ => panic!("Invalid bitcoin address purpose: {}", value),
+        }
+    }
+}
+
+impl From<AddressPurpose> for u8 {
+    fn from(chain: AddressPurpose) -> Self {
+        chain as u8
+    }
 }
 
 pub fn create_private_key(
@@ -30,7 +147,7 @@ pub fn create_private_key(
 
 pub fn create_diriviation_path(
     network: Network,
-    purpose: AddressType,
+    purpose: AddressPurpose,
     address_index: u32,
 ) -> DerivationPath {
     let coin_type = match network {
@@ -39,80 +156,78 @@ pub fn create_diriviation_path(
     };
 
     let change = match purpose {
-        AddressType::Receive => 0,
-        AddressType::Change => 1,
+        AddressPurpose::Receive => 0,
+        AddressPurpose::Change => 1,
     };
 
     let account = 0;
     let path = format!("m/86'/{coin_type}'/{account}'/{change}/{address_index}");
-    DerivationPath::from_str(&path).expect("Derivation path is creation failed")
-}
-
-pub fn derive_taproot_address(
-    xprv: &Xpriv,
-    network: Network,
-    purpose: AddressType,
-    address_index: u32,
-) -> Result<(Keypair, Address), String> {
-    let secp = Secp256k1::new();
-    let path = create_diriviation_path(network, purpose, address_index);
-
-    // derive child private key
-    let keypair = xprv
-        .derive_priv(&secp, &path)
-        .map_err(|e| format!("Derivation error: {}", e))?
-        .to_keypair(&secp);
-
-    // x-only pubkey for taproot
-    let (xonly_pk, _parity) = keypair.x_only_public_key();
-
-    // Create taproot address (BIP341 tweak is done automatically by rust-bitcoin)
-    let address = Address::p2tr(
-        &secp, xonly_pk, None, // no script tree = BIP86 key-path spend
-        network,
-    );
-
-    Ok((keypair, address))
+    DerivationPath::from_str(&path).expect("invalid child deriviation path")
 }
 
 #[derive(serde::Serialize, specta::Type)]
 pub struct BitcoinUnlock {
-    address: String,
-    change_address: String,
+    pub address: String,
 }
 
-pub fn unlock(mnemonic: &str, passphrase: &str) -> Result<(BitcoinUnlock, BitcoinSession), String> {
-    let net = CONFIG.bitcoin.network();
-    let bitcoin_xprv = create_private_key(net, mnemonic, passphrase).map_err(|e| e.to_string())?;
+pub mod persistence {
+    use serde::{Deserialize, Serialize};
 
-    let (_, bitcoin_main_receive_address) =
-        derive_taproot_address(&bitcoin_xprv, net, AddressType::Receive, 0)
-            .map_err(|e| e.to_string())?;
-    let (_, bitcoin_main_change_address) =
-        derive_taproot_address(&bitcoin_xprv, net, AddressType::Change, 0)
-            .map_err(|e| e.to_string())?;
-
-    Ok((
-        BitcoinUnlock {
-            address: bitcoin_main_receive_address.to_string(),
-            change_address: bitcoin_main_change_address.to_string(),
-        },
-        BitcoinSession { xprv: bitcoin_xprv },
-    ))
-}
-
-pub fn derive_scripts_of_interes(xpriv: &Xpriv) -> HashSet<ScriptBuf> {
-    let mut scripts_of_interes: HashSet<bip157::ScriptBuf> = HashSet::new();
-    let net = CONFIG.bitcoin.network();
-
-    // TODO: remember last index to check
-    for i in 0..1000 {
-        let (_, bitcoin_main_receive_address) =
-            derive_taproot_address(xpriv, net, AddressType::Receive, i)
-                .expect("Failed to derive taproot address");
-        let scriptbuf = bitcoin_main_receive_address.script_pubkey();
-        scripts_of_interes.insert(scriptbuf);
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    pub struct ChildAddress {
+        pub label: String,
+        pub purpose: u8,
+        pub index: u32,
     }
 
-    scripts_of_interes
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    pub struct BitcoinData {
+        pub childs: Vec<ChildAddress>,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_unoccupied_deriviation_index() {
+        let mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+        let xpriv = create_private_key(Network::Bitcoin, mnemonic, "").unwrap();
+
+        let wallet = WalletData {
+            xpriv,
+            derived_addresses: vec![
+                BitcoinAddress {
+                    label: "addr1".to_string(),
+                    purpose: AddressPurpose::Receive,
+                    index: 1,
+                },
+                BitcoinAddress {
+                    label: "addr2".to_string(),
+                    purpose: AddressPurpose::Receive,
+                    index: 2,
+                },
+                BitcoinAddress {
+                    label: "addr3".to_string(),
+                    purpose: AddressPurpose::Receive,
+                    index: 19,
+                },
+                BitcoinAddress {
+                    label: "change1".to_string(),
+                    purpose: AddressPurpose::Change,
+                    index: 0,
+                },
+            ],
+        };
+
+        assert_eq!(
+            wallet.unoccupied_deriviation_index(AddressPurpose::Receive),
+            3
+        );
+        assert_eq!(
+            wallet.unoccupied_deriviation_index(AddressPurpose::Change),
+            1
+        );
+    }
 }

@@ -71,7 +71,7 @@ export class TransferStore {
       amount: this.amount.toString(),
       fee_mode: this.feeMode ?? 'Standard',
       recipient: this.address,
-      token_symbol: this.selectedToken
+      token_address: this.selectedToken
     })
     this.setIsEstimating(false)
     if (r.status === 'error') {

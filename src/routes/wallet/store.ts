@@ -1,5 +1,5 @@
 import { makeAutoObservable } from 'mobx'
-import { commands } from '../../bindings'
+import { commands, MIN_PASSPHRASE_LEN } from '../../bindings'
 import { notifier } from '../../components/notifier/notifier'
 
 class PassphraseStore {
@@ -13,6 +13,12 @@ class PassphraseStore {
   }
   setRepeatPassphrase(repeatPassphrase: string) {
     this.repeatPassphrase = repeatPassphrase
+  }
+  isValid() {
+    return (
+      this.passphrase === this.repeatPassphrase &&
+      this.passphrase.length >= MIN_PASSPHRASE_LEN
+    )
   }
   verifyPassphrase() {
     if (this.passphrase !== this.repeatPassphrase) {

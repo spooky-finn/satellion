@@ -1,53 +1,51 @@
-use std::io;
+use zeroize::Zeroize;
 
-use serde::{Deserialize, Serialize};
+use crate::{
+    btc,
+    config::{CONFIG, constants::Chain},
+    eth, mnemonic,
+    utils::now,
+};
 
-use crate::config::Chain;
-
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 pub struct Wallet {
     pub name: String,
-    pub encrypted_key: Vec<u8>,
-    pub key_wrapped: Vec<u8>,
-    pub kdf_salt: Vec<u8>,
+    pub mnemonic: String,
+    pub last_used_chain: Chain,
+    pub created_at: u64,
     pub version: u8,
-    pub created_at: String,
-    pub last_used_chain: u16,
-    pub tokens: Vec<Token>,
+
+    pub btc: btc::wallet::WalletData,
+    pub eth: eth::wallet::WalletData,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Token {
-    pub chain: u16,
-    pub symbol: String,
-    pub address: String,
-    pub decimals: u8,
+impl Wallet {
+    pub fn new(name: String, mnemonic: String, passphrase: &str) -> Result<Self, String> {
+        mnemonic::verify(&mnemonic)?;
+        let bitcoin_data = btc::wallet::WalletData {
+            xpriv: btc::wallet::create_private_key(CONFIG.bitcoin.network(), &mnemonic, passphrase)
+                .map_err(|e| format!("Failed to create Bitcoin private key: {}", e))?,
+            derived_addresses: Vec::new(),
+        };
+        let ethereum_data = eth::wallet::WalletData {
+            signer: eth::wallet::create_private_key(&mnemonic, passphrase)
+                .map_err(|e| format!("Failed to create Ethereum private key: {}", e))?,
+            tracked_tokens: eth::constants::default_tokens(),
+        };
+        Ok(Wallet {
+            name,
+            mnemonic,
+            last_used_chain: Chain::Bitcoin,
+            created_at: now(),
+            version: 1,
+            btc: bitcoin_data,
+            eth: ethereum_data,
+        })
+    }
 }
 
-pub trait WalletRepository: Send + Sync {
-    fn new() -> Self
-    where
-        Self: Sized;
-
-    /// List all available wallets
-    fn list_available(&self) -> io::Result<Vec<String>>;
-    /// Insert a new wallet
-    fn insert(&self, wallet: Wallet) -> io::Result<()>;
-    /// Get a wallet by name
-    fn get(&self, wname: &str) -> io::Result<Wallet>;
-    /// Delete a wallet by name
-    fn delete(&self, wname: &str) -> io::Result<()>;
-    /// Asserts that wallet with the given name exists
-    fn assert_exists(&self, wname: &str) -> io::Result<bool>;
-
-    /// Set the last used chain for a wallet
-    fn set_last_used_chain(&self, wname: &str, chain: Chain) -> Result<(), String>;
-    /// Add a token to a wallet
-    fn add_token(&self, wname: &str, token: Token) -> Result<(), String>;
-    /// Remove a token from a wallet
-    fn remove_token(&self, wname: &str, chain: Chain, symbol: &str) -> Result<(), String>;
-    /// Get all tokens for a wallet
-    fn get_tokens(&self, wname: &str, chain: Chain) -> Result<Vec<Token>, String>;
-    /// Get a specific token for a wallet
-    fn get_token(&self, wname: &str, chain: Chain, symbol: &str) -> Result<Token, String>;
+impl Drop for Wallet {
+    fn drop(&mut self) {
+        self.mnemonic.zeroize();
+    }
 }
