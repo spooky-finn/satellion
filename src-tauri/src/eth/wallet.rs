@@ -1,23 +1,24 @@
 use std::str::FromStr;
 
 use alloy::primitives::Address;
-use alloy_signer_local::{
-    LocalSignerError, MnemonicBuilder, PrivateKeySigner, coins_bip39::English,
-};
+use alloy_signer_local::{MnemonicBuilder, PrivateKeySigner, coins_bip39::English};
 
 use crate::eth::token::Token;
 
 /// Ethereum-specific wallet data
-#[derive(Debug, PartialEq)]
 pub struct WalletData {
-    pub signer: PrivateKeySigner,
     pub tracked_tokens: Vec<Token>,
 }
 
+pub struct Prk {
+    /// Signer will be zeroized on drop internally
+    pub signer: PrivateKeySigner,
+}
+
 impl WalletData {
-    pub fn unlock(&self) -> EthereumUnlock {
+    pub fn unlock(&self, prk: &Prk) -> EthereumUnlock {
         EthereumUnlock {
-            address: self.signer.address().to_string(),
+            address: prk.signer.address().to_string(),
         }
     }
 
@@ -36,10 +37,7 @@ pub fn parse_addres(addres: &str) -> Result<Address, String> {
     Address::from_str(addres).map_err(|e| format!("Invalid Ethereum address: {}", e))
 }
 
-pub fn create_private_key(
-    mnemonic: &str,
-    passphrase: &str,
-) -> Result<PrivateKeySigner, LocalSignerError> {
+pub fn derive_prk(mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
     MnemonicBuilder::<English>::default()
         .phrase(mnemonic)
         .password(passphrase)
@@ -48,6 +46,8 @@ pub fn create_private_key(
         .index(0)
         .unwrap()
         .build()
+        .map_err(|e| format!("fail to derive eth signer: {}", e))
+        .map(|signer| Prk { signer })
 }
 
 #[derive(serde::Serialize, specta::Type)]
@@ -80,9 +80,9 @@ mod tests {
     fn test_construct_private_key() {
         let mnemonic = mnemonic::new().unwrap();
         let passphrase = "test passphrase";
-        let result = create_private_key(&mnemonic, passphrase);
+        let result = derive_prk(&mnemonic, passphrase);
         match result {
-            Ok(signer) => println!("Success: {:?}", signer.address()),
+            Ok(prk) => println!("Success: {:?}", prk.signer.address()),
             Err(e) => println!("Error: {:?}", e),
         }
     }

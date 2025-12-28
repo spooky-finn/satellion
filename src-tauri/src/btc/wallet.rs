@@ -12,9 +12,7 @@ use bitcoin::{
 use crate::config::CONFIG;
 
 /// Bitcoin-specific wallet data
-#[derive(Debug, PartialEq)]
 pub struct WalletData {
-    pub xpriv: Xpriv,
     pub derived_addresses: Vec<BitcoinAddress>,
 }
 
@@ -26,14 +24,29 @@ pub struct BitcoinAddress {
     pub index: u32,
 }
 
+#[derive(serde::Serialize, specta::Type)]
+pub struct BitcoinUnlock {
+    pub address: String,
+}
+
+pub struct Prk {
+    pub xpriv: Xpriv,
+}
+
+impl Drop for Prk {
+    fn drop(&mut self) {
+        self.xpriv.private_key.non_secure_erase();
+    }
+}
+
 impl WalletData {
-    pub fn derive_scripts_of_interes(&self) -> Result<HashSet<ScriptBuf>, String> {
+    pub fn derive_scripts_of_interes(&self, xpriv: &Xpriv) -> Result<HashSet<ScriptBuf>, String> {
         let mut scripts_of_interes: HashSet<bip157::ScriptBuf> = HashSet::new();
         let network = CONFIG.bitcoin.network();
 
         for ba in self.derived_addresses.iter() {
             let (_, address) = self
-                .derive_child(network, ba.purpose.clone(), ba.index)
+                .derive_child(xpriv, network, ba.purpose.clone(), ba.index)
                 .map_err(|e| format!("derived bitcoin address corrupted {e}"))?;
 
             let scriptbuf = address.script_pubkey();
@@ -45,6 +58,7 @@ impl WalletData {
 
     pub fn derive_child(
         &self,
+        xpriv: &Xpriv,
         network: Network,
         purpose: AddressPurpose,
         index: u32,
@@ -53,8 +67,7 @@ impl WalletData {
         let path = create_diriviation_path(network, purpose, index);
 
         // derive child private key
-        let keypair = self
-            .xpriv
+        let keypair = xpriv
             .derive_priv(&secp, &path)
             .map_err(|e| format!("Derivation error: {}", e))?
             .to_keypair(&secp);
@@ -71,9 +84,9 @@ impl WalletData {
         Ok((keypair, address))
     }
 
-    pub fn unlock(&self) -> Result<BitcoinUnlock, String> {
+    pub fn unlock(&self, xpriv: &Xpriv) -> Result<BitcoinUnlock, String> {
         let (_, btc_main_address) = self
-            .derive_child(CONFIG.bitcoin.network(), AddressPurpose::Receive, 0)
+            .derive_child(xpriv, CONFIG.bitcoin.network(), AddressPurpose::Receive, 0)
             .map_err(|e| e.to_string())?;
 
         Ok(BitcoinUnlock {
@@ -96,10 +109,7 @@ impl WalletData {
             .map(|a| a.index)
             .collect();
 
-        match (1..).find(|i| !occupied.contains(i)) {
-            Some(i) => i,
-            None => 1,
-        }
+        (1..).find(|i| !occupied.contains(i)).unwrap_or(1)
     }
 
     pub fn add_child(&mut self, label: String, purpose: AddressPurpose, index: u32) {
@@ -133,16 +143,13 @@ impl From<AddressPurpose> for u8 {
     }
 }
 
-pub fn create_private_key(
-    network: Network,
-    mnemonic: &str,
-    passphrase: &str,
-) -> Result<Xpriv, String> {
+pub fn derive_prk(mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
+    let network = crate::config::CONFIG.bitcoin.network();
     let mnemonic = bip39::Mnemonic::parse_in_normalized(Language::English, mnemonic)
         .map_err(|e| e.to_string())?;
     let seed = mnemonic.to_seed(passphrase);
-    let xprv = bip32::Xpriv::new_master(network, &seed).map_err(|e| e.to_string())?;
-    Ok(xprv)
+    let xpriv = bip32::Xpriv::new_master(network, &seed).map_err(|e| e.to_string())?;
+    Ok(Prk { xpriv })
 }
 
 pub fn create_diriviation_path(
@@ -163,11 +170,6 @@ pub fn create_diriviation_path(
     let account = 0;
     let path = format!("m/86'/{coin_type}'/{account}'/{change}/{address_index}");
     DerivationPath::from_str(&path).expect("invalid child deriviation path")
-}
-
-#[derive(serde::Serialize, specta::Type)]
-pub struct BitcoinUnlock {
-    pub address: String,
 }
 
 pub mod persistence {
@@ -192,11 +194,7 @@ mod tests {
 
     #[test]
     fn test_unoccupied_deriviation_index() {
-        let mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
-        let xpriv = create_private_key(Network::Bitcoin, mnemonic, "").unwrap();
-
         let wallet = WalletData {
-            xpriv,
             derived_addresses: vec![
                 BitcoinAddress {
                     label: "addr1".to_string(),

@@ -1,7 +1,8 @@
+use shush_rs::ExposeSecret;
 use specta::specta;
 
 use crate::{
-    btc::wallet::AddressPurpose,
+    btc::{self, wallet::AddressPurpose},
     config::{CONFIG, Chain},
     session::AppSession,
     wallet_keeper::WalletKeeper,
@@ -27,11 +28,16 @@ pub async fn btc_derive_address(
         return Err(format!("Deriviation index {} already occupied", index));
     }
 
-    let net = CONFIG.bitcoin.network();
-    let child = session
-        .wallet
-        .btc
-        .derive_child(net, purpose.clone(), index)?;
+    let prk = btc::wallet::derive_prk(
+        &session.wallet.mnemonic.expose_secret(),
+        &session.passphrase.expose_secret(),
+    )?;
+    let child = session.wallet.btc.derive_child(
+        &prk.xpriv,
+        CONFIG.bitcoin.network(),
+        purpose.clone(),
+        index,
+    )?;
 
     session.wallet.last_used_chain = Chain::Bitcoin;
     session.wallet.btc.add_child(label, purpose, index);

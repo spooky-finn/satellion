@@ -1,6 +1,7 @@
 use std::{fs, io, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
+use shush_rs::{ExposeSecret, SecretBox};
 
 use crate::{
     btc::{
@@ -13,8 +14,8 @@ use crate::{
     wallet::Wallet,
 };
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct PersistedWallet {
+#[derive(Serialize, Deserialize)]
+pub struct WalletJson {
     pub name: String,
     pub mnemonic: String,
     pub bitcoin_data: BitcoinData,
@@ -24,24 +25,12 @@ pub struct PersistedWallet {
     pub version: u8,
 }
 
-impl PersistedWallet {
-    pub fn to_wallet(&self, passphrase: &str) -> Result<Wallet, String> {
-        // Reconstruct Bitcoin Xpriv from mnemonic
-        let bitcoin_xpriv = crate::btc::wallet::create_private_key(
-            crate::config::CONFIG.bitcoin.network(),
-            &self.mnemonic,
-            passphrase,
-        )?;
-
-        // Reconstruct Ethereum signer from mnemonic
-        let ethereum_signer = crate::eth::wallet::create_private_key(&self.mnemonic, passphrase)
-            .map_err(|e| format!("Failed to create Ethereum private key: {}", e))?;
-
+impl WalletJson {
+    pub fn to_wallet(&self) -> Result<Wallet, String> {
         Ok(Wallet {
             name: self.name.clone(),
-            mnemonic: self.mnemonic.clone(),
+            mnemonic: SecretBox::new(Box::new(self.mnemonic.clone())),
             btc: crate::btc::wallet::WalletData {
-                xpriv: bitcoin_xpriv,
                 derived_addresses: self
                     .bitcoin_data
                     .childs
@@ -54,7 +43,6 @@ impl PersistedWallet {
                     .collect(),
             },
             eth: crate::eth::wallet::WalletData {
-                signer: ethereum_signer,
                 tracked_tokens: self
                     .ethereum_data
                     .tracked_tokens
@@ -76,9 +64,9 @@ impl PersistedWallet {
     }
 
     pub fn from_wallet(wallet: &Wallet) -> Self {
-        PersistedWallet {
+        WalletJson {
             name: wallet.name.clone(),
-            mnemonic: wallet.mnemonic.clone(),
+            mnemonic: wallet.mnemonic.expose_secret().to_string(),
             bitcoin_data: BitcoinData {
                 childs: wallet
                     .btc
@@ -122,13 +110,13 @@ impl Repository {
             .get(wallet_name)
             .map_err(|e| format!("fail to load wallet from dist: {}", e))?;
         let decrypted_json = encryptor::decrypt(&data, passphrase.as_bytes())?;
-        let persisted_wallet = serde_json::from_slice::<PersistedWallet>(&decrypted_json)
+        let persisted_wallet = serde_json::from_slice::<WalletJson>(&decrypted_json)
             .map_err(|e| format!("fail to parse json wallet into struct {}", e))?;
-        persisted_wallet.to_wallet(passphrase)
+        persisted_wallet.to_wallet()
     }
 
     pub fn store_wallet(&self, wallet: &Wallet, passphrase: &str) -> Result<(), String> {
-        let persisted_wallet = PersistedWallet::from_wallet(wallet);
+        let persisted_wallet = WalletJson::from_wallet(wallet);
         let wallet_name = wallet.name.clone();
         let json = serde_json::to_string(&persisted_wallet)
             .map_err(|e| format!("fait to serialize persisted_wallet {}", e))?;
@@ -235,7 +223,7 @@ mod tests {
         let name = "Wallet 1".to_string();
         let passphrase = "1111";
 
-        let persisted_wallet = PersistedWallet {
+        let persisted_wallet = WalletJson {
             name: name.clone(),
             mnemonic: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about".to_string(),
             created_at: 100,
@@ -258,13 +246,16 @@ mod tests {
             },
         };
 
-        let wallet = persisted_wallet.to_wallet(passphrase).unwrap();
+        let wallet = persisted_wallet.to_wallet().unwrap();
         repository.store_wallet(&wallet, passphrase).unwrap();
 
         let listed = repository.ls().unwrap();
         assert!(listed.contains(&FsRepository.sanitize_filename(&name)));
 
         let saved_wallet = repository.load_as_wallet(&name, passphrase).unwrap();
-        assert_eq!(wallet, saved_wallet)
+        assert_eq!(
+            wallet.mnemonic.expose_secret().to_string(),
+            saved_wallet.mnemonic.expose_secret().to_string()
+        )
     }
 }

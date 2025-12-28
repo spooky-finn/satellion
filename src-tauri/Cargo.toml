@@ -1,7 +1,7 @@
 [package]
 name = "satellion"
 version = "0.1.0"
-description = "Another Bitcoin light client wallet"
+description = "Another Bitcoin light wallet"
 authors = ["Ivan Loseev"]
 edition = "2024"
 
@@ -52,4 +52,6 @@ bip39 = "2.2.0"
 specta = "=2.0.0-rc.22"
 specta-typescript = "0.0.9"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["typescript"] }
+# RAM security
 zeroize = "1.8.2"
+shush-rs = "0.1.11"

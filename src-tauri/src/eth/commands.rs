@@ -7,6 +7,7 @@ use alloy::{
 };
 use alloy_provider::{DynProvider, ext::AnvilApi};
 use serde::{Deserialize, Serialize};
+use shush_rs::ExposeSecret;
 use specta::{Type, specta};
 
 use crate::{
@@ -153,7 +154,11 @@ pub async fn eth_prepare_send_tx(
     } = req;
     let mut session_keeper = session_keeper.lock().await;
     let session = session_keeper.get(&wallet_name)?;
-    let sender = session.wallet.eth.signer.address();
+    let prk = eth::wallet::derive_prk(
+        &session.wallet.mnemonic.expose_secret(),
+        &session.passphrase.expose_secret(),
+    )?;
+    let sender = prk.signer.address();
     let recipient = parse_addres(&recipient)?;
     let token_address = parse_addres(&token_address)?;
 
@@ -213,7 +218,11 @@ pub async fn eth_sign_and_send_tx(
     let mut session_keeper = session_keeper.lock().await;
     let session = session_keeper.get(&wallet_name)?;
     let mut builder = builder.try_lock().map_err(|e| e.to_string())?;
-    let hash = builder.sign_and_send_tx(&session.wallet.eth.signer).await?;
+    let prk = eth::wallet::derive_prk(
+        &session.wallet.mnemonic.expose_secret(),
+        &session.passphrase.expose_secret(),
+    )?;
+    let hash = builder.sign_and_send_tx(&prk.signer).await?;
     Ok(hash.to_string())
 }
 

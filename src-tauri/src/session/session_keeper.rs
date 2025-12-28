@@ -1,11 +1,11 @@
 use chrono::{DateTime, TimeDelta, Utc};
-use zeroize::Zeroize;
+use shush_rs::SecretBox;
 
 use crate::wallet::Wallet;
 
 pub struct Session {
     pub wallet: Wallet,
-    pub passphrase: String,
+    pub passphrase: SecretBox<String>,
     pub created_at: DateTime<Utc>,
     pub session_exp_duration: TimeDelta,
 }
@@ -14,7 +14,7 @@ impl Session {
     pub fn new(wallet: Wallet, passphrase: String, session_exp_duration: TimeDelta) -> Self {
         Self {
             wallet,
-            passphrase,
+            passphrase: SecretBox::new(Box::new(passphrase)),
             created_at: Utc::now(),
             session_exp_duration,
         }
@@ -22,12 +22,6 @@ impl Session {
 
     pub fn is_expired(&self) -> bool {
         self.created_at + self.session_exp_duration < Utc::now()
-    }
-}
-
-impl Drop for Session {
-    fn drop(&mut self) {
-        self.passphrase.zeroize();
     }
 }
 
@@ -81,7 +75,6 @@ mod tests {
         let wallet = Wallet::new(
             name.to_string(),
             "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about".to_string(),
-            ""
         ).expect("Failed to create test wallet");
 
         let session = Session::new(wallet, "1111".to_string(), session_exp_duration);

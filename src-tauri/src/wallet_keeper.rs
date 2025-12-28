@@ -1,3 +1,5 @@
+use shush_rs::ExposeSecret;
+
 use crate::{persistence, session::Session, wallet::Wallet};
 
 pub struct WalletKeeper {
@@ -19,7 +21,7 @@ impl WalletKeeper {
         } else {
             name.to_string()
         };
-        let wallet = Wallet::new(name, mnemonic.to_string(), passphrase)?;
+        let wallet = Wallet::new(name, mnemonic.to_string())?;
         self.repository.store_wallet(&wallet, passphrase)?;
         Ok(())
     }
@@ -30,7 +32,7 @@ impl WalletKeeper {
 
     pub fn save_wallet(&self, session: &Session) -> Result<(), String> {
         self.repository
-            .store_wallet(&session.wallet, &session.passphrase)
+            .store_wallet(&session.wallet, &session.passphrase.expose_secret())
     }
 
     pub fn delete(&self, wallet_name: &str) -> Result<(), std::io::Error> {

@@ -1,9 +1,10 @@
 use std::sync::Arc;
-use zeroize::Zeroize;
 
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use serde::Serialize;
+use shush_rs::ExposeSecret;
 use specta::{Type, specta};
+use zeroize::Zeroize;
 
 use crate::{
     app_state::AppState,
@@ -91,22 +92,22 @@ pub struct UnlockMsg {
 #[tauri::command]
 pub async fn unlock_wallet(
     wallet_name: String,
-    mut passphrase: String,
+    passphrase: String,
     wallet_keeper: tauri::State<'_, WalletKeeper>,
     session_keeper: tauri::State<'_, AppSession>,
     neutrino_starter: tauri::State<'_, NeutrinoStarter>,
 ) -> Result<UnlockMsg, String> {
     let wallet = wallet_keeper.load(&wallet_name, &passphrase)?;
+    let signer = eth::wallet::derive_prk(&wallet.mnemonic.expose_secret(), &passphrase)?;
+    let ethereum = wallet.eth.unlock(&signer);
+    let prk = btc::wallet::derive_prk(&wallet.mnemonic.expose_secret(), &passphrase)?;
+    let bitcoin = wallet.btc.unlock(&prk.xpriv)?;
 
-    let ethereum = wallet.eth.unlock();
-    let bitcoin = wallet.btc.unlock()?;
-
-    let scripts = wallet.btc.derive_scripts_of_interes()?;
+    let scripts = wallet.btc.derive_scripts_of_interes(&prk.xpriv)?;
     let last_used_chain = wallet.last_used_chain;
 
-    let session = Session::new(wallet, passphrase.clone(), Config::session_exp_duration());
+    let session = Session::new(wallet, passphrase, Config::session_exp_duration());
     session_keeper.lock().await.start(session);
-
     // Start Bitcoin sync in background without waiting
     let neutrino_starter_clone = (*neutrino_starter).clone();
     tauri::async_runtime::spawn(async move {
@@ -114,7 +115,6 @@ pub async fn unlock_wallet(
             eprintln!("Failed to start Bitcoin sync: {}", e);
         }
     });
-    passphrase.zeroize();
     Ok(UnlockMsg {
         ethereum,
         bitcoin,
