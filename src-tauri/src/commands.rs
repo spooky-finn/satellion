@@ -9,6 +9,7 @@ use zeroize::Zeroize;
 use crate::{
     app_state::AppState,
     btc::{self, neutrino::NeutrinoStarter},
+    chain_wallet::ChainWallet,
     config::{CONFIG, Chain, Config, constants},
     db::BlockHeader,
     eth, mnemonic, schema,
@@ -98,12 +99,16 @@ pub async fn unlock_wallet(
     neutrino_starter: tauri::State<'_, NeutrinoStarter>,
 ) -> Result<UnlockMsg, String> {
     let wallet = wallet_keeper.load(&wallet_name, &passphrase)?;
-    let signer = eth::wallet::derive_prk(&wallet.mnemonic.expose_secret(), &passphrase)?;
-    let ethereum = wallet.eth.unlock(&signer);
-    let prk = btc::wallet::derive_prk(&wallet.mnemonic.expose_secret(), &passphrase)?;
-    let bitcoin = wallet.btc.unlock(&prk.xpriv)?;
 
-    let scripts = wallet.btc.derive_scripts_of_interes(&prk.xpriv)?;
+    // Derive private keys for both chains
+    let eth_prk = eth::wallet::derive_prk(&wallet.mnemonic.expose_secret(), &passphrase)?;
+    let btc_prk = btc::wallet::derive_prk(&wallet.mnemonic.expose_secret(), &passphrase)?;
+
+    // Unlock both wallets using the ChainWallet trait
+    let ethereum = wallet.eth.unlock(&eth_prk)?;
+    let bitcoin = wallet.btc.unlock(&btc_prk)?;
+
+    let scripts = wallet.btc.derive_scripts_of_interes(&btc_prk.xpriv)?;
     let last_used_chain = wallet.last_used_chain;
 
     let session = Session::new(wallet, passphrase, Config::session_exp_duration());

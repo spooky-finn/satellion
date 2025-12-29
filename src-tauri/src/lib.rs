@@ -1,5 +1,6 @@
 mod app_state;
 mod btc;
+mod chain_wallet;
 mod commands;
 mod config;
 mod db;

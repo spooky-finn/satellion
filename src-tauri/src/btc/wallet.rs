@@ -9,7 +9,7 @@ use bitcoin::{
     key::{Keypair, Secp256k1},
 };
 
-use crate::config::CONFIG;
+use crate::{chain_wallet::ChainWallet, config::CONFIG};
 
 /// Bitcoin-specific wallet data
 pub struct WalletData {
@@ -84,16 +84,6 @@ impl WalletData {
         Ok((keypair, address))
     }
 
-    pub fn unlock(&self, xpriv: &Xpriv) -> Result<BitcoinUnlock, String> {
-        let (_, btc_main_address) = self
-            .derive_child(xpriv, CONFIG.bitcoin.network(), AddressPurpose::Receive, 0)
-            .map_err(|e| e.to_string())?;
-
-        Ok(BitcoinUnlock {
-            address: btc_main_address.to_string(),
-        })
-    }
-
     pub fn is_deriviation_index_available(&self, purpose: AddressPurpose, index: u32) -> bool {
         !self
             .derived_addresses
@@ -118,6 +108,26 @@ impl WalletData {
             purpose,
             index,
         });
+    }
+}
+
+impl ChainWallet for WalletData {
+    type Prk = Prk;
+    type UnlockResult = BitcoinUnlock;
+
+    fn unlock(&self, prk: &Self::Prk) -> Result<Self::UnlockResult, String> {
+        let (_, btc_main_address) = self
+            .derive_child(
+                &prk.xpriv,
+                CONFIG.bitcoin.network(),
+                AddressPurpose::Receive,
+                0,
+            )
+            .map_err(|e| e.to_string())?;
+
+        Ok(BitcoinUnlock {
+            address: btc_main_address.to_string(),
+        })
     }
 }
 

@@ -3,7 +3,7 @@ use std::str::FromStr;
 use alloy::primitives::Address;
 use alloy_signer_local::{MnemonicBuilder, PrivateKeySigner, coins_bip39::English};
 
-use crate::eth::token::Token;
+use crate::{chain_wallet::ChainWallet, eth::token::Token};
 
 /// Ethereum-specific wallet data
 pub struct WalletData {
@@ -16,12 +16,6 @@ pub struct Prk {
 }
 
 impl WalletData {
-    pub fn unlock(&self, prk: &Prk) -> EthereumUnlock {
-        EthereumUnlock {
-            address: prk.signer.address().to_string(),
-        }
-    }
-
     pub fn track_token(&mut self, token: Token) {
         self.tracked_tokens.push(token);
     }
@@ -30,6 +24,17 @@ impl WalletData {
         if let Ok(addr) = parse_addres(address) {
             self.tracked_tokens.retain(|t| t.address != addr);
         }
+    }
+}
+
+impl ChainWallet for WalletData {
+    type Prk = Prk;
+    type UnlockResult = EthereumUnlock;
+
+    fn unlock(&self, prk: &Self::Prk) -> Result<Self::UnlockResult, String> {
+        Ok(EthereumUnlock {
+            address: prk.signer.address().to_string(),
+        })
     }
 }
 
