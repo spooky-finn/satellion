@@ -6,20 +6,9 @@ pub trait ChainWallet {
     /// The private key type used by this chain for signing operations.
     type Prk;
 
-    /// The result type returned when unlocking a wallet, typically containing the primary address.
     type UnlockResult;
 
     /// Unlocks the wallet using the provided private key material.
-    ///
-    /// This method derives and returns the primary address for the wallet,
-    /// which is used to identify the wallet on the blockchain.
-    ///
-    /// # Arguments
-    /// * `prk` - A reference to the private key material for this chain
-    ///
-    /// # Returns
-    /// * `Ok(Self::UnlockResult)` - The unlock result containing the wallet's address
-    /// * `Err(String)` - An error message if unlocking fails
     fn unlock(&self, prk: &Self::Prk) -> Result<Self::UnlockResult, String>;
 }
 
@@ -46,7 +35,7 @@ pub trait SecureKey {
     /// # Security Considerations
     /// The returned reference should have a minimal lifetime to reduce
     /// the window of potential key exposure.
-    fn expose_material(&self) -> &Self::Material;
+    fn expose(&self) -> &Self::Material;
 }
 
 /// Marker trait for keys that guarantee zeroization on drop.
@@ -80,6 +69,35 @@ fn ensure_zeroized_drop<K: ZeroizableKey>(_key: &K) {
     // promises to zeroize its contents on drop.
 }
 
+/// Trait for serialization and deserialization of wallet data.
+///
+/// This trait provides a consistent interface for converting wallet data
+/// between its in-memory representation and its persistent storage format.
+/// Implementations handle the conversion logic, keeping serialization
+/// concerns co-located with the data structures they operate on.
+/// ```
+pub trait Persistable
+where
+    Self: Sized,
+{
+    /// The serialized representation suitable for storage (typically serde-serializable).
+    type Serialized: serde::Serialize + for<'de> serde::Deserialize<'de>;
+
+    /// Serialize the wallet data to its persistent format.
+    ///
+    /// This method converts the in-memory representation to a format suitable
+    /// for storage (e.g., writing to disk or database). The returned type
+    /// should be directly serializable with serde.
+    fn serialize(&self) -> Result<Self::Serialized, String>;
+
+    /// Deserialize wallet data from its persistent format.
+    ///
+    /// This method reconstructs the in-memory representation from stored data.
+    /// Implementations should validate the data and return meaningful errors
+    /// for any inconsistencies.
+    fn deserialize(data: Self::Serialized) -> Result<Self, String>;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -109,5 +127,44 @@ mod tests {
         let prk = MockPrk;
         let result = wallet.unlock(&prk).unwrap();
         assert_eq!(result.address, "0xmock");
+    }
+
+    // Test for Persistable trait
+    struct TestWallet {
+        balance: u64,
+    }
+
+    #[derive(serde::Serialize, serde::Deserialize, PartialEq, Debug)]
+    struct TestWalletSerialized {
+        balance: String,
+    }
+
+    impl Persistable for TestWallet {
+        type Serialized = TestWalletSerialized;
+
+        fn serialize(&self) -> Result<Self::Serialized, String> {
+            Ok(TestWalletSerialized {
+                balance: self.balance.to_string(),
+            })
+        }
+
+        fn deserialize(data: Self::Serialized) -> Result<Self, String> {
+            Ok(Self {
+                balance: data
+                    .balance
+                    .parse()
+                    .map_err(|e| format!("Failed to parse balance: {}", e))?,
+            })
+        }
+    }
+
+    #[test]
+    fn test_persistable_trait() {
+        let wallet = TestWallet { balance: 1000 };
+        let serialized = wallet.serialize().unwrap();
+        assert_eq!(serialized.balance, "1000");
+
+        let restored = TestWallet::deserialize(serialized).unwrap();
+        assert_eq!(restored.balance, 1000);
     }
 }

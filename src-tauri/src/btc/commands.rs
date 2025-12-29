@@ -34,7 +34,7 @@ pub async fn btc_derive_address(
         &session.passphrase.expose_secret(),
     )?;
     let child = session.wallet.btc.derive_child(
-        prk.expose_material(),
+        prk.expose(),
         CONFIG.bitcoin.network(),
         purpose.clone(),
         index,

@@ -9,7 +9,10 @@ use bitcoin::{
     key::{Keypair, Secp256k1},
 };
 
-use crate::{chain_wallet::{ChainWallet, SecureKey, ZeroizableKey}, config::CONFIG};
+use crate::{
+    chain_wallet::{ChainWallet, Persistable, SecureKey, ZeroizableKey},
+    config::CONFIG,
+};
 
 /// Bitcoin-specific wallet data
 pub struct WalletData {
@@ -42,7 +45,7 @@ impl Drop for Prk {
 impl SecureKey for Prk {
     type Material = Xpriv;
 
-    fn expose_material(&self) -> &Self::Material {
+    fn expose(&self) -> &Self::Material {
         &self.xpriv
     }
 }
@@ -129,7 +132,7 @@ impl ChainWallet for WalletData {
     fn unlock(&self, prk: &Self::Prk) -> Result<Self::UnlockResult, String> {
         let (_, btc_main_address) = self
             .derive_child(
-                prk.expose_material(),
+                prk.expose(),
                 CONFIG.bitcoin.network(),
                 AddressPurpose::Receive,
                 0,
@@ -138,6 +141,38 @@ impl ChainWallet for WalletData {
 
         Ok(BitcoinUnlock {
             address: btc_main_address.to_string(),
+        })
+    }
+}
+
+impl Persistable for WalletData {
+    type Serialized = persistence::BitcoinData;
+
+    fn serialize(&self) -> Result<Self::Serialized, String> {
+        Ok(persistence::BitcoinData {
+            childs: self
+                .derived_addresses
+                .iter()
+                .map(|addr| persistence::ChildAddress {
+                    label: addr.label.clone(),
+                    purpose: addr.purpose.clone().into(),
+                    index: addr.index,
+                })
+                .collect(),
+        })
+    }
+
+    fn deserialize(data: Self::Serialized) -> Result<Self, String> {
+        Ok(Self {
+            derived_addresses: data
+                .childs
+                .into_iter()
+                .map(|addr| BitcoinAddress {
+                    label: addr.label,
+                    purpose: AddressPurpose::from(addr.purpose),
+                    index: addr.index,
+                })
+                .collect(),
         })
     }
 }
@@ -196,14 +231,14 @@ pub fn create_diriviation_path(
 pub mod persistence {
     use serde::{Deserialize, Serialize};
 
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct ChildAddress {
         pub label: String,
         pub purpose: u8,
         pub index: u32,
     }
 
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct BitcoinData {
         pub childs: Vec<ChildAddress>,
     }

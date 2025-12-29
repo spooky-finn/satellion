@@ -4,7 +4,7 @@ use alloy::primitives::Address;
 use alloy_signer_local::{MnemonicBuilder, PrivateKeySigner, coins_bip39::English};
 
 use crate::{
-    chain_wallet::{ChainWallet, SecureKey, ZeroizableKey},
+    chain_wallet::{ChainWallet, Persistable, SecureKey, ZeroizableKey},
     eth::token::Token,
 };
 
@@ -20,7 +20,7 @@ pub struct Prk {
 impl SecureKey for Prk {
     type Material = PrivateKeySigner;
 
-    fn expose_material(&self) -> &Self::Material {
+    fn expose(&self) -> &Self::Material {
         &self.signer
     }
 }
@@ -46,8 +46,39 @@ impl ChainWallet for WalletData {
 
     fn unlock(&self, prk: &Self::Prk) -> Result<Self::UnlockResult, String> {
         Ok(EthereumUnlock {
-            address: prk.expose_material().address().to_string(),
+            address: prk.expose().address().to_string(),
         })
+    }
+}
+
+impl Persistable for WalletData {
+    type Serialized = persistence::EthereumData;
+
+    fn serialize(&self) -> Result<Self::Serialized, String> {
+        Ok(persistence::EthereumData {
+            tracked_tokens: self
+                .tracked_tokens
+                .iter()
+                .map(|token| persistence::Token {
+                    symbol: token.symbol.clone(),
+                    address: token.address.to_string(),
+                    decimals: token.decimals,
+                })
+                .collect(),
+        })
+    }
+
+    fn deserialize(data: Self::Serialized) -> Result<Self, String> {
+        let mut tracked_tokens = Vec::new();
+        for token in data.tracked_tokens {
+            let address = parse_addres(&token.address)?;
+            tracked_tokens.push(Token {
+                address,
+                symbol: token.symbol,
+                decimals: token.decimals,
+            });
+        }
+        Ok(Self { tracked_tokens })
     }
 }
 
@@ -76,14 +107,14 @@ pub struct EthereumUnlock {
 pub mod persistence {
     use serde::{Deserialize, Serialize};
 
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct Token {
         pub symbol: String,
         pub address: String,
         pub decimals: u8,
     }
 
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct EthereumData {
         pub tracked_tokens: Vec<Token>,
     }

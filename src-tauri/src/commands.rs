@@ -108,7 +108,7 @@ pub async fn unlock_wallet(
     let ethereum = wallet.eth.unlock(&eth_prk)?;
     let bitcoin = wallet.btc.unlock(&btc_prk)?;
 
-    let scripts = wallet.btc.derive_scripts_of_interes(btc_prk.expose_material())?;
+    let scripts = wallet.btc.derive_scripts_of_interes(btc_prk.expose())?;
     let last_used_chain = wallet.last_used_chain;
 
     let session = Session::new(wallet, passphrase, Config::session_exp_duration());

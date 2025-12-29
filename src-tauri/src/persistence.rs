@@ -4,13 +4,9 @@ use serde::{Deserialize, Serialize};
 use shush_rs::{ExposeSecret, SecretBox};
 
 use crate::{
-    btc::{
-        self,
-        wallet::{AddressPurpose, persistence::BitcoinData},
-    },
+    chain_wallet::Persistable,
     config::{Config, constants::Chain},
     encryptor::{self, Envelope},
-    eth::{self, wallet::persistence::EthereumData},
     wallet::Wallet,
 };
 
@@ -18,8 +14,8 @@ use crate::{
 pub struct WalletJson {
     pub name: String,
     pub mnemonic: String,
-    pub bitcoin_data: BitcoinData,
-    pub ethereum_data: EthereumData,
+    pub bitcoin_data: crate::btc::wallet::persistence::BitcoinData,
+    pub ethereum_data: crate::eth::wallet::persistence::EthereumData,
     pub last_used_chain: u16,
     pub created_at: u64,
     pub version: u8,
@@ -30,33 +26,9 @@ impl WalletJson {
         Ok(Wallet {
             name: self.name.clone(),
             mnemonic: SecretBox::new(Box::new(self.mnemonic.clone())),
-            btc: crate::btc::wallet::WalletData {
-                derived_addresses: self
-                    .bitcoin_data
-                    .childs
-                    .iter()
-                    .map(|addr| crate::btc::wallet::BitcoinAddress {
-                        label: addr.label.clone(),
-                        purpose: AddressPurpose::from(addr.purpose),
-                        index: addr.index,
-                    })
-                    .collect(),
-            },
-            eth: crate::eth::wallet::WalletData {
-                tracked_tokens: self
-                    .ethereum_data
-                    .tracked_tokens
-                    .iter()
-                    .map(|t| {
-                        let address = eth::wallet::parse_addres(&t.address).unwrap();
-                        crate::eth::token::Token {
-                            address,
-                            symbol: t.symbol.clone(),
-                            decimals: t.decimals,
-                        }
-                    })
-                    .collect(),
-            },
+            // Use the Persistable trait for deserialization
+            btc: crate::btc::wallet::WalletData::deserialize(self.bitcoin_data.clone())?,
+            eth: crate::eth::wallet::WalletData::deserialize(self.ethereum_data.clone())?,
             last_used_chain: Chain::from(self.last_used_chain),
             created_at: self.created_at,
             version: self.version,
@@ -67,30 +39,15 @@ impl WalletJson {
         WalletJson {
             name: wallet.name.clone(),
             mnemonic: wallet.mnemonic.expose_secret().to_string(),
-            bitcoin_data: BitcoinData {
-                childs: wallet
-                    .btc
-                    .derived_addresses
-                    .iter()
-                    .map(|addr| btc::wallet::persistence::ChildAddress {
-                        label: addr.label.clone(),
-                        purpose: addr.purpose.clone() as u8,
-                        index: addr.index,
-                    })
-                    .collect(),
-            },
-            ethereum_data: EthereumData {
-                tracked_tokens: wallet
-                    .eth
-                    .tracked_tokens
-                    .iter()
-                    .map(|t| crate::eth::wallet::persistence::Token {
-                        symbol: t.symbol.clone(),
-                        address: t.address.to_string(),
-                        decimals: t.decimals,
-                    })
-                    .collect(),
-            },
+            // Use the Persistable trait for serialization
+            bitcoin_data: wallet
+                .btc
+                .serialize()
+                .expect("Failed to serialize Bitcoin wallet data"),
+            ethereum_data: wallet
+                .eth
+                .serialize()
+                .expect("Failed to serialize Ethereum wallet data"),
             last_used_chain: u16::from(wallet.last_used_chain),
             created_at: wallet.created_at,
             version: wallet.version,
@@ -215,7 +172,7 @@ impl FsRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::eth::{constants::USDT, wallet::persistence::Token};
+    use crate::eth::constants::USDT;
 
     #[test]
     fn test_serialication() {
@@ -229,15 +186,15 @@ mod tests {
             created_at: 100,
             version: 0,
             last_used_chain: 1,
-            bitcoin_data: BitcoinData {
-                childs: vec![btc::wallet::persistence::ChildAddress {
+            bitcoin_data: crate::btc::wallet::persistence::BitcoinData {
+                childs: vec![crate::btc::wallet::persistence::ChildAddress {
                     purpose: 0,
                     index: 1,
                     label: "Secret contractor".to_string(),
                 }],
             },
-            ethereum_data: EthereumData {
-                tracked_tokens: vec![Token {
+            ethereum_data: crate::eth::wallet::persistence::EthereumData {
+                tracked_tokens: vec![crate::eth::wallet::persistence::Token {
                     address: USDT.address.to_string(),
                     decimals: 4,
                     symbol: "USDT".to_string()
