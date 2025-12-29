@@ -9,7 +9,7 @@ use bitcoin::{
     key::{Keypair, Secp256k1},
 };
 
-use crate::{chain_wallet::ChainWallet, config::CONFIG};
+use crate::{chain_wallet::{ChainWallet, SecureKey, ZeroizableKey}, config::CONFIG};
 
 /// Bitcoin-specific wallet data
 pub struct WalletData {
@@ -38,6 +38,17 @@ impl Drop for Prk {
         self.xpriv.private_key.non_secure_erase();
     }
 }
+
+impl SecureKey for Prk {
+    type Material = Xpriv;
+
+    fn expose_material(&self) -> &Self::Material {
+        &self.xpriv
+    }
+}
+
+// Bitcoin's Prk implements ZeroizableKey because it manually erases the key on drop
+impl ZeroizableKey for Prk {}
 
 impl WalletData {
     pub fn derive_scripts_of_interes(&self, xpriv: &Xpriv) -> Result<HashSet<ScriptBuf>, String> {
@@ -118,7 +129,7 @@ impl ChainWallet for WalletData {
     fn unlock(&self, prk: &Self::Prk) -> Result<Self::UnlockResult, String> {
         let (_, btc_main_address) = self
             .derive_child(
-                &prk.xpriv,
+                prk.expose_material(),
                 CONFIG.bitcoin.network(),
                 AddressPurpose::Receive,
                 0,

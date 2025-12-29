@@ -3,6 +3,7 @@ use specta::specta;
 
 use crate::{
     btc::{self, wallet::AddressPurpose},
+    chain_wallet::SecureKey,
     config::{CONFIG, Chain},
     session::AppSession,
     wallet_keeper::WalletKeeper,
@@ -33,7 +34,7 @@ pub async fn btc_derive_address(
         &session.passphrase.expose_secret(),
     )?;
     let child = session.wallet.btc.derive_child(
-        &prk.xpriv,
+        prk.expose_material(),
         CONFIG.bitcoin.network(),
         purpose.clone(),
         index,

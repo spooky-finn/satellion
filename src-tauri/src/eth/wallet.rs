@@ -3,7 +3,10 @@ use std::str::FromStr;
 use alloy::primitives::Address;
 use alloy_signer_local::{MnemonicBuilder, PrivateKeySigner, coins_bip39::English};
 
-use crate::{chain_wallet::ChainWallet, eth::token::Token};
+use crate::{
+    chain_wallet::{ChainWallet, SecureKey, ZeroizableKey},
+    eth::token::Token,
+};
 
 /// Ethereum-specific wallet data
 pub struct WalletData {
@@ -11,9 +14,19 @@ pub struct WalletData {
 }
 
 pub struct Prk {
-    /// Signer will be zeroized on drop internally
     pub signer: PrivateKeySigner,
 }
+
+impl SecureKey for Prk {
+    type Material = PrivateKeySigner;
+
+    fn expose_material(&self) -> &Self::Material {
+        &self.signer
+    }
+}
+
+// Ethereum's Prk implements ZeroizableKey because PrivateKeySigner handles zeroization internally
+impl ZeroizableKey for Prk {}
 
 impl WalletData {
     pub fn track_token(&mut self, token: Token) {
@@ -33,7 +46,7 @@ impl ChainWallet for WalletData {
 
     fn unlock(&self, prk: &Self::Prk) -> Result<Self::UnlockResult, String> {
         Ok(EthereumUnlock {
-            address: prk.signer.address().to_string(),
+            address: prk.expose_material().address().to_string(),
         })
     }
 }
