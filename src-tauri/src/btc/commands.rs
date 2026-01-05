@@ -3,10 +3,7 @@ use shush_rs::ExposeSecret;
 use specta::{Type, specta};
 
 use crate::{
-    btc::{
-        self, Prk,
-        wallet::{Change, DerivePath},
-    },
+    btc::{self, Prk, address},
     chain_trait::SecureKey,
     config::{CONFIG, Chain},
     session::{AppSession, Session},
@@ -31,8 +28,8 @@ pub async fn btc_derive_address(
 ) -> Result<String, String> {
     let mut session_keeper = session_keeper.lock().await;
     let session = session_keeper.get(&wallet_name)?;
-    let derive_path = DerivePath {
-        change: Change::External,
+    let derive_path = address::DerivePath {
+        change: address::Change::External,
         index,
     };
     if !session
@@ -68,7 +65,7 @@ pub async fn btc_unoccupied_deriviation_index(
     Ok(session
         .wallet
         .btc
-        .unoccupied_deriviation_index(Change::External))
+        .unoccupied_deriviation_index(address::Change::External))
 }
 
 #[derive(Type, Serialize, Deserialize)]

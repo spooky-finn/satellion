@@ -1,3 +1,4 @@
+pub mod address;
 pub mod commands;
 pub mod config;
 pub mod neutrino;
