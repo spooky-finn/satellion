@@ -4,39 +4,39 @@ use serde::{Deserialize, Serialize};
 use shush_rs::{ExposeSecret, SecretBox};
 
 use crate::{
-    chain_wallet::Persistable,
+    chain_trait::Persistable,
     config::{Config, constants::Chain},
     encryptor::{self, Envelope},
     wallet::Wallet,
 };
 
 #[derive(Serialize, Deserialize)]
-pub struct WalletJson {
+pub struct SerializedWallet {
     pub name: String,
     pub mnemonic: String,
-    pub bitcoin_data: crate::btc::wallet::persistence::BitcoinData,
-    pub ethereum_data: crate::eth::wallet::persistence::EthereumData,
+    pub bitcoin_data: crate::btc::persistence::Wallet,
+    pub ethereum_data: crate::eth::persistence::Wallet,
     pub last_used_chain: u16,
     pub created_at: u64,
     pub version: u8,
 }
 
-impl WalletJson {
-    pub fn to_wallet(&self) -> Result<Wallet, String> {
+impl SerializedWallet {
+    pub fn to_model(&self) -> Result<Wallet, String> {
         Ok(Wallet {
             name: self.name.clone(),
             mnemonic: SecretBox::new(Box::new(self.mnemonic.clone())),
             // Use the Persistable trait for deserialization
-            btc: crate::btc::wallet::WalletData::deserialize(self.bitcoin_data.clone())?,
-            eth: crate::eth::wallet::WalletData::deserialize(self.ethereum_data.clone())?,
+            btc: crate::btc::BitcoinWallet::deserialize(self.bitcoin_data.clone())?,
+            eth: crate::eth::EthereumWallet::deserialize(self.ethereum_data.clone())?,
             last_used_chain: Chain::from(self.last_used_chain),
             created_at: self.created_at,
             version: self.version,
         })
     }
 
-    pub fn from_wallet(wallet: &Wallet) -> Self {
-        WalletJson {
+    pub fn from_model(wallet: &Wallet) -> Self {
+        SerializedWallet {
             name: wallet.name.clone(),
             mnemonic: wallet.mnemonic.expose_secret().to_string(),
             // Use the Persistable trait for serialization
@@ -67,13 +67,13 @@ impl Repository {
             .get(wallet_name)
             .map_err(|e| format!("fail to load wallet from dist: {}", e))?;
         let decrypted_json = encryptor::decrypt(&data, passphrase.as_bytes())?;
-        let persisted_wallet = serde_json::from_slice::<WalletJson>(&decrypted_json)
+        let persisted_wallet = serde_json::from_slice::<SerializedWallet>(&decrypted_json)
             .map_err(|e| format!("fail to parse json wallet into struct {}", e))?;
-        persisted_wallet.to_wallet()
+        persisted_wallet.to_model()
     }
 
     pub fn store_wallet(&self, wallet: &Wallet, passphrase: &str) -> Result<(), String> {
-        let persisted_wallet = WalletJson::from_wallet(wallet);
+        let persisted_wallet = SerializedWallet::from_model(wallet);
         let wallet_name = wallet.name.clone();
         let json = serde_json::to_string(&persisted_wallet)
             .map_err(|e| format!("fait to serialize persisted_wallet {}", e))?;
@@ -180,21 +180,21 @@ mod tests {
         let name = "Wallet 1".to_string();
         let passphrase = "1111";
 
-        let persisted_wallet = WalletJson {
+        let persisted_wallet = SerializedWallet {
             name: name.clone(),
             mnemonic: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about".to_string(),
             created_at: 100,
             version: 0,
             last_used_chain: 1,
-            bitcoin_data: crate::btc::wallet::persistence::BitcoinData {
-                childs: vec![crate::btc::wallet::persistence::ChildAddress {
+            bitcoin_data: crate::btc::persistence::Wallet {
+                childs: vec![crate::btc::persistence::ChildAddress {
                     purpose: 0,
                     index: 1,
                     label: "Secret contractor".to_string(),
                 }],
             },
-            ethereum_data: crate::eth::wallet::persistence::EthereumData {
-                tracked_tokens: vec![crate::eth::wallet::persistence::Token {
+            ethereum_data: crate::eth::persistence::Wallet {
+                tracked_tokens: vec![crate::eth::persistence::Token {
                     address: USDT.address.to_string(),
                     decimals: 4,
                     symbol: "USDT".to_string()
@@ -203,7 +203,7 @@ mod tests {
             },
         };
 
-        let wallet = persisted_wallet.to_wallet().unwrap();
+        let wallet = persisted_wallet.to_model().unwrap();
         repository.store_wallet(&wallet, passphrase).unwrap();
 
         let listed = repository.ls().unwrap();

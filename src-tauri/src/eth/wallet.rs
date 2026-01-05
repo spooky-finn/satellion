@@ -4,43 +4,26 @@ use alloy::primitives::Address;
 use alloy_signer_local::{MnemonicBuilder, PrivateKeySigner, coins_bip39::English};
 
 use crate::{
-    chain_wallet::{ChainWallet, Persistable, SecureKey, ZeroizableKey},
+    chain_trait::{AssetTracker, ChainTrait, Persistable, SecureKey},
     eth::token::Token,
 };
 
-/// Ethereum-specific wallet data
-pub struct WalletData {
+pub struct EthereumWallet {
     pub tracked_tokens: Vec<Token>,
 }
 
 pub struct Prk {
-    pub signer: PrivateKeySigner,
+    signer: PrivateKeySigner,
 }
 
 impl SecureKey for Prk {
     type Material = PrivateKeySigner;
-
     fn expose(&self) -> &Self::Material {
         &self.signer
     }
 }
 
-// Ethereum's Prk implements ZeroizableKey because PrivateKeySigner handles zeroization internally
-impl ZeroizableKey for Prk {}
-
-impl WalletData {
-    pub fn track_token(&mut self, token: Token) {
-        self.tracked_tokens.push(token);
-    }
-
-    pub fn untrack_token(&mut self, address: &str) {
-        if let Ok(addr) = parse_addres(address) {
-            self.tracked_tokens.retain(|t| t.address != addr);
-        }
-    }
-}
-
-impl ChainWallet for WalletData {
+impl ChainTrait for EthereumWallet {
     type Prk = Prk;
     type UnlockResult = EthereumUnlock;
 
@@ -51,11 +34,11 @@ impl ChainWallet for WalletData {
     }
 }
 
-impl Persistable for WalletData {
-    type Serialized = persistence::EthereumData;
+impl Persistable for EthereumWallet {
+    type Serialized = persistence::Wallet;
 
     fn serialize(&self) -> Result<Self::Serialized, String> {
-        Ok(persistence::EthereumData {
+        Ok(persistence::Wallet {
             tracked_tokens: self
                 .tracked_tokens
                 .iter()
@@ -82,11 +65,43 @@ impl Persistable for WalletData {
     }
 }
 
+impl AssetTracker<Token> for EthereumWallet {
+    fn track(&mut self, asset: Token) -> Result<(), String> {
+        // Check if token with same address is already tracked
+        if self.tracked_tokens.iter().any(|t| *t == asset) {
+            return Err(format!("Token {} already tracked", asset.address));
+        }
+        self.tracked_tokens.push(asset);
+        Ok(())
+    }
+
+    fn untrack(&mut self, token: Token) -> Result<(), String> {
+        let len_before = self.tracked_tokens.len();
+        self.tracked_tokens.retain(|t| *t != token);
+        if self.tracked_tokens.len() == len_before {
+            return Err(format!("Token address '{}' not tracked", token.address));
+        }
+        Ok(())
+    }
+
+    fn list_tracked(&self) -> Vec<&Token> {
+        self.tracked_tokens.iter().collect()
+    }
+}
+
+impl EthereumWallet {
+    pub fn get_tracked_token(&self, token: Address) -> Option<&Token> {
+        self.tracked_tokens
+            .iter()
+            .find(|each| each.address == token)
+    }
+}
+
 pub fn parse_addres(addres: &str) -> Result<Address, String> {
     Address::from_str(addres).map_err(|e| format!("Invalid Ethereum address: {}", e))
 }
 
-pub fn derive_prk(mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
+pub fn build_prk(mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
     MnemonicBuilder::<English>::default()
         .phrase(mnemonic)
         .password(passphrase)
@@ -115,7 +130,7 @@ pub mod persistence {
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct EthereumData {
+    pub struct Wallet {
         pub tracked_tokens: Vec<Token>,
     }
 }
@@ -129,7 +144,7 @@ mod tests {
     fn test_construct_private_key() {
         let mnemonic = mnemonic::new().unwrap();
         let passphrase = "test passphrase";
-        let result = derive_prk(&mnemonic, passphrase);
+        let result = build_prk(&mnemonic, passphrase);
         match result {
             Ok(prk) => println!("Success: {:?}", prk.signer.address()),
             Err(e) => println!("Error: {:?}", e),

@@ -1,6 +1,6 @@
 mod app_state;
 mod btc;
-mod chain_wallet;
+mod chain_trait;
 mod commands;
 mod config;
 mod db;
@@ -36,7 +36,7 @@ pub fn run() {
 
     let eth_provider = eth::select_provider();
     let eth_batch_provider = eth::new_provider_batched(eth_provider.clone());
-    let token_retriever = eth::erc20_retriver::Erc20Retriever::new(eth_provider.clone());
+    let erc20_retriever = eth::Erc20Retriever::new(eth_provider.clone());
     let tx_builder = eth::TxBuilder::new(eth_batch_provider);
     let price_feed = eth::PriceFeed::new(eth_provider.clone());
 
@@ -55,6 +55,7 @@ pub fn run() {
             commands::get_config,
             btc::commands::btc_derive_address,
             btc::commands::btc_unoccupied_deriviation_index,
+            btc::commands::btc_list_derived_addresess,
             eth::commands::eth_chain_info,
             eth::commands::eth_get_balance,
             eth::commands::eth_prepare_send_tx,
@@ -80,7 +81,7 @@ pub fn run() {
         .manage(db.clone())
         .manage(wallet_keeper)
         .manage(eth_provider.clone())
-        .manage(token_retriever)
+        .manage(erc20_retriever)
         .manage(price_feed)
         .manage(neutrino_starter)
         .manage(Mutex::new(tx_builder))

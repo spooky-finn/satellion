@@ -11,16 +11,17 @@ use shush_rs::ExposeSecret;
 use specta::{Type, specta};
 
 use crate::{
+    chain_trait::{AssetTracker, SecureKey},
     config::Chain,
     eth::{
-        self, PriceFeed,
+        self, PriceFeed, Prk,
         constants::{ETH, ETH_USD_PRICE_FEED},
         erc20_retriver::Erc20Retriever,
         fee_estimator::FeeMode,
         transfer_builder::TransferRequest,
         wallet::parse_addres,
     },
-    session::AppSession,
+    session::{AppSession, Session},
     wallet_keeper::WalletKeeper,
 };
 
@@ -29,6 +30,13 @@ pub struct ChainInfo {
     block_number: String,
     block_hash: String,
     base_fee_per_gas: Option<String>,
+}
+
+fn build_prk(s: &Session) -> Result<Prk, String> {
+    eth::wallet::build_prk(
+        &s.wallet.mnemonic.expose_secret(),
+        &s.passphrase.expose_secret(),
+    )
 }
 
 #[specta]
@@ -154,11 +162,8 @@ pub async fn eth_prepare_send_tx(
     } = req;
     let mut session_keeper = session_keeper.lock().await;
     let session = session_keeper.get(&wallet_name)?;
-    let prk = eth::wallet::derive_prk(
-        &session.wallet.mnemonic.expose_secret(),
-        &session.passphrase.expose_secret(),
-    )?;
-    let sender = prk.signer.address();
+    let prk = build_prk(session)?;
+    let sender = prk.expose().address();
     let recipient = parse_addres(&recipient)?;
     let token_address = parse_addres(&token_address)?;
 
@@ -218,11 +223,8 @@ pub async fn eth_sign_and_send_tx(
     let mut session_keeper = session_keeper.lock().await;
     let session = session_keeper.get(&wallet_name)?;
     let mut builder = builder.try_lock().map_err(|e| e.to_string())?;
-    let prk = eth::wallet::derive_prk(
-        &session.wallet.mnemonic.expose_secret(),
-        &session.passphrase.expose_secret(),
-    )?;
-    let hash = builder.sign_and_send_tx(&prk.signer).await?;
+    let prk = build_prk(&session)?;
+    let hash = builder.sign_and_send_tx(prk.expose()).await?;
     Ok(hash.to_string())
 }
 
@@ -258,11 +260,11 @@ pub async fn eth_track_token(
         .await
         .map_err(|e| format!("Failed to fetch token info: {}", e))?;
 
-    session.wallet.eth.track_token(crate::eth::token::Token {
+    session.wallet.eth.track(crate::eth::token::Token {
         address,
         symbol: token_info.symbol.clone(),
         decimals: token_info.decimals as u8,
-    });
+    })?;
     wallet_keeper.save_wallet(session)?;
 
     Ok(TokenType {
@@ -283,7 +285,14 @@ pub async fn eth_untrack_token(
     let mut session_keeper = session_keeper.lock().await;
     let session = session_keeper.get(&wallet_name)?;
 
-    session.wallet.eth.untrack_token(&token_address);
+    let address = parse_addres(&token_address)?;
+    let token = session
+        .wallet
+        .eth
+        .get_tracked_token(address)
+        .ok_or("Token with this address hasn't been tracked")?;
+
+    session.wallet.eth.untrack(token.clone())?;
     wallet_keeper.save_wallet(session)?;
     Ok(())
 }

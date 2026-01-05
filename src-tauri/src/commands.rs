@@ -9,7 +9,7 @@ use zeroize::Zeroize;
 use crate::{
     app_state::AppState,
     btc::{self, neutrino::NeutrinoStarter},
-    chain_wallet::{ChainWallet, SecureKey},
+    chain_trait::{ChainTrait, SecureKey},
     config::{CONFIG, Chain, Config, constants},
     db::BlockHeader,
     eth, mnemonic, schema,
@@ -101,8 +101,8 @@ pub async fn unlock_wallet(
     let wallet = wallet_keeper.load(&wallet_name, &passphrase)?;
 
     // Derive private keys for both chains
-    let eth_prk = eth::wallet::derive_prk(&wallet.mnemonic.expose_secret(), &passphrase)?;
-    let btc_prk = btc::wallet::derive_prk(&wallet.mnemonic.expose_secret(), &passphrase)?;
+    let eth_prk = eth::wallet::build_prk(&wallet.mnemonic.expose_secret(), &passphrase)?;
+    let btc_prk = btc::wallet::build_prk(&wallet.mnemonic.expose_secret(), &passphrase)?;
 
     // Unlock both wallets using the ChainWallet trait
     let ethereum = wallet.eth.unlock(&eth_prk)?;

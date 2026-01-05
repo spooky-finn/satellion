@@ -9,6 +9,8 @@ pub mod token;
 pub mod transfer_builder;
 pub mod wallet;
 
+pub use erc20_retriver::Erc20Retriever;
 pub use init::*;
 pub use price_feed::PriceFeed;
 pub use transfer_builder::TxBuilder;
+pub use wallet::*;

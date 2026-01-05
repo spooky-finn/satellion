@@ -3,3 +3,5 @@ pub mod config;
 pub mod neutrino;
 pub mod utxo;
 pub mod wallet;
+
+pub use wallet::*;

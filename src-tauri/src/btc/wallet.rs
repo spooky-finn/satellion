@@ -1,4 +1,4 @@
-use std::{collections::HashSet, str::FromStr};
+use std::{collections::HashSet, fmt::Display, str::FromStr};
 
 use bip39::Language;
 use bip157::ScriptBuf;
@@ -10,21 +10,79 @@ use bitcoin::{
 };
 
 use crate::{
-    chain_wallet::{ChainWallet, Persistable, SecureKey, ZeroizableKey},
+    chain_trait::{AssetTracker, ChainTrait, Persistable, SecureKey},
     config::CONFIG,
 };
 
-/// Bitcoin-specific wallet data
-pub struct WalletData {
+pub struct BitcoinWallet {
     pub derived_addresses: Vec<BitcoinAddress>,
 }
 
-/// Represents a child derived address
 #[derive(Debug, Clone, PartialEq)]
 pub struct BitcoinAddress {
     pub label: String,
-    pub purpose: AddressPurpose,
+    pub derive_path: DerivePath,
+}
+
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub enum Change {
+    /// External chain is used for addresses that are meant to be visible outside of the wallet (e.g. for receiving payments)
+    External = 0,
+    /// Internal chain is used for addresses which are not meant to be visible outside of the wallet and is used for return transaction change
+    Internal = 1,
+}
+
+impl Display for Change {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Change::External => write!(f, "0"),
+            Change::Internal => write!(f, "1"),
+        }
+    }
+}
+
+impl From<u8> for Change {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => Change::External,
+            1 => Change::Internal,
+            _ => panic!("Invalid bitcoin address change: {}", value),
+        }
+    }
+}
+
+impl From<Change> for u8 {
+    fn from(chain: Change) -> Self {
+        chain as u8
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct DerivePath {
+    pub change: Change,
     pub index: u32,
+}
+
+impl ToString for DerivePath {
+    fn to_string(&self) -> String {
+        format!("{}/{}", self.change, self.index)
+    }
+}
+
+impl DerivePath {
+    pub fn bip86_path(&self, network: Network) -> Result<DerivationPath, String> {
+        let purpose = 86;
+        let coin_type = match network {
+            Network::Bitcoin => 0,
+            _ => 1,
+        };
+        let account = 0;
+        let path = format!(
+            "m/{purpose}'/{coin_type}'/{account}'/{}/{}",
+            self.change as i32, self.index
+        );
+        DerivationPath::from_str(&path).map_err(|e| format!("fail to derive bip86_path: {e}"))
+    }
 }
 
 #[derive(serde::Serialize, specta::Type)]
@@ -33,7 +91,7 @@ pub struct BitcoinUnlock {
 }
 
 pub struct Prk {
-    pub xpriv: Xpriv,
+    xpriv: Xpriv,
 }
 
 impl Drop for Prk {
@@ -50,17 +108,14 @@ impl SecureKey for Prk {
     }
 }
 
-// Bitcoin's Prk implements ZeroizableKey because it manually erases the key on drop
-impl ZeroizableKey for Prk {}
-
-impl WalletData {
+impl BitcoinWallet {
     pub fn derive_scripts_of_interes(&self, xpriv: &Xpriv) -> Result<HashSet<ScriptBuf>, String> {
         let mut scripts_of_interes: HashSet<bip157::ScriptBuf> = HashSet::new();
         let network = CONFIG.bitcoin.network();
 
-        for ba in self.derived_addresses.iter() {
+        for address in self.derived_addresses.iter() {
             let (_, address) = self
-                .derive_child(xpriv, network, ba.purpose.clone(), ba.index)
+                .derive_child(xpriv, network, address.derive_path.clone())
                 .map_err(|e| format!("derived bitcoin address corrupted {e}"))?;
 
             let scriptbuf = address.script_pubkey();
@@ -74,15 +129,13 @@ impl WalletData {
         &self,
         xpriv: &Xpriv,
         network: Network,
-        purpose: AddressPurpose,
-        index: u32,
+        derive_path: DerivePath,
     ) -> Result<(Keypair, Address), String> {
         let secp = Secp256k1::new();
-        let path = create_diriviation_path(network, purpose, index);
-
         // derive child private key
+        let derive_path = &derive_path.bip86_path(network)?;
         let keypair = xpriv
-            .derive_priv(&secp, &path)
+            .derive_priv(&secp, derive_path)
             .map_err(|e| format!("Derivation error: {}", e))?
             .to_keypair(&secp);
 
@@ -98,45 +151,42 @@ impl WalletData {
         Ok((keypair, address))
     }
 
-    pub fn is_deriviation_index_available(&self, purpose: AddressPurpose, index: u32) -> bool {
+    pub fn is_deriviation_index_available(&self, derive_path: DerivePath) -> bool {
         !self
             .derived_addresses
             .iter()
-            .any(|a| a.index == index && a.purpose == purpose)
+            .any(|a| a.derive_path == derive_path)
     }
 
-    pub fn unoccupied_deriviation_index(&self, purpose: AddressPurpose) -> u32 {
+    pub fn unoccupied_deriviation_index(&self, change: Change) -> u32 {
         let occupied: HashSet<u32> = self
             .derived_addresses
             .iter()
-            .filter(|a| a.purpose == purpose)
-            .map(|a| a.index)
+            .filter(|a| a.derive_path.change == change)
+            .map(|a| a.derive_path.index)
             .collect();
-
         (1..).find(|i| !occupied.contains(i)).unwrap_or(1)
     }
 
-    pub fn add_child(&mut self, label: String, purpose: AddressPurpose, index: u32) {
+    pub fn add_child(&mut self, label: String, derive_path: DerivePath) {
         self.derived_addresses.push(BitcoinAddress {
             label,
-            purpose,
-            index,
+            derive_path: derive_path,
         });
     }
 }
 
-impl ChainWallet for WalletData {
+impl ChainTrait for BitcoinWallet {
     type Prk = Prk;
     type UnlockResult = BitcoinUnlock;
 
     fn unlock(&self, prk: &Self::Prk) -> Result<Self::UnlockResult, String> {
+        let main_receive_address = DerivePath {
+            change: Change::External,
+            index: 0,
+        };
         let (_, btc_main_address) = self
-            .derive_child(
-                prk.expose(),
-                CONFIG.bitcoin.network(),
-                AddressPurpose::Receive,
-                0,
-            )
+            .derive_child(prk.expose(), CONFIG.bitcoin.network(), main_receive_address)
             .map_err(|e| e.to_string())?;
 
         Ok(BitcoinUnlock {
@@ -145,18 +195,18 @@ impl ChainWallet for WalletData {
     }
 }
 
-impl Persistable for WalletData {
-    type Serialized = persistence::BitcoinData;
+impl Persistable for BitcoinWallet {
+    type Serialized = persistence::Wallet;
 
     fn serialize(&self) -> Result<Self::Serialized, String> {
-        Ok(persistence::BitcoinData {
+        Ok(persistence::Wallet {
             childs: self
                 .derived_addresses
                 .iter()
                 .map(|addr| persistence::ChildAddress {
                     label: addr.label.clone(),
-                    purpose: addr.purpose.clone().into(),
-                    index: addr.index,
+                    purpose: addr.derive_path.change.clone().into(),
+                    index: addr.derive_path.index,
                 })
                 .collect(),
         })
@@ -169,63 +219,55 @@ impl Persistable for WalletData {
                 .into_iter()
                 .map(|addr| BitcoinAddress {
                     label: addr.label,
-                    purpose: AddressPurpose::from(addr.purpose),
-                    index: addr.index,
+                    derive_path: DerivePath {
+                        change: Change::from(addr.purpose),
+                        index: addr.index,
+                    },
                 })
                 .collect(),
         })
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum AddressPurpose {
-    Receive = 0,
-    Change = 1,
-}
-
-impl From<u8> for AddressPurpose {
-    fn from(value: u8) -> Self {
-        match value {
-            0 => AddressPurpose::Receive,
-            1 => AddressPurpose::Change,
-            _ => panic!("Invalid bitcoin address purpose: {}", value),
+impl AssetTracker<BitcoinAddress> for BitcoinWallet {
+    fn track(&mut self, address: BitcoinAddress) -> Result<(), String> {
+        // Check if an address with the same purpose and index already exists
+        if self
+            .derived_addresses
+            .iter()
+            .any(|a| a.derive_path == address.derive_path)
+        {
+            return Err(format!(
+                "Address with change {:?} and index {} already tracked",
+                address.derive_path.change, address.derive_path.index
+            ));
         }
+        self.derived_addresses.push(address);
+        Ok(())
+    }
+
+    fn untrack(&mut self, address: BitcoinAddress) -> Result<(), String> {
+        let len_before = self.derived_addresses.len();
+        self.derived_addresses
+            .retain(|a| a.derive_path != address.derive_path);
+        if self.derived_addresses.len() == len_before {
+            return Err(format!("Address not tracked"));
+        }
+        Ok(())
+    }
+
+    fn list_tracked(&self) -> Vec<&BitcoinAddress> {
+        self.derived_addresses.iter().collect()
     }
 }
 
-impl From<AddressPurpose> for u8 {
-    fn from(chain: AddressPurpose) -> Self {
-        chain as u8
-    }
-}
-
-pub fn derive_prk(mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
+pub fn build_prk(mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
     let network = crate::config::CONFIG.bitcoin.network();
     let mnemonic = bip39::Mnemonic::parse_in_normalized(Language::English, mnemonic)
         .map_err(|e| e.to_string())?;
     let seed = mnemonic.to_seed(passphrase);
     let xpriv = bip32::Xpriv::new_master(network, &seed).map_err(|e| e.to_string())?;
     Ok(Prk { xpriv })
-}
-
-pub fn create_diriviation_path(
-    network: Network,
-    purpose: AddressPurpose,
-    address_index: u32,
-) -> DerivationPath {
-    let coin_type = match network {
-        Network::Bitcoin => 0,
-        _ => 1,
-    };
-
-    let change = match purpose {
-        AddressPurpose::Receive => 0,
-        AddressPurpose::Change => 1,
-    };
-
-    let account = 0;
-    let path = format!("m/86'/{coin_type}'/{account}'/{change}/{address_index}");
-    DerivationPath::from_str(&path).expect("invalid child deriviation path")
 }
 
 pub mod persistence {
@@ -239,7 +281,7 @@ pub mod persistence {
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct BitcoinData {
+    pub struct Wallet {
         pub childs: Vec<ChildAddress>,
     }
 }
@@ -250,38 +292,40 @@ mod tests {
 
     #[test]
     fn test_unoccupied_deriviation_index() {
-        let wallet = WalletData {
+        let wallet = BitcoinWallet {
             derived_addresses: vec![
                 BitcoinAddress {
                     label: "addr1".to_string(),
-                    purpose: AddressPurpose::Receive,
-                    index: 1,
+                    derive_path: DerivePath {
+                        change: Change::External,
+                        index: 1,
+                    },
                 },
                 BitcoinAddress {
                     label: "addr2".to_string(),
-                    purpose: AddressPurpose::Receive,
-                    index: 2,
+                    derive_path: DerivePath {
+                        change: Change::External,
+                        index: 2,
+                    },
                 },
                 BitcoinAddress {
                     label: "addr3".to_string(),
-                    purpose: AddressPurpose::Receive,
-                    index: 19,
+                    derive_path: DerivePath {
+                        change: Change::External,
+                        index: 19,
+                    },
                 },
                 BitcoinAddress {
                     label: "change1".to_string(),
-                    purpose: AddressPurpose::Change,
-                    index: 0,
+                    derive_path: DerivePath {
+                        change: Change::Internal,
+                        index: 0,
+                    },
                 },
             ],
         };
 
-        assert_eq!(
-            wallet.unoccupied_deriviation_index(AddressPurpose::Receive),
-            3
-        );
-        assert_eq!(
-            wallet.unoccupied_deriviation_index(AddressPurpose::Change),
-            1
-        );
+        assert_eq!(wallet.unoccupied_deriviation_index(Change::External), 3);
+        assert_eq!(wallet.unoccupied_deriviation_index(Change::Internal), 1);
     }
 }

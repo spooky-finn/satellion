@@ -9,8 +9,8 @@ pub struct Wallet {
     pub created_at: u64,
     pub version: u8,
 
-    pub btc: btc::wallet::WalletData,
-    pub eth: eth::wallet::WalletData,
+    pub btc: btc::BitcoinWallet,
+    pub eth: eth::EthereumWallet,
 }
 
 impl Wallet {
@@ -22,10 +22,10 @@ impl Wallet {
             last_used_chain: Chain::Bitcoin,
             created_at: now(),
             version: 1,
-            btc: btc::wallet::WalletData {
+            btc: btc::BitcoinWallet {
                 derived_addresses: Vec::new(),
             },
-            eth: eth::wallet::WalletData {
+            eth: eth::EthereumWallet {
                 tracked_tokens: eth::constants::default_tokens(),
             },
         })

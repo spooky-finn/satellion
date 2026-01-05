@@ -77,6 +77,14 @@ async btcUnoccupiedDeriviationIndex(walletName: string) : Promise<Result<number,
     else return { status: "error", error: e  as any };
 }
 },
+async btcListDerivedAddresess(walletName: string) : Promise<Result<DerivedAddress[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("btc_list_derived_addresess", { walletName }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async ethChainInfo() : Promise<Result<ChainInfo, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("eth_chain_info") };
@@ -157,6 +165,7 @@ export type Balance = { wei: string; eth_price: string; tokens: TokenBalance[] }
 export type BitcoinUnlock = { address: string }
 export type Chain = "Bitcoin" | "Ethereum"
 export type ChainInfo = { block_number: string; block_hash: string; base_fee_per_gas: string | null }
+export type DerivedAddress = { label: string; address: string; deriv_path: string }
 export type EthereumUnlock = { address: string }
 export type FeeMode = "Minimal" | "Standard" | "Increased"
 export type PrepareTxReqReq = { wallet_name: string; token_address: string; amount: string; recipient: string; fee_mode: FeeMode }
