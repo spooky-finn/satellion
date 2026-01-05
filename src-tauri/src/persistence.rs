@@ -188,9 +188,8 @@ mod tests {
             last_used_chain: 1,
             bitcoin_data: crate::btc::persistence::Wallet {
                 childs: vec![crate::btc::persistence::ChildAddress {
-                    purpose: 0,
-                    index: 1,
                     label: "Secret contractor".to_string(),
+                    devive_path: "m/86/0/0/1/1".to_string(),
                 }],
             },
             ethereum_data: crate::eth::persistence::Wallet {

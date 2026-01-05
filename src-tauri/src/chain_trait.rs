@@ -60,17 +60,5 @@ where
     ///
     /// This method removes an asset from tracking. The identifier is typically
     /// an address string or similar unique identifier.
-    ///
-    /// # Arguments
-    /// * `id` - The identifier of the asset to untrack (e.g., token address)
     fn untrack(&mut self, asset: Asset) -> Result<(), String>;
-
-    /// List all currently tracked assets.
-    ///
-    /// Returns a list of references to all tracked assets. The order is
-    /// implementation-dependent.
-    ///
-    /// # Returns
-    /// A vector of references to the tracked assets
-    fn list_tracked(&self) -> Vec<&Asset>;
 }

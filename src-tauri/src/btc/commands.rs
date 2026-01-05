@@ -7,7 +7,7 @@ use crate::{
         self, Prk,
         wallet::{Change, DerivePath},
     },
-    chain_trait::{AssetTracker, SecureKey},
+    chain_trait::SecureKey,
     config::{CONFIG, Chain},
     session::{AppSession, Session},
     wallet_keeper::WalletKeeper,
@@ -90,9 +90,7 @@ pub async fn btc_list_derived_addresess(
     Ok(session
         .wallet
         .btc
-        .list_tracked()
-        .iter()
-        .filter(|addr| addr.derive_path.change == Change::External)
+        .list_external_addresess()
         .map(|addr| {
             let (_, address) = session
                 .wallet

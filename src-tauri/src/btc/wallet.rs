@@ -63,9 +63,9 @@ pub struct DerivePath {
     pub index: u32,
 }
 
-impl ToString for DerivePath {
-    fn to_string(&self) -> String {
-        format!("{}/{}", self.change, self.index)
+impl Display for DerivePath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}/{}", self.change, self.index)
     }
 }
 
@@ -82,6 +82,26 @@ impl DerivePath {
             self.change as i32, self.index
         );
         DerivationPath::from_str(&path).map_err(|e| format!("fail to derive bip86_path: {e}"))
+    }
+
+    pub fn from_str(path: &str) -> Result<Self, String> {
+        let path = DerivationPath::from_str(path)
+            .map_err(|e| format!("fail to derive bip86_path: {e}"))?;
+        let vec = path.to_u32_vec();
+        let change: u8 = match vec.get(3).copied() {
+            Some(0) => 0,
+            Some(1) => 1,
+            Some(v) => return Err(format!("invalid change value: {v}")),
+            None => return Err("missing change component in bip86 path".into()),
+        };
+        let index = vec
+            .get(4)
+            .copied()
+            .ok_or("missing index component in bip86 path")?;
+        Ok(DerivePath {
+            change: Change::from(change),
+            index,
+        })
     }
 }
 
@@ -169,10 +189,14 @@ impl BitcoinWallet {
     }
 
     pub fn add_child(&mut self, label: String, derive_path: DerivePath) {
-        self.derived_addresses.push(BitcoinAddress {
-            label,
-            derive_path: derive_path,
-        });
+        self.derived_addresses
+            .push(BitcoinAddress { label, derive_path });
+    }
+
+    pub fn list_external_addresess(&self) -> impl Iterator<Item = &BitcoinAddress> {
+        self.derived_addresses
+            .iter()
+            .filter(|a| a.derive_path.change == Change::External)
     }
 }
 
@@ -199,33 +223,35 @@ impl Persistable for BitcoinWallet {
     type Serialized = persistence::Wallet;
 
     fn serialize(&self) -> Result<Self::Serialized, String> {
+        let network = CONFIG.bitcoin.network();
         Ok(persistence::Wallet {
             childs: self
                 .derived_addresses
                 .iter()
-                .map(|addr| persistence::ChildAddress {
-                    label: addr.label.clone(),
-                    purpose: addr.derive_path.change.clone().into(),
-                    index: addr.derive_path.index,
+                .map(|addr| {
+                    let path = addr.derive_path.bip86_path(network)?.to_string();
+                    Ok(persistence::ChildAddress {
+                        label: addr.label.clone(),
+                        devive_path: path,
+                    })
                 })
-                .collect(),
+                .collect::<Result<Vec<_>, String>>()?,
         })
     }
 
     fn deserialize(data: Self::Serialized) -> Result<Self, String> {
-        Ok(Self {
-            derived_addresses: data
-                .childs
-                .into_iter()
-                .map(|addr| BitcoinAddress {
+        let derived_addresses = data
+            .childs
+            .into_iter()
+            .map(|addr| {
+                let derive_path = DerivePath::from_str(&addr.devive_path)?;
+                Ok(BitcoinAddress {
                     label: addr.label,
-                    derive_path: DerivePath {
-                        change: Change::from(addr.purpose),
-                        index: addr.index,
-                    },
+                    derive_path,
                 })
-                .collect(),
-        })
+            })
+            .collect::<Result<Vec<BitcoinAddress>, String>>()?;
+        Ok(Self { derived_addresses })
     }
 }
 
@@ -251,13 +277,9 @@ impl AssetTracker<BitcoinAddress> for BitcoinWallet {
         self.derived_addresses
             .retain(|a| a.derive_path != address.derive_path);
         if self.derived_addresses.len() == len_before {
-            return Err(format!("Address not tracked"));
+            return Err("Address not tracked".to_string());
         }
         Ok(())
-    }
-
-    fn list_tracked(&self) -> Vec<&BitcoinAddress> {
-        self.derived_addresses.iter().collect()
     }
 }
 
@@ -276,8 +298,7 @@ pub mod persistence {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct ChildAddress {
         pub label: String,
-        pub purpose: u8,
-        pub index: u32,
+        pub devive_path: String,
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

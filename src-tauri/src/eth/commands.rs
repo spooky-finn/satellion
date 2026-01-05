@@ -223,7 +223,7 @@ pub async fn eth_sign_and_send_tx(
     let mut session_keeper = session_keeper.lock().await;
     let session = session_keeper.get(&wallet_name)?;
     let mut builder = builder.try_lock().map_err(|e| e.to_string())?;
-    let prk = build_prk(&session)?;
+    let prk = build_prk(session)?;
     let hash = builder.sign_and_send_tx(prk.expose()).await?;
     Ok(hash.to_string())
 }

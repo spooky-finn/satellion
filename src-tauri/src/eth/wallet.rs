@@ -67,9 +67,8 @@ impl Persistable for EthereumWallet {
 
 impl AssetTracker<Token> for EthereumWallet {
     fn track(&mut self, asset: Token) -> Result<(), String> {
-        // Check if token with same address is already tracked
-        if self.tracked_tokens.iter().any(|t| *t == asset) {
-            return Err(format!("Token {} already tracked", asset.address));
+        if self.tracked_tokens.contains(&asset) {
+            return Err(format!("Token {} already tracked", asset.symbol));
         }
         self.tracked_tokens.push(asset);
         Ok(())
@@ -82,10 +81,6 @@ impl AssetTracker<Token> for EthereumWallet {
             return Err(format!("Token address '{}' not tracked", token.address));
         }
         Ok(())
-    }
-
-    fn list_tracked(&self) -> Vec<&Token> {
-        self.tracked_tokens.iter().collect()
     }
 }
 
