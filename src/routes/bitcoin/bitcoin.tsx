@@ -7,6 +7,7 @@ import { route } from '../../routes'
 import { P, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
 import { DeriveChildAddress } from './derive_child'
+import { ListDerivedAddresses } from './list_childs'
 
 const explorer_url = 'https://mempool.space/address/'
 
@@ -41,6 +42,7 @@ const Bitcoin = () => {
             address per transaction.
           </P>
           <DeriveChildAddress />
+          <ListDerivedAddresses />
         </Card>
       )}
     </Stack>

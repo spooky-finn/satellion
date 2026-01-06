@@ -18,7 +18,14 @@ import CreatePassphrase from './routes/wallet/passphrase_create'
 const theme = extendTheme({
   cssVarPrefix: 'mode-toggle',
   // @ts-ignore
-  colorSchemeSelector: '.demo_mode-toggle-%s'
+  colorSchemeSelector: '.demo_mode-toggle-%s',
+  components: {
+    JoyButton: {
+      defaultProps: {
+        size: 'sm'
+      }
+    }
+  }
 })
 
 const App = () => {
