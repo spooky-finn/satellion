@@ -14,11 +14,17 @@ class PassphraseStore {
   setRepeatPassphrase(repeatPassphrase: string) {
     this.repeatPassphrase = repeatPassphrase
   }
-  isValid() {
+  isSomethingEntered() {
+    return this.passphrase && this.repeatPassphrase
+  }
+  matched() {
     return (
       this.passphrase === this.repeatPassphrase &&
       this.passphrase.length >= MIN_PASSPHRASE_LEN
     )
+  }
+  mismatch() {
+    return this.isSomethingEntered() && !this.matched()
   }
   verifyPassphrase() {
     if (this.passphrase !== this.repeatPassphrase) {

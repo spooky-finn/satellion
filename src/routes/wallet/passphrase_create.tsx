@@ -44,14 +44,20 @@ const CreatePassphrase = observer(() => {
             value={passphraseStore.passphrase}
             onChange={e => passphraseStore.setPassphrase(e.target.value)}
           />
+          <KeyboardStatus />
           <PassphraseInput
             placeholder="Repeat passphrase"
             value={passphraseStore.repeatPassphrase}
             onChange={e => passphraseStore.setRepeatPassphrase(e.target.value)}
           />
+          {passphraseStore.mismatch() && (
+            <P level="body-xs" color="danger">
+              Passphrases mismatch
+            </P>
+          )}
           <Button
             sx={{ width: 'min-content' }}
-            disabled={!passphraseStore.isValid()}
+            disabled={!passphraseStore.matched()}
             onClick={() => {
               passphraseStore.verifyPassphrase()
               store.createWallet().then(() => {
@@ -66,5 +72,34 @@ const CreatePassphrase = observer(() => {
     </Stack>
   )
 })
+
+import { useEffect, useState } from 'react'
+
+export const KeyboardStatus = () => {
+  const [capsLock, setCapsLock] = useState(false)
+  const [keyboardLang, setKeyboardLang] = useState<string>('')
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      setCapsLock(e.getModifierState('CapsLock'))
+      // language detection: fallback to browser language
+      if (e.code.startsWith('Key')) {
+        setKeyboardLang(navigator.language || 'en')
+      }
+    }
+
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [])
+
+  return (
+    <Stack direction="row" gap={1}>
+      <P level="body-xs" color={capsLock ? 'warning' : 'neutral'}>
+        Caps Lock: {capsLock ? 'ON' : 'OFF'}
+      </P>
+      <P level="body-xs">Language: {keyboardLang || 'unknown'}</P>
+    </Stack>
+  )
+}
 
 export default CreatePassphrase
