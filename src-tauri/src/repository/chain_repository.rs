@@ -54,6 +54,7 @@ impl ChainRepository {
             .map(|t| db::Utxo {
                 txid: t.tx_hash.to_string(),
                 script_pubkey: t.output.script_pubkey.to_string(),
+                deriviation_path: t.derive_path.to_string(),
                 value: t.output.value.to_sat() as i64,
                 vout: t.vout_idx as i32,
                 block_hash: t.block_hash.to_string(),

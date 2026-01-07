@@ -24,6 +24,7 @@ diesel::table! {
         spent -> Integer,
         created_at -> BigInt,
         spent_at -> Nullable<BigInt>,
+        deriviation_path -> Text,
     }
 }
 

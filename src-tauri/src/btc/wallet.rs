@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 
 use bip39::Language;
-use bip157::ScriptBuf;
 pub use bitcoin::network::Network;
 use bitcoin::{
     Address,
@@ -10,13 +9,13 @@ use bitcoin::{
 };
 
 use crate::{
-    btc::address::{BitcoinAddress, Change, DerivePath},
+    btc::address::{Change, DerivePath, LabeledDerivationPath},
     chain_trait::{AssetTracker, ChainTrait, Persistable, SecureKey},
     config::CONFIG,
 };
 
 pub struct BitcoinWallet {
-    pub derived_addresses: Vec<BitcoinAddress>,
+    pub derived_addresses: Vec<LabeledDerivationPath>,
 }
 
 #[derive(serde::Serialize, specta::Type)]
@@ -41,19 +40,29 @@ impl SecureKey for Prk {
         &self.xpriv
     }
 }
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct DerivedScript {
+    pub script: bip157::ScriptBuf,
+    pub derive_path: DerivePath,
+}
 
 impl BitcoinWallet {
-    pub fn derive_scripts_of_interes(&self, xpriv: &Xpriv) -> Result<HashSet<ScriptBuf>, String> {
-        let mut scripts_of_interes: HashSet<bip157::ScriptBuf> = HashSet::new();
+    pub fn derive_scripts_of_interes(
+        &self,
+        xpriv: &Xpriv,
+    ) -> Result<HashSet<DerivedScript>, String> {
+        let mut scripts_of_interes: HashSet<DerivedScript> = HashSet::new();
         let network = CONFIG.bitcoin.network();
 
-        for address in self.derived_addresses.iter() {
+        for labled_derive_path in self.derived_addresses.iter() {
+            let derive_path = labled_derive_path.derive_path.clone();
             let (_, address) = self
-                .derive_child(xpriv, network, address.derive_path.clone())
+                .derive_child(xpriv, network, derive_path.clone())
                 .map_err(|e| format!("derived bitcoin address corrupted {e}"))?;
-
-            let scriptbuf = address.script_pubkey();
-            scripts_of_interes.insert(scriptbuf);
+            scripts_of_interes.insert(DerivedScript {
+                derive_path,
+                script: address.script_pubkey(),
+            });
         }
 
         Ok(scripts_of_interes)
@@ -104,10 +113,10 @@ impl BitcoinWallet {
 
     pub fn add_child(&mut self, label: String, derive_path: DerivePath) {
         self.derived_addresses
-            .push(BitcoinAddress { label, derive_path });
+            .push(LabeledDerivationPath { label, derive_path });
     }
 
-    pub fn list_external_addresess(&self) -> impl Iterator<Item = &BitcoinAddress> {
+    pub fn list_external_addresess(&self) -> impl Iterator<Item = &LabeledDerivationPath> {
         self.derived_addresses
             .iter()
             .filter(|a| a.derive_path.change == Change::External)
@@ -159,18 +168,18 @@ impl Persistable for BitcoinWallet {
             .into_iter()
             .map(|addr| {
                 let derive_path = DerivePath::from_str(&addr.devive_path)?;
-                Ok(BitcoinAddress {
+                Ok(LabeledDerivationPath {
                     label: addr.label,
                     derive_path,
                 })
             })
-            .collect::<Result<Vec<BitcoinAddress>, String>>()?;
+            .collect::<Result<Vec<LabeledDerivationPath>, String>>()?;
         Ok(Self { derived_addresses })
     }
 }
 
-impl AssetTracker<BitcoinAddress> for BitcoinWallet {
-    fn track(&mut self, address: BitcoinAddress) -> Result<(), String> {
+impl AssetTracker<LabeledDerivationPath> for BitcoinWallet {
+    fn track(&mut self, address: LabeledDerivationPath) -> Result<(), String> {
         // Check if an address with the same purpose and index already exists
         if self
             .derived_addresses
@@ -186,7 +195,7 @@ impl AssetTracker<BitcoinAddress> for BitcoinWallet {
         Ok(())
     }
 
-    fn untrack(&mut self, address: BitcoinAddress) -> Result<(), String> {
+    fn untrack(&mut self, address: LabeledDerivationPath) -> Result<(), String> {
         let len_before = self.derived_addresses.len();
         self.derived_addresses
             .retain(|a| a.derive_path != address.derive_path);
@@ -229,28 +238,28 @@ mod tests {
     fn test_unoccupied_deriviation_index() {
         let wallet = BitcoinWallet {
             derived_addresses: vec![
-                BitcoinAddress {
+                LabeledDerivationPath {
                     label: "addr1".to_string(),
                     derive_path: DerivePath {
                         change: Change::External,
                         index: 1,
                     },
                 },
-                BitcoinAddress {
+                LabeledDerivationPath {
                     label: "addr2".to_string(),
                     derive_path: DerivePath {
                         change: Change::External,
                         index: 2,
                     },
                 },
-                BitcoinAddress {
+                LabeledDerivationPath {
                     label: "addr3".to_string(),
                     derive_path: DerivePath {
                         change: Change::External,
                         index: 19,
                     },
                 },
-                BitcoinAddress {
+                LabeledDerivationPath {
                     label: "change1".to_string(),
                     derive_path: DerivePath {
                         change: Change::Internal,

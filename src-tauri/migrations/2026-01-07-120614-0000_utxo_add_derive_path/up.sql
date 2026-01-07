@@ -1,0 +1,2 @@
+DELETE FROM utxos;
+ALTER TABLE utxos ADD COLUMN deriviation_path TEXT NOT NULL;

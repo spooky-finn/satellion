@@ -10,7 +10,10 @@ use bitcoin::{
 };
 
 use crate::{
-    app_state::AppState, btc::utxo::UTxO, config::CONFIG, db::BlockHeader,
+    app_state::AppState,
+    btc::{DerivedScript, utxo::UTxO},
+    config::CONFIG,
+    db::BlockHeader,
     repository::ChainRepository,
 };
 
@@ -26,7 +29,7 @@ impl NeutrinoStarter {
         Self { repository }
     }
 
-    pub async fn sync(&self, scripts_of_interes: HashSet<ScriptBuf>) -> Result<(), String> {
+    pub async fn sync(&self, scripts_of_interes: HashSet<DerivedScript>) -> Result<(), String> {
         let block_headers = self
             .repository
             .get_block_headers(10)
@@ -113,7 +116,7 @@ pub async fn handle_chain_updates(
     mut client: bip157::Client,
     app_state: Arc<AppState>,
     repository: Arc<ChainRepository>,
-    scripts_of_interes: HashSet<ScriptBuf>,
+    scripts_of_interes: HashSet<DerivedScript>,
 ) {
     let block_height = app_state.chain_height.clone();
     let sync_completed = app_state.sync_completed.clone();
@@ -152,46 +155,45 @@ pub async fn handle_chain_updates(
             }
             Event::Block(_block) => {}
             Event::IndexedFilter(filter) => {
-                if filter.contains_any(scripts_of_interes.iter()) {
-                    let block_hash = filter.block_hash();
-                    let block = match requester.get_block(block_hash).await {
-                        Ok(b) => b,
-                        Err(e) => {
-                            eprintln!("Error processing indexed filter: {}", e);
-                            continue;
-                        }
-                    };
-                    let block_height = block.height;
+                let scripts_iter = scripts_of_interes.iter().map(|s| &s.script);
+                if !filter.contains_any(scripts_iter) {
+                    return;
+                }
 
-                    let unspent_outputs = block
-                        .block
-                        .txdata
-                        .iter()
-                        .filter(|tx| {
+                let block_hash = filter.block_hash();
+                let indexed_block = match requester.get_block(block_hash).await {
+                    Ok(b) => b,
+                    Err(e) => {
+                        eprintln!("Error processing indexed filter: {}", e);
+                        continue;
+                    }
+                };
+                let block_height = indexed_block.height;
+
+                let unspent_outputs = indexed_block
+                    .block
+                    .txdata
+                    .iter()
+                    .flat_map(|tx| {
+                        scripts_of_interes.iter().flat_map(move |derived_script| {
                             tx.output
                                 .iter()
-                                .any(|out| scripts_of_interes.contains(&out.script_pubkey))
+                                .enumerate()
+                                .filter(|(_, vout)| derived_script.script == vout.script_pubkey)
+                                .map(move |(vout_idx, vout)| UTxO {
+                                    block_hash,
+                                    block_height,
+                                    tx_hash: tx.compute_ntxid(),
+                                    output: vout.clone(),
+                                    vout_idx,
+                                    derive_path: derived_script.derive_path.clone(),
+                                })
                         })
-                        .flat_map(|tx| {
-                            let mut utxos = Vec::new();
-                            for (vout_idx, vout) in tx.output.iter().enumerate() {
-                                if scripts_of_interes.contains(&vout.script_pubkey) {
-                                    utxos.push(UTxO {
-                                        block_hash,
-                                        block_height,
-                                        tx_hash: tx.compute_ntxid(),
-                                        output: vout.clone(),
-                                        vout_idx,
-                                    });
-                                }
-                            }
-                            utxos
-                        })
-                        .collect::<Vec<UTxO>>();
+                    })
+                    .collect::<Vec<UTxO>>();
 
-                    if let Err(e) = repository.insert_utxos(unspent_outputs).await {
-                        eprintln!("Failed to insert UTXOs for block {}: {}", block_hash, e);
-                    }
+                if let Err(e) = repository.insert_utxos(unspent_outputs).await {
+                    eprintln!("Failed to insert UTXOs for block {}: {}", block_hash, e);
                 }
             }
         }

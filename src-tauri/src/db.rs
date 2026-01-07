@@ -66,6 +66,8 @@ pub struct Utxo {
     pub value: i64,
     /// ScriptPubKey (raw hex)
     pub script_pubkey: String,
+    /// BIP-84 path to derive priv key from xpriv key
+    pub deriviation_path: String,
     /// Block height where this UTXO was created
     pub block_height: i32,
     /// Block hash for additional integrity

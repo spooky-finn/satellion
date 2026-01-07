@@ -4,12 +4,12 @@ use bitcoin::bip32::DerivationPath;
 pub use bitcoin::network::Network;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct BitcoinAddress {
+pub struct LabeledDerivationPath {
     pub label: String,
     pub derive_path: DerivePath,
 }
 
-#[derive(Debug, Clone, PartialEq, Copy)]
+#[derive(Debug, Clone, PartialEq, Copy, Eq, Hash)]
 pub enum Change {
     /// External chain is used for addresses that are meant to be visible outside of the wallet (e.g. for receiving payments)
     External = 0,
@@ -42,7 +42,7 @@ impl From<Change> for u8 {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DerivePath {
     pub change: Change,
     pub index: u32,
