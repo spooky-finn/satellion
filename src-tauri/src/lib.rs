@@ -32,7 +32,7 @@ pub fn run() {
     db::initialize();
 
     let db = db::connect();
-    let wallet_keeper = WalletKeeper::new(persistence::Repository);
+    let wallet_keeper = WalletKeeper::new();
 
     let eth_provider = eth::select_provider();
     let eth_batch_provider = eth::new_provider_batched(eth_provider.clone());
@@ -41,7 +41,7 @@ pub fn run() {
     let price_feed = eth::PriceFeed::new(eth_provider.clone());
 
     let chain_repository = ChainRepository::new(db.clone());
-    let neutrino_starter = NeutrinoStarter::new(chain_repository);
+    let neutrino_starter = NeutrinoStarter::new(chain_repository.clone());
     let session_keeper = tokio::sync::Mutex::new(session::SessionKeeper::new());
 
     let builder = tauri_specta::Builder::<tauri::Wry>::new()
@@ -56,6 +56,7 @@ pub fn run() {
             btc::commands::btc_derive_address,
             btc::commands::btc_unoccupied_deriviation_index,
             btc::commands::btc_list_derived_addresess,
+            btc::commands::btc_list_utxos,
             eth::commands::eth_chain_info,
             eth::commands::eth_get_balance,
             eth::commands::eth_prepare_send_tx,
@@ -84,6 +85,7 @@ pub fn run() {
         .manage(erc20_retriever)
         .manage(price_feed)
         .manage(neutrino_starter)
+        .manage(chain_repository)
         .manage(Mutex::new(tx_builder))
         .manage(session_keeper)
         .setup(move |app| {

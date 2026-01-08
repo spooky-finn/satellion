@@ -1,7 +1,7 @@
 use std::{collections::HashSet, net::SocketAddrV4, str::FromStr, sync::Arc, time::Duration};
 
 use bip157::{
-    BlockHash, Builder, Client, Event, Header, Network, ScriptBuf, TrustedPeer,
+    BlockHash, Builder, Client, Event, Header, Network, TrustedPeer,
     chain::{BlockHeaderChanges, ChainState, IndexedHeader},
 };
 use bitcoin::{
@@ -180,13 +180,15 @@ pub async fn handle_chain_updates(
                                 .iter()
                                 .enumerate()
                                 .filter(|(_, vout)| derived_script.script == vout.script_pubkey)
-                                .map(move |(vout_idx, vout)| UTxO {
-                                    block_hash,
-                                    block_height,
-                                    tx_hash: tx.compute_ntxid(),
-                                    output: vout.clone(),
-                                    vout_idx,
+                                .map(move |(vout, output)| UTxO {
+                                                                        tx_id: tx.compute_wtxid(),
+                                    output: output.clone(),
+                                    vout,
                                     derive_path: derived_script.derive_path.clone(),
+block: crate::btc::utxo::BlockHeader {
+                                        hash: block_hash,
+                                        height: block_height,
+                                    },
                                 })
                         })
                     })

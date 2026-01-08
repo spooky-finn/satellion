@@ -1,21 +1,27 @@
 use std::collections::HashSet;
 
 use bip39::Language;
+use bip157::BlockHash;
 pub use bitcoin::network::Network;
 use bitcoin::{
     Address,
     bip32::{self, Xpriv},
+    hashes::Hash,
     key::{Keypair, Secp256k1},
 };
 
 use crate::{
-    btc::address::{Change, DerivePath, LabeledDerivationPath},
+    btc::{
+        address::{Change, DerivePath, LabeledDerivationPath},
+        utxo::UTxO,
+    },
     chain_trait::{AssetTracker, ChainTrait, Persistable, SecureKey},
     config::CONFIG,
 };
 
 pub struct BitcoinWallet {
     pub derived_addresses: Vec<LabeledDerivationPath>,
+    pub utxos: Vec<UTxO>,
 }
 
 #[derive(serde::Serialize, specta::Type)]
@@ -121,6 +127,10 @@ impl BitcoinWallet {
             .iter()
             .filter(|a| a.derive_path.change == Change::External)
     }
+
+    pub fn insert_utxos(&mut self, utxos: Vec<UTxO>) {
+        self.utxos.extend(utxos);
+    }
 }
 
 impl ChainTrait for BitcoinWallet {
@@ -159,6 +169,19 @@ impl Persistable for BitcoinWallet {
                     })
                 })
                 .collect::<Result<Vec<_>, String>>()?,
+            utxos: self
+                .utxos
+                .iter()
+                .map(|each| persistence::Utxo {
+                    block_hash: each.block.hash.to_byte_array(),
+                    block_height: each.block.height,
+                    deriviation_path: each.derive_path.to_string(),
+                    script_pubkey: each.output.script_pubkey.to_bytes(),
+                    txid: each.tx_id.to_byte_array(),
+                    value: each.output.value.to_sat(),
+                    vout: each.vout,
+                })
+                .collect(),
         })
     }
 
@@ -174,7 +197,30 @@ impl Persistable for BitcoinWallet {
                 })
             })
             .collect::<Result<Vec<LabeledDerivationPath>, String>>()?;
-        Ok(Self { derived_addresses })
+        let utxos = data
+            .utxos
+            .iter()
+            .map(|utxo| {
+                let derive_path = DerivePath::from_str(&utxo.deriviation_path)?;
+                Ok(UTxO {
+                    tx_id: Hash::from_byte_array(utxo.txid),
+                    block: crate::btc::utxo::BlockHeader {
+                        hash: BlockHash::from_byte_array(utxo.block_hash),
+                        height: utxo.block_height,
+                    },
+                    vout: utxo.vout,
+                    derive_path,
+                    output: bitcoin::TxOut {
+                        script_pubkey: bip157::ScriptBuf::from_bytes(utxo.script_pubkey.clone()),
+                        value: bitcoin::Amount::from_sat(utxo.value),
+                    },
+                })
+            })
+            .collect::<Result<Vec<UTxO>, String>>()?;
+        Ok(Self {
+            derived_addresses,
+            utxos,
+        })
     }
 }
 
@@ -225,8 +271,27 @@ pub mod persistence {
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    pub struct Utxo {
+        /// Transaction hash (32 bytes)
+        pub txid: [u8; 32],
+        /// Output index within the transaction
+        pub vout: usize,
+        /// Value in satoshis
+        pub value: u64,
+        /// ScriptPubKey (raw hex)
+        pub script_pubkey: Vec<u8>,
+        /// BIP-84 path to derive priv key from xpriv key
+        pub deriviation_path: String,
+        /// Block height where this UTXO was created
+        pub block_height: u32,
+        /// Block hash for additional integrity
+        pub block_hash: [u8; 32],
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct Wallet {
         pub childs: Vec<ChildAddress>,
+        pub utxos: Vec<Utxo>,
     }
 }
 
@@ -237,6 +302,7 @@ mod tests {
     #[test]
     fn test_unoccupied_deriviation_index() {
         let wallet = BitcoinWallet {
+            utxos: vec![],
             derived_addresses: vec![
                 LabeledDerivationPath {
                     label: "addr1".to_string(),

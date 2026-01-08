@@ -1,15 +1,8 @@
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use bip157::chain::IndexedHeader;
 use diesel::{SqliteConnection, prelude::*, r2d2::ConnectionManager, result::Error};
 use r2d2::Pool;
 
-use crate::{
-    btc::utxo::UTxO,
-    db::{self, BlockHeader},
-    repository::BaseRepository,
-    schema,
-};
+use crate::{db::BlockHeader, repository::BaseRepository, schema};
 
 #[derive(Clone)]
 pub struct ChainRepository {
@@ -45,30 +38,5 @@ impl ChainRepository {
             .limit(limit)
             .order(schema::bitcoin_block_headers::height.desc())
             .load::<BlockHeader>(&mut conn)
-    }
-
-    pub async fn insert_utxos(&self, txs: Vec<UTxO>) -> Result<usize, Error> {
-        let mut conn = self.base.get_conn()?;
-        let utxos: Vec<db::Utxo> = txs
-            .iter()
-            .map(|t| db::Utxo {
-                txid: t.tx_hash.to_string(),
-                script_pubkey: t.output.script_pubkey.to_string(),
-                deriviation_path: t.derive_path.to_string(),
-                value: t.output.value.to_sat() as i64,
-                vout: t.vout_idx as i32,
-                block_hash: t.block_hash.to_string(),
-                block_height: t.block_height as i32,
-                created_at: SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .expect("Time went backwards")
-                    .as_secs() as i64,
-                spent: 0,
-                spent_at: None,
-            })
-            .collect();
-        diesel::insert_into(schema::utxos::table)
-            .values(&utxos)
-            .execute(&mut conn)
     }
 }

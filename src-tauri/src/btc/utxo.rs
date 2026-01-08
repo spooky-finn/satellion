@@ -1,14 +1,18 @@
-use bip157::BlockHash;
-use bitcoin::{TxOut, hashes::sha256d};
+use bip157::{BlockHash, Wtxid};
+use bitcoin::TxOut;
 
 use crate::btc::address::DerivePath;
 
-/// Unspent transaction output
+pub struct BlockHeader {
+    pub hash: BlockHash,
+    pub height: u32,
+}
+
+/// Unspent transaction output domain model
 pub struct UTxO {
-    pub block_hash: BlockHash,
-    pub block_height: u32,
-    pub tx_hash: sha256d::Hash,
+    pub tx_id: Wtxid,
+    pub vout: usize,
     pub output: TxOut,
-    pub vout_idx: usize,
     pub derive_path: DerivePath,
+    pub block: BlockHeader,
 }
