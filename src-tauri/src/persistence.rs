@@ -8,6 +8,7 @@ use crate::{
     config::{Config, constants::Chain},
     encryptor::{self, Envelope},
     wallet::Wallet,
+    wallet_keeper::WalletKeeper,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -22,10 +23,12 @@ pub struct SerializedWallet {
 }
 
 impl SerializedWallet {
-    pub fn to_model(&self) -> Result<Wallet, String> {
+    pub fn to_model(&self, passphrase: SecretBox<String>) -> Result<Wallet, String> {
         Ok(Wallet {
+            keeper: WalletKeeper::new(),
             name: self.name.clone(),
             mnemonic: SecretBox::new(Box::new(self.mnemonic.clone())),
+            passphrase,
             // Use the Persistable trait for deserialization
             btc: crate::btc::BitcoinWallet::deserialize(self.bitcoin_data.clone())?,
             eth: crate::eth::EthereumWallet::deserialize(self.ethereum_data.clone())?,
@@ -62,22 +65,25 @@ impl Repository {
         FsRepository.ls()
     }
 
-    pub fn load_as_wallet(&self, wallet_name: &str, passphrase: &str) -> Result<Wallet, String> {
+    pub fn load(&self, wallet_name: &str, passphrase: SecretBox<String>) -> Result<Wallet, String> {
         let data = FsRepository
             .get(wallet_name)
             .map_err(|e| format!("fail to load wallet from dist: {}", e))?;
-        let decrypted_json = encryptor::decrypt(&data, passphrase.as_bytes())?;
+        let decrypted_json = encryptor::decrypt(&data, passphrase.expose_secret().as_bytes())?;
         let persisted_wallet = serde_json::from_slice::<SerializedWallet>(&decrypted_json)
             .map_err(|e| format!("fail to parse json wallet into struct {}", e))?;
-        persisted_wallet.to_model()
+        persisted_wallet.to_model(passphrase)
     }
 
-    pub fn store_wallet(&self, wallet: &Wallet, passphrase: &str) -> Result<(), String> {
+    pub fn store(&self, wallet: &Wallet) -> Result<(), String> {
         let persisted_wallet = SerializedWallet::from_model(wallet);
         let wallet_name = wallet.name.clone();
         let json = serde_json::to_string(&persisted_wallet)
             .map_err(|e| format!("fait to serialize persisted_wallet {}", e))?;
-        let ciphertext = encryptor::encrypt(json.as_bytes(), passphrase.as_bytes())?;
+        let ciphertext = encryptor::encrypt(
+            json.as_bytes(),
+            wallet.passphrase.expose_secret().as_bytes(),
+        )?;
         FsRepository
             .insert(&wallet_name, ciphertext)
             .map_err(|e| format!("fail to save wallet on disk {}", e))?;
@@ -178,7 +184,7 @@ mod tests {
     fn test_serialication() {
         let repository = Repository;
         let name = "Wallet 1".to_string();
-        let passphrase = "1111";
+        let passphrase = SecretBox::new(Box::new("1111".to_string()));
 
         let persisted_wallet = SerializedWallet {
             name: name.clone(),
@@ -191,6 +197,7 @@ mod tests {
                     label: "Secret contractor".to_string(),
                     devive_path: "m/86/0/0/1/1".to_string(),
                 }],
+                utxos: vec![],
             },
             ethereum_data: crate::eth::persistence::Wallet {
                 tracked_tokens: vec![crate::eth::persistence::Token {
@@ -202,13 +209,13 @@ mod tests {
             },
         };
 
-        let wallet = persisted_wallet.to_model().unwrap();
-        repository.store_wallet(&wallet, passphrase).unwrap();
+        let wallet = persisted_wallet.to_model(passphrase.clone()).unwrap();
+        repository.store(&wallet).unwrap();
 
         let listed = repository.ls().unwrap();
         assert!(listed.contains(&FsRepository.sanitize_filename(&name)));
 
-        let saved_wallet = repository.load_as_wallet(&name, passphrase).unwrap();
+        let saved_wallet = repository.load(&name, passphrase).unwrap();
         assert_eq!(
             wallet.mnemonic.expose_secret().to_string(),
             saved_wallet.mnemonic.expose_secret().to_string()

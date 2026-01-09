@@ -85,6 +85,14 @@ async btcListDerivedAddresess(walletName: string) : Promise<Result<DerivedAddres
     else return { status: "error", error: e  as any };
 }
 },
+async btcListUtxos(walletName: string) : Promise<Result<Utxo[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("btc_list_utxos", { walletName }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async ethChainInfo() : Promise<Result<ChainInfo, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("eth_chain_info") };
@@ -174,7 +182,9 @@ export type SyncStatus = { height: number; sync_completed: boolean }
 export type TokenBalance = { symbol: string; balance: string; decimals: number; address: string }
 export type TokenType = { chain: Chain; symbol: string; decimals: number }
 export type UIConfig = { eth_anvil: boolean }
+export type UTxOID = { tx_id: string; vout: string }
 export type UnlockMsg = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock; last_used_chain: Chain }
+export type Utxo = { utxoid: UTxOID; value: string }
 
 /** tauri-specta globals **/
 

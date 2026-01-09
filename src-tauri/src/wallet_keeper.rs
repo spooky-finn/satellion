@@ -1,14 +1,16 @@
-use shush_rs::ExposeSecret;
+use shush_rs::SecretBox;
 
-use crate::{persistence, session::Session, wallet::Wallet};
+use crate::{persistence, wallet::Wallet};
 
 pub struct WalletKeeper {
     repository: persistence::Repository,
 }
 
 impl WalletKeeper {
-    pub fn new(repository: persistence::Repository) -> Self {
-        Self { repository }
+    pub fn new() -> Self {
+        Self {
+            repository: persistence::Repository,
+        }
     }
 
     pub fn ls(&self) -> Result<Vec<String>, std::io::Error> {
@@ -17,29 +19,35 @@ impl WalletKeeper {
 
     pub fn create(&self, mnemonic: &str, passphrase: &str, name: &str) -> Result<(), String> {
         let name = if name.is_empty() {
-            self.generate_default_wallet_name()?
+            self.gen_wallet_name()?
         } else {
             name.to_string()
         };
-        let wallet = Wallet::new(name, mnemonic.to_string())?;
-        self.repository.store_wallet(&wallet, passphrase)?;
+        let wallet = Wallet::new(
+            name,
+            mnemonic.to_string(),
+            SecretBox::new(Box::new(passphrase.to_string())),
+        )?;
+        self.repository.store(&wallet)?;
         Ok(())
     }
 
     pub fn load(&self, wallet_name: &str, passphrase: &str) -> Result<Wallet, String> {
-        self.repository.load_as_wallet(wallet_name, passphrase)
+        self.repository.load(
+            wallet_name,
+            SecretBox::new(Box::new(passphrase.to_string())),
+        )
     }
 
-    pub fn save_wallet(&self, session: &Session) -> Result<(), String> {
-        self.repository
-            .store_wallet(&session.wallet, &session.passphrase.expose_secret())
+    pub fn save(&self, wallet: &Wallet) -> Result<(), String> {
+        self.repository.store(wallet)
     }
 
     pub fn delete(&self, wallet_name: &str) -> Result<(), std::io::Error> {
         self.repository.delete(wallet_name)
     }
 
-    fn generate_default_wallet_name(&self) -> Result<String, String> {
+    fn gen_wallet_name(&self) -> Result<String, String> {
         let existing_wallets = self.repository.ls().map_err(|e| e.to_string())?;
 
         let mut max_ordinal = 0;

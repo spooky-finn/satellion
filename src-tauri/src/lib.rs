@@ -41,8 +41,8 @@ pub fn run() {
     let price_feed = eth::PriceFeed::new(eth_provider.clone());
 
     let chain_repository = ChainRepository::new(db.clone());
-    let neutrino_starter = NeutrinoStarter::new(chain_repository.clone());
-    let session_keeper = tokio::sync::Mutex::new(session::SessionKeeper::new());
+    let session_keeper = Arc::new(tokio::sync::Mutex::new(session::SessionKeeper::new()));
+    let neutrino_starter = NeutrinoStarter::new(chain_repository.clone(), session_keeper.clone());
 
     let builder = tauri_specta::Builder::<tauri::Wry>::new()
         .commands(tauri_specta::collect_commands![

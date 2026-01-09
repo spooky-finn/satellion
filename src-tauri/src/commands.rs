@@ -111,15 +111,16 @@ pub async fn unlock_wallet(
     let scripts = wallet.btc.derive_scripts_of_interes(btc_prk.expose())?;
     let last_used_chain = wallet.last_used_chain;
 
-    let session = Session::new(wallet, passphrase, Config::session_exp_duration());
+    let session = Session::new(wallet, Config::session_exp_duration());
     session_keeper.lock().await.start(session);
     // Start Bitcoin sync in background without waiting
     let neutrino_starter_clone = (*neutrino_starter).clone();
     tauri::async_runtime::spawn(async move {
-        if let Err(e) = neutrino_starter_clone.sync(scripts).await {
+        if let Err(e) = neutrino_starter_clone.sync(wallet_name, scripts).await {
             eprintln!("Failed to start Bitcoin sync: {}", e);
         }
     });
+
     Ok(UnlockMsg {
         ethereum,
         bitcoin,

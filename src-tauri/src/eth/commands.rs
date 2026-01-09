@@ -22,7 +22,6 @@ use crate::{
         wallet::parse_addres,
     },
     session::{AppSession, Session},
-    wallet_keeper::WalletKeeper,
 };
 
 #[derive(Serialize, Type)]
@@ -35,7 +34,7 @@ pub struct ChainInfo {
 fn build_prk(s: &Session) -> Result<Prk, String> {
     eth::wallet::build_prk(
         &s.wallet.mnemonic.expose_secret(),
-        &s.passphrase.expose_secret(),
+        &s.wallet.passphrase.expose_secret(),
     )
 }
 
@@ -81,10 +80,9 @@ pub async fn eth_get_balance(
     erc20_retriever: tauri::State<'_, Erc20Retriever>,
     price_feed: tauri::State<'_, PriceFeed>,
     session_keeper: tauri::State<'_, AppSession>,
-    wallet_keeper: tauri::State<'_, WalletKeeper>,
 ) -> Result<Balance, String> {
     let mut session_keeper = session_keeper.lock().await;
-    let session = session_keeper.get(&wallet_name)?;
+    let Session { wallet, .. } = session_keeper.get(&wallet_name)?;
 
     let provider = provider.inner();
     let address = parse_addres(&address)?;
@@ -94,7 +92,7 @@ pub async fn eth_get_balance(
         .map_err(|e| e.to_string())?;
 
     let token_balances = erc20_retriever
-        .balances(address, session.wallet.eth.tracked_tokens.clone())
+        .balances(address, wallet.eth.tracked_tokens.clone())
         .await
         .map_err(|e| e.to_string())?;
 
@@ -118,8 +116,8 @@ pub async fn eth_get_balance(
     });
     let eth_price = price_feed.get_price(ETH_USD_PRICE_FEED).await?.to_string();
 
-    session.wallet.last_used_chain = Chain::Ethereum;
-    wallet_keeper.save_wallet(session)?;
+    wallet.last_used_chain = Chain::Ethereum;
+    wallet.persist()?;
 
     Ok(Balance {
         wei: wei_balance.to_string(),
@@ -248,11 +246,10 @@ pub async fn eth_track_token(
     wallet_name: String,
     address: String,
     erc20_retriever: tauri::State<'_, Erc20Retriever>,
-    wallet_keeper: tauri::State<'_, WalletKeeper>,
     session_keeper: tauri::State<'_, AppSession>,
 ) -> Result<TokenType, String> {
     let mut session_keeper = session_keeper.lock().await;
-    let session = session_keeper.get(&wallet_name)?;
+    let Session { wallet, .. } = session_keeper.get(&wallet_name)?;
 
     let address = parse_addres(&address)?;
     let token_info = erc20_retriever
@@ -260,12 +257,14 @@ pub async fn eth_track_token(
         .await
         .map_err(|e| format!("Failed to fetch token info: {}", e))?;
 
-    session.wallet.eth.track(crate::eth::token::Token {
-        address,
-        symbol: token_info.symbol.clone(),
-        decimals: token_info.decimals as u8,
+    wallet.mutate_eth(|eth| {
+        eth.track(crate::eth::token::Token {
+            address,
+            symbol: token_info.symbol.clone(),
+            decimals: token_info.decimals as u8,
+        })?;
+        Ok(())
     })?;
-    wallet_keeper.save_wallet(session)?;
 
     Ok(TokenType {
         chain: Chain::Ethereum,
@@ -279,21 +278,22 @@ pub async fn eth_track_token(
 pub async fn eth_untrack_token(
     wallet_name: String,
     token_address: String,
-    wallet_keeper: tauri::State<'_, WalletKeeper>,
     session_keeper: tauri::State<'_, AppSession>,
 ) -> Result<(), String> {
     let mut session_keeper = session_keeper.lock().await;
-    let session = session_keeper.get(&wallet_name)?;
+    let Session { wallet, .. } = session_keeper.get(&wallet_name)?;
 
     let address = parse_addres(&token_address)?;
-    let token = session
-        .wallet
+    let token = wallet
         .eth
         .get_tracked_token(address)
-        .ok_or("Token with this address hasn't been tracked")?;
+        .ok_or("Token with this address hasn't been tracked")?
+        .clone();
 
-    session.wallet.eth.untrack(token.clone())?;
-    wallet_keeper.save_wallet(session)?;
+    wallet.mutate_eth(|eth| {
+        eth.untrack(token)?;
+        Ok(())
+    })?;
     Ok(())
 }
 

@@ -1,20 +1,19 @@
+use std::sync::Arc;
+
 use chrono::{DateTime, TimeDelta, Utc};
-use shush_rs::SecretBox;
 
 use crate::wallet::Wallet;
 
 pub struct Session {
     pub wallet: Wallet,
-    pub passphrase: SecretBox<String>,
     pub created_at: DateTime<Utc>,
     pub session_exp_duration: TimeDelta,
 }
 
 impl Session {
-    pub fn new(wallet: Wallet, passphrase: String, session_exp_duration: TimeDelta) -> Self {
+    pub fn new(wallet: Wallet, session_exp_duration: TimeDelta) -> Self {
         Self {
             wallet,
-            passphrase: SecretBox::new(Box::new(passphrase)),
             created_at: Utc::now(),
             session_exp_duration,
         }
@@ -25,7 +24,7 @@ impl Session {
     }
 }
 
-pub type AppSession = tokio::sync::Mutex<SessionKeeper>;
+pub type AppSession = Arc<tokio::sync::Mutex<SessionKeeper>>;
 
 #[derive(Default)]
 pub struct SessionKeeper {
@@ -64,6 +63,8 @@ impl SessionKeeper {
 
 #[cfg(test)]
 mod tests {
+    use shush_rs::SecretBox;
+
     use super::*;
     use std::thread;
 
@@ -75,9 +76,10 @@ mod tests {
         let wallet = Wallet::new(
             name.to_string(),
             "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about".to_string(),
+            SecretBox::new(Box::new("333".to_string()))
         ).expect("Failed to create test wallet");
 
-        let session = Session::new(wallet, "1111".to_string(), session_exp_duration);
+        let session = Session::new(wallet, session_exp_duration);
         session_keeper.start(session);
 
         assert!(session_keeper.get(name).is_ok());

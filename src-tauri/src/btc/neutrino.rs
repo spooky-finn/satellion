@@ -8,6 +8,7 @@ use bitcoin::{
     blockdata::block::{TxMerkleNode, Version},
     pow::CompactTarget,
 };
+use tokio::sync::Mutex;
 
 use crate::{
     app_state::AppState,
@@ -15,21 +16,30 @@ use crate::{
     config::CONFIG,
     db::BlockHeader,
     repository::ChainRepository,
+    session::SessionKeeper,
 };
 
 const REGTEST_PEER: &str = "127.0.0.1:18444";
 
 #[derive(Clone)]
 pub struct NeutrinoStarter {
-    pub repository: ChainRepository,
+    repository: ChainRepository,
+    session_keeper: Arc<Mutex<SessionKeeper>>,
 }
 
 impl NeutrinoStarter {
-    pub fn new(repository: ChainRepository) -> Self {
-        Self { repository }
+    pub fn new(repository: ChainRepository, session_keeper: Arc<Mutex<SessionKeeper>>) -> Self {
+        Self {
+            repository,
+            session_keeper,
+        }
     }
 
-    pub async fn sync(&self, scripts_of_interes: HashSet<DerivedScript>) -> Result<(), String> {
+    pub async fn sync(
+        &self,
+        wallet_name: String,
+        scripts_of_interes: HashSet<DerivedScript>,
+    ) -> Result<(), String> {
         let block_headers = self
             .repository
             .get_block_headers(10)
@@ -56,6 +66,8 @@ impl NeutrinoStarter {
             app_state,
             repository,
             scripts_of_interes,
+            self.session_keeper.clone(),
+            wallet_name,
         ));
 
         Ok(())
@@ -117,6 +129,8 @@ pub async fn handle_chain_updates(
     app_state: Arc<AppState>,
     repository: Arc<ChainRepository>,
     scripts_of_interes: HashSet<DerivedScript>,
+    session_keeper: Arc<Mutex<SessionKeeper>>,
+    wallet_name: String,
 ) {
     let block_height = app_state.chain_height.clone();
     let sync_completed = app_state.sync_completed.clone();
@@ -181,11 +195,11 @@ pub async fn handle_chain_updates(
                                 .enumerate()
                                 .filter(|(_, vout)| derived_script.script == vout.script_pubkey)
                                 .map(move |(vout, output)| UTxO {
-                                                                        tx_id: tx.compute_wtxid(),
+                                    tx_id: tx.compute_wtxid(),
                                     output: output.clone(),
                                     vout,
                                     derive_path: derived_script.derive_path.clone(),
-block: crate::btc::utxo::BlockHeader {
+                                    block: crate::btc::utxo::BlockHeader {
                                         hash: block_hash,
                                         height: block_height,
                                     },
@@ -194,8 +208,19 @@ block: crate::btc::utxo::BlockHeader {
                     })
                     .collect::<Vec<UTxO>>();
 
-                if let Err(e) = repository.insert_utxos(unspent_outputs).await {
-                    eprintln!("Failed to insert UTXOs for block {}: {}", block_hash, e);
+                let mut session_keeper = session_keeper.lock().await;
+                match session_keeper.get(&wallet_name) {
+                    Err(e) => {
+                        eprintln!("fail save utxos: cannot get session {e}");
+                    }
+                    Ok(session) => {
+                        if let Err(e) = session.wallet.mutate_btc(|btc| {
+                            btc.insert_utxos(unspent_outputs);
+                            Ok(())
+                        }) {
+                            eprintln!("fail to insert utxos: {e}");
+                        }
+                    }
                 }
             }
         }

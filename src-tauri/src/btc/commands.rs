@@ -7,14 +7,11 @@ use crate::{
     chain_trait::SecureKey,
     config::{CONFIG, Chain},
     session::{AppSession, Session},
-    wallet_keeper::WalletKeeper,
+    wallet::Wallet,
 };
 
-fn build_prk(s: &Session) -> Result<Prk, String> {
-    btc::wallet::build_prk(
-        &s.wallet.mnemonic.expose_secret(),
-        &s.passphrase.expose_secret(),
-    )
+fn build_prk(w: &Wallet) -> Result<Prk, String> {
+    btc::wallet::build_prk(&w.mnemonic.expose_secret(), &w.passphrase.expose_secret())
 }
 
 #[specta]
@@ -24,33 +21,32 @@ pub async fn btc_derive_address(
     label: String,
     index: u32,
     session_keeper: tauri::State<'_, AppSession>,
-    wallet_keeper: tauri::State<'_, WalletKeeper>,
 ) -> Result<String, String> {
     let mut session_keeper = session_keeper.lock().await;
-    let session = session_keeper.get(&wallet_name)?;
+    let Session { wallet, .. } = session_keeper.get(&wallet_name)?;
     let derive_path = address::DerivePath {
         change: address::Change::External,
         index,
     };
-    if !session
-        .wallet
+    if !wallet
         .btc
         .is_deriviation_index_available(derive_path.clone())
     {
         return Err(format!("Deriviation index {} already occupied", index));
     }
 
-    let prk = build_prk(session)?;
-    let child = session.wallet.btc.derive_child(
-        prk.expose(),
-        CONFIG.bitcoin.network(),
-        derive_path.clone(),
-    )?;
+    let prk = build_prk(wallet)?;
+    let child =
+        wallet
+            .btc
+            .derive_child(prk.expose(), CONFIG.bitcoin.network(), derive_path.clone())?;
 
-    session.wallet.last_used_chain = Chain::Bitcoin;
-    session.wallet.btc.add_child(label, derive_path);
+    wallet.last_used_chain = Chain::Bitcoin;
+    wallet.mutate_btc(|chain| {
+        chain.add_child(label, derive_path);
+        Ok(())
+    })?;
 
-    wallet_keeper.save_wallet(session)?;
     Ok(child.1.to_string())
 }
 
@@ -82,15 +78,13 @@ pub async fn btc_list_derived_addresess(
     session_keeper: tauri::State<'_, AppSession>,
 ) -> Result<Vec<DerivedAddress>, String> {
     let mut session_keeper = session_keeper.lock().await;
-    let session = session_keeper.get(&wallet_name)?;
-    let prk = build_prk(session)?;
-    Ok(session
-        .wallet
+    let Session { wallet, .. } = session_keeper.get(&wallet_name)?;
+    let prk = build_prk(wallet)?;
+    Ok(wallet
         .btc
         .list_external_addresess()
         .map(|addr| {
-            let (_, address) = session
-                .wallet
+            let (_, address) = wallet
                 .btc
                 .derive_child(
                     prk.expose(),
@@ -103,6 +97,41 @@ pub async fn btc_list_derived_addresess(
                 label: addr.label.clone(),
                 address: address.to_string(),
             }
+        })
+        .collect())
+}
+
+#[derive(specta::Type, Serialize, Deserialize)]
+
+pub struct UTxOID {
+    tx_id: String,
+    vout: String,
+}
+
+#[derive(specta::Type, Serialize)]
+pub struct Utxo {
+    utxoid: UTxOID,
+    value: String,
+}
+
+#[specta]
+#[tauri::command]
+pub async fn btc_list_utxos(
+    wallet_name: String,
+    session_keeper: tauri::State<'_, AppSession>,
+) -> Result<Vec<Utxo>, String> {
+    let mut session_keeper = session_keeper.lock().await;
+    let Session { wallet, .. } = session_keeper.get(&wallet_name)?;
+    Ok(wallet
+        .btc
+        .utxos
+        .iter()
+        .map(|utxo| Utxo {
+            value: utxo.output.value.to_sat().to_string(),
+            utxoid: UTxOID {
+                tx_id: utxo.tx_id.to_string(),
+                vout: utxo.vout.to_string(),
+            },
         })
         .collect())
 }

@@ -41,8 +41,10 @@ const Bitcoin = () => {
             For secure acceptance of funds, consider generating dedicated child
             address per transaction.
           </P>
-          <DeriveChildAddress />
-          <ListDerivedAddresses />
+          <Row>
+            <DeriveChildAddress />
+            <ListDerivedAddresses />
+          </Row>
         </Card>
       )}
     </Stack>
