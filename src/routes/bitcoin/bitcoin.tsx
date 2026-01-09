@@ -8,6 +8,7 @@ import { P, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
 import { DeriveChildAddress } from './derive_child'
 import { ListDerivedAddresses } from './list_childs'
+import { ListUtxo } from './list_utxo'
 
 const explorer_url = 'https://mempool.space/address/'
 
@@ -44,6 +45,7 @@ const Bitcoin = () => {
           <Row>
             <DeriveChildAddress />
             <ListDerivedAddresses />
+            <ListUtxo />
           </Row>
         </Card>
       )}

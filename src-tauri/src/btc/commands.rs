@@ -27,6 +27,7 @@ pub async fn btc_derive_address(
     let derive_path = address::DerivePath {
         change: address::Change::External,
         index,
+        network: CONFIG.bitcoin.network(),
     };
     if !wallet
         .btc

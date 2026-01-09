@@ -183,7 +183,6 @@ pub async fn handle_chain_updates(
                     }
                 };
                 let block_height = indexed_block.height;
-
                 let unspent_outputs = indexed_block
                     .block
                     .txdata
@@ -215,7 +214,9 @@ pub async fn handle_chain_updates(
                     }
                     Ok(session) => {
                         if let Err(e) = session.wallet.mutate_btc(|btc| {
+                            let len = unspent_outputs.len();
                             btc.insert_utxos(unspent_outputs);
+                            println!("Saved {} utxos", len);
                             Ok(())
                         }) {
                             eprintln!("fail to insert utxos: {e}");

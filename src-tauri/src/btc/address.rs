@@ -44,20 +44,15 @@ impl From<Change> for u8 {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DerivePath {
+    pub network: Network,
     pub change: Change,
     pub index: u32,
 }
 
 impl Display for DerivePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}/{}", self.change, self.index)
-    }
-}
-
-impl DerivePath {
-    pub fn bip86_path(&self, network: Network) -> Result<DerivationPath, String> {
         let purpose = 86;
-        let coin_type = match network {
+        let coin_type = match self.network {
             Network::Bitcoin => 0,
             _ => 1,
         };
@@ -66,13 +61,24 @@ impl DerivePath {
             "m/{purpose}'/{coin_type}'/{account}'/{}/{}",
             self.change as i32, self.index
         );
-        DerivationPath::from_str(&path).map_err(|e| format!("fail to derive bip86_path: {e}"))
+        f.write_str(&path)
+    }
+}
+
+impl DerivePath {
+    pub fn as_bip86_path(&self) -> Result<DerivationPath, String> {
+        DerivationPath::from_str(&self.to_string())
+            .map_err(|e| format!("fail to derive bip86_path: {e}"))
     }
 
     pub fn from_str(path: &str) -> Result<Self, String> {
         let path = DerivationPath::from_str(path)
             .map_err(|e| format!("fail to derive bip86_path: {e}"))?;
         let vec = path.to_u32_vec();
+        let network = match vec.get(2).copied() {
+            Some(0) => Network::Bitcoin,
+            _ => Network::Regtest,
+        };
         let change: u8 = match vec.get(3).copied() {
             Some(0) => 0,
             Some(1) => 1,
@@ -84,6 +90,7 @@ impl DerivePath {
             .copied()
             .ok_or("missing index component in bip86 path")?;
         Ok(DerivePath {
+            network,
             change: Change::from(change),
             index,
         })
