@@ -9,7 +9,7 @@ use zeroize::Zeroize;
 use crate::{
     app_state::AppState,
     btc::{self, neutrino::NeutrinoStarter},
-    chain_trait::{ChainTrait, SecureKey},
+    chain_trait::ChainTrait,
     config::{CONFIG, Chain, Config, constants},
     db::BlockHeader,
     eth, mnemonic, schema,
@@ -98,17 +98,20 @@ pub async fn unlock_wallet(
     session_keeper: tauri::State<'_, AppSession>,
     neutrino_starter: tauri::State<'_, NeutrinoStarter>,
 ) -> Result<UnlockMsg, String> {
-    let wallet = wallet_keeper.load(&wallet_name, &passphrase)?;
+    let mut wallet = wallet_keeper.load(&wallet_name, &passphrase)?;
 
-    // Derive private keys for both chains
-    let eth_prk = eth::wallet::build_prk(&wallet.mnemonic.expose_secret(), &passphrase)?;
-    let btc_prk = btc::wallet::build_prk(&wallet.mnemonic.expose_secret(), &passphrase)?;
+    // Derive private keys for chains
+    let eth_prk = wallet
+        .eth
+        .build_prk(&wallet.mnemonic.expose_secret(), &passphrase)?;
+    let btc_prk = wallet
+        .btc
+        .build_prk(&wallet.mnemonic.expose_secret(), &passphrase)?;
 
     // Unlock both wallets using the ChainWallet trait
     let ethereum = wallet.eth.unlock(&eth_prk)?;
     let bitcoin = wallet.btc.unlock(&btc_prk)?;
 
-    let scripts = wallet.btc.derive_scripts_of_interes(btc_prk.expose())?;
     let last_used_chain = wallet.last_used_chain;
 
     let session = Session::new(wallet, Config::session_exp_duration());
@@ -116,7 +119,7 @@ pub async fn unlock_wallet(
     // Start Bitcoin sync in background without waiting
     let neutrino_starter_clone = (*neutrino_starter).clone();
     tauri::async_runtime::spawn(async move {
-        if let Err(e) = neutrino_starter_clone.sync(wallet_name, scripts).await {
+        if let Err(e) = neutrino_starter_clone.sync(wallet_name).await {
             eprintln!("Failed to start Bitcoin sync: {}", e);
         }
     });

@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use shush_rs::SecretBox;
 
 use crate::{
@@ -35,6 +37,7 @@ impl Wallet {
             btc: btc::BitcoinWallet {
                 derived_addresses: Vec::new(),
                 utxos: vec![],
+                scripts_of_interes: HashSet::new(),
             },
             eth: eth::EthereumWallet {
                 tracked_tokens: eth::constants::default_tokens(),

@@ -22,6 +22,9 @@ use crate::{
 pub struct BitcoinWallet {
     pub derived_addresses: Vec<LabeledDerivationPath>,
     pub utxos: Vec<UTxO>,
+
+    // runtime storage for storing scripts to check in compact block filters
+    pub scripts_of_interes: HashSet<DerivedScript>,
 }
 
 #[derive(serde::Serialize, specta::Type)]
@@ -53,12 +56,39 @@ pub struct DerivedScript {
 }
 
 impl BitcoinWallet {
+    pub fn build_prk(&self, mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
+        let network = crate::config::CONFIG.bitcoin.network();
+        let mnemonic = bip39::Mnemonic::parse_in_normalized(Language::English, mnemonic)
+            .map_err(|e| e.to_string())?;
+        let seed = mnemonic.to_seed(passphrase);
+        let xpriv = bip32::Xpriv::new_master(network, &seed).map_err(|e| e.to_string())?;
+        Ok(Prk { xpriv })
+    }
+
+    pub fn main_derive_path(&self) -> DerivePath {
+        DerivePath {
+            network: CONFIG.bitcoin.network(),
+            change: Change::External,
+            index: 0,
+        }
+    }
+
     pub fn derive_scripts_of_interes(
         &self,
         xpriv: &Xpriv,
     ) -> Result<HashSet<DerivedScript>, String> {
         let mut scripts_of_interes: HashSet<DerivedScript> = HashSet::new();
         let network = CONFIG.bitcoin.network();
+
+        {
+            // Derive script for main receive script pubkey
+            let derive_path = self.main_derive_path();
+            let (_, address) = self.derive_child(xpriv, network, derive_path.clone())?;
+            scripts_of_interes.insert(DerivedScript {
+                script: address.script_pubkey(),
+                derive_path,
+            });
+        }
 
         for labled_derive_path in self.derived_addresses.iter() {
             let derive_path = labled_derive_path.derive_path.clone();
@@ -131,20 +161,28 @@ impl BitcoinWallet {
     pub fn insert_utxos(&mut self, utxos: Vec<UTxO>) {
         self.utxos.extend(utxos);
     }
+
+    pub fn add_script_of_interes(&mut self, script: DerivedScript) {
+        self.scripts_of_interes.insert(script);
+    }
 }
 
 impl ChainTrait for BitcoinWallet {
     type Prk = Prk;
     type UnlockResult = BitcoinUnlock;
 
-    fn unlock(&self, prk: &Self::Prk) -> Result<Self::UnlockResult, String> {
-        let main_receive_address = DerivePath {
-            network: CONFIG.bitcoin.network(),
-            change: Change::External,
-            index: 0,
-        };
+    fn unlock(&mut self, prk: &Self::Prk) -> Result<Self::UnlockResult, String> {
+        let scripts = self.derive_scripts_of_interes(prk.expose())?;
+        for script in scripts {
+            self.add_script_of_interes(script);
+        }
+
         let (_, btc_main_address) = self
-            .derive_child(prk.expose(), CONFIG.bitcoin.network(), main_receive_address)
+            .derive_child(
+                prk.expose(),
+                CONFIG.bitcoin.network(),
+                self.main_derive_path(),
+            )
             .map_err(|e| e.to_string())?;
 
         Ok(BitcoinUnlock {
@@ -220,6 +258,7 @@ impl Persistable for BitcoinWallet {
         Ok(Self {
             derived_addresses,
             utxos,
+            scripts_of_interes: HashSet::new(),
         })
     }
 }
@@ -250,15 +289,6 @@ impl AssetTracker<LabeledDerivationPath> for BitcoinWallet {
         }
         Ok(())
     }
-}
-
-pub fn build_prk(mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
-    let network = crate::config::CONFIG.bitcoin.network();
-    let mnemonic = bip39::Mnemonic::parse_in_normalized(Language::English, mnemonic)
-        .map_err(|e| e.to_string())?;
-    let seed = mnemonic.to_seed(passphrase);
-    let xpriv = bip32::Xpriv::new_master(network, &seed).map_err(|e| e.to_string())?;
-    Ok(Prk { xpriv })
 }
 
 pub mod persistence {
@@ -304,6 +334,7 @@ mod tests {
         let network = CONFIG.bitcoin.network();
         let wallet = BitcoinWallet {
             utxos: vec![],
+            scripts_of_interes: HashSet::new(),
             derived_addresses: vec![
                 LabeledDerivationPath {
                     label: "addr1".to_string(),

@@ -27,7 +27,7 @@ impl ChainTrait for EthereumWallet {
     type Prk = Prk;
     type UnlockResult = EthereumUnlock;
 
-    fn unlock(&self, prk: &Self::Prk) -> Result<Self::UnlockResult, String> {
+    fn unlock(&mut self, prk: &Self::Prk) -> Result<Self::UnlockResult, String> {
         Ok(EthereumUnlock {
             address: prk.expose().address().to_string(),
         })
@@ -85,6 +85,19 @@ impl AssetTracker<Token> for EthereumWallet {
 }
 
 impl EthereumWallet {
+    pub fn build_prk(&self, mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
+        MnemonicBuilder::<English>::default()
+            .phrase(mnemonic)
+            .password(passphrase)
+            .derivation_path("m/44'/60'/0'/0")
+            .unwrap()
+            .index(0)
+            .unwrap()
+            .build()
+            .map_err(|e| format!("fail to derive eth signer: {}", e))
+            .map(|signer| Prk { signer })
+    }
+
     pub fn get_tracked_token(&self, token: Address) -> Option<&Token> {
         self.tracked_tokens
             .iter()
@@ -94,19 +107,6 @@ impl EthereumWallet {
 
 pub fn parse_addres(addres: &str) -> Result<Address, String> {
     Address::from_str(addres).map_err(|e| format!("Invalid Ethereum address: {}", e))
-}
-
-pub fn build_prk(mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
-    MnemonicBuilder::<English>::default()
-        .phrase(mnemonic)
-        .password(passphrase)
-        .derivation_path("m/44'/60'/0'/0")
-        .unwrap()
-        .index(0)
-        .unwrap()
-        .build()
-        .map_err(|e| format!("fail to derive eth signer: {}", e))
-        .map(|signer| Prk { signer })
 }
 
 #[derive(serde::Serialize, specta::Type)]
@@ -127,22 +127,5 @@ pub mod persistence {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct Wallet {
         pub tracked_tokens: Vec<Token>,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mnemonic;
-
-    #[test]
-    fn test_construct_private_key() {
-        let mnemonic = mnemonic::new().unwrap();
-        let passphrase = "test passphrase";
-        let result = build_prk(&mnemonic, passphrase);
-        match result {
-            Ok(prk) => println!("Success: {:?}", prk.signer.address()),
-            Err(e) => println!("Error: {:?}", e),
-        }
     }
 }

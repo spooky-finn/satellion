@@ -32,7 +32,7 @@ pub struct ChainInfo {
 }
 
 fn build_prk(s: &Session) -> Result<Prk, String> {
-    eth::wallet::build_prk(
+    s.wallet.eth.build_prk(
         &s.wallet.mnemonic.expose_secret(),
         &s.wallet.passphrase.expose_secret(),
     )

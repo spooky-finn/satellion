@@ -3,7 +3,7 @@ use shush_rs::ExposeSecret;
 use specta::{Type, specta};
 
 use crate::{
-    btc::{self, Prk, address},
+    btc::{DerivedScript, Prk, address},
     chain_trait::SecureKey,
     config::{CONFIG, Chain},
     session::{AppSession, Session},
@@ -11,7 +11,8 @@ use crate::{
 };
 
 fn build_prk(w: &Wallet) -> Result<Prk, String> {
-    btc::wallet::build_prk(&w.mnemonic.expose_secret(), &w.passphrase.expose_secret())
+    w.btc
+        .build_prk(&w.mnemonic.expose_secret(), &w.passphrase.expose_secret())
 }
 
 #[specta]
@@ -44,7 +45,11 @@ pub async fn btc_derive_address(
 
     wallet.last_used_chain = Chain::Bitcoin;
     wallet.mutate_btc(|chain| {
-        chain.add_child(label, derive_path);
+        chain.add_child(label, derive_path.clone());
+        chain.add_script_of_interes(DerivedScript {
+            script: child.1.script_pubkey(),
+            derive_path,
+        });
         Ok(())
     })?;
 

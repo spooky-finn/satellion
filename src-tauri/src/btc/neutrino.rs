@@ -1,4 +1,4 @@
-use std::{collections::HashSet, net::SocketAddrV4, str::FromStr, sync::Arc, time::Duration};
+use std::{net::SocketAddrV4, str::FromStr, sync::Arc, time::Duration};
 
 use bip157::{
     BlockHash, Builder, Client, Event, Header, Network, TrustedPeer,
@@ -11,12 +11,8 @@ use bitcoin::{
 use tokio::sync::Mutex;
 
 use crate::{
-    app_state::AppState,
-    btc::{DerivedScript, utxo::UTxO},
-    config::CONFIG,
-    db::BlockHeader,
-    repository::ChainRepository,
-    session::SessionKeeper,
+    app_state::AppState, btc::utxo::UTxO, config::CONFIG, db::BlockHeader,
+    repository::ChainRepository, session::SessionKeeper,
 };
 
 const REGTEST_PEER: &str = "127.0.0.1:18444";
@@ -35,11 +31,7 @@ impl NeutrinoStarter {
         }
     }
 
-    pub async fn sync(
-        &self,
-        wallet_name: String,
-        scripts_of_interes: HashSet<DerivedScript>,
-    ) -> Result<(), String> {
+    pub async fn sync(&self, wallet_name: String) -> Result<(), String> {
         let block_headers = self
             .repository
             .get_block_headers(10)
@@ -65,7 +57,6 @@ impl NeutrinoStarter {
             client,
             app_state,
             repository,
-            scripts_of_interes,
             self.session_keeper.clone(),
             wallet_name,
         ));
@@ -128,7 +119,6 @@ pub async fn handle_chain_updates(
     mut client: bip157::Client,
     app_state: Arc<AppState>,
     repository: Arc<ChainRepository>,
-    scripts_of_interes: HashSet<DerivedScript>,
     session_keeper: Arc<Mutex<SessionKeeper>>,
     wallet_name: String,
 ) {
@@ -169,7 +159,16 @@ pub async fn handle_chain_updates(
             }
             Event::Block(_block) => {}
             Event::IndexedFilter(filter) => {
-                let scripts_iter = scripts_of_interes.iter().map(|s| &s.script);
+                let mut session_keeper = session_keeper.lock().await;
+                let wallet = match session_keeper.get(&wallet_name) {
+                    Err(e) => {
+                        eprint!("fail to get wallet from session {e}");
+                        return;
+                    }
+                    Ok(s) => &mut s.wallet,
+                };
+
+                let scripts_iter = wallet.btc.scripts_of_interes.iter().map(|s| &s.script);
                 if !filter.contains_any(scripts_iter) {
                     return;
                 }
@@ -188,40 +187,36 @@ pub async fn handle_chain_updates(
                     .txdata
                     .iter()
                     .flat_map(|tx| {
-                        scripts_of_interes.iter().flat_map(move |derived_script| {
-                            tx.output
-                                .iter()
-                                .enumerate()
-                                .filter(|(_, vout)| derived_script.script == vout.script_pubkey)
-                                .map(move |(vout, output)| UTxO {
-                                    tx_id: tx.compute_wtxid(),
-                                    output: output.clone(),
-                                    vout,
-                                    derive_path: derived_script.derive_path.clone(),
-                                    block: crate::btc::utxo::BlockHeader {
-                                        hash: block_hash,
-                                        height: block_height,
-                                    },
-                                })
-                        })
+                        wallet
+                            .btc
+                            .scripts_of_interes
+                            .iter()
+                            .flat_map(move |derived_script| {
+                                tx.output
+                                    .iter()
+                                    .enumerate()
+                                    .filter(|(_, vout)| derived_script.script == vout.script_pubkey)
+                                    .map(move |(vout, output)| UTxO {
+                                        tx_id: tx.compute_wtxid(),
+                                        output: output.clone(),
+                                        vout,
+                                        derive_path: derived_script.derive_path.clone(),
+                                        block: crate::btc::utxo::BlockHeader {
+                                            hash: block_hash,
+                                            height: block_height,
+                                        },
+                                    })
+                            })
                     })
                     .collect::<Vec<UTxO>>();
 
-                let mut session_keeper = session_keeper.lock().await;
-                match session_keeper.get(&wallet_name) {
-                    Err(e) => {
-                        eprintln!("fail save utxos: cannot get session {e}");
-                    }
-                    Ok(session) => {
-                        if let Err(e) = session.wallet.mutate_btc(|btc| {
-                            let len = unspent_outputs.len();
-                            btc.insert_utxos(unspent_outputs);
-                            println!("Saved {} utxos", len);
-                            Ok(())
-                        }) {
-                            eprintln!("fail to insert utxos: {e}");
-                        }
-                    }
+                if let Err(e) = wallet.mutate_btc(|btc| {
+                    let len = unspent_outputs.len();
+                    btc.insert_utxos(unspent_outputs);
+                    println!("Saved {} utxos", len);
+                    Ok(())
+                }) {
+                    eprintln!("fail to insert utxos: {e}");
                 }
             }
         }

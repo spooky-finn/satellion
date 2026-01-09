@@ -6,7 +6,7 @@ pub trait ChainTrait {
     type UnlockResult;
 
     /// Unlocks the wallet using the provided private key material.
-    fn unlock(&self, prk: &Self::Prk) -> Result<Self::UnlockResult, String>;
+    fn unlock(&mut self, prk: &Self::Prk) -> Result<Self::UnlockResult, String>;
 }
 
 /// Trait for secure private key handling across different blockchains.
