@@ -50,7 +50,7 @@ export const ListDerivedAddresses = observer(() => {
       <Modal open={store.isOpen} onClose={() => store.setIsOpen(false)}>
         <ModalDialog sx={{ pr: 6, minWidth: 300 }}>
           <ModalClose />
-          <P>Already derived addresses</P>
+          <P>Derived child addresses</P>
           <Divider sx={{ my: 1 }} />
           {store.addresses.length === 0 ? (
             <P>No addresses derived yet.</P>

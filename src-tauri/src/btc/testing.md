@@ -10,7 +10,8 @@ bitcoind \
   -server \
   -txindex \
   -blockfilterindex=1 \
-  -peerblockfilters
+  -peerblockfilters \
+  -fallbackfee=0.0001
 ```
 
 ## 2. Load/create wallet
@@ -26,4 +27,10 @@ bitcoin-cli \
   -regtest \
   -rpcport=18443 \
   generatetoaddress 101 $(bitcoin-cli -regtest -rpcport=18443 getnewaddress)
+```
+
+## 4. Send transaction
+
+```bash
+bitcoin-cli -regtest sendtoaddress <ADDR> 1.0
 ```
