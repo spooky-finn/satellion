@@ -50,10 +50,18 @@ const Bitcoin = () => {
           </Row>
         </Card>
       )}
-      {btc.sync && (
-        <P>
-          Blockchain sync {btc.sync.status} - height {btc.sync.height}
-        </P>
+      {btc.height && (
+        <>
+          <P>
+            Blockchain sync {btc.status} - height {btc.height},{' '}
+            {btc.progress.toFixed(0)}%
+          </P>
+          {btc.warning && (
+            <P level="body-xs" color="warning">
+              {btc.warning}
+            </P>
+          )}
+        </>
       )}
     </Stack>
   )

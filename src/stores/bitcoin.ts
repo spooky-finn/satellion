@@ -1,36 +1,47 @@
 import { listen, type Event } from '@tauri-apps/api/event'
 import { makeAutoObservable } from 'mobx'
-import type { SyncProgress, SyncStatus } from '../bindings'
-
-type SyncState = {
-  status: 'completed' | 'in progress' | 'failed'
-  height: number
-}
+import type {
+  SyncHeightUpdateEvent,
+  SyncProgressEvent,
+  SyncWarningEvent
+} from '../bindings'
 
 export class BitcoinWallet {
   constructor() {
     makeAutoObservable(this)
 
-    listen('btc_sync', (event: Event<SyncProgress>) => {
-      this.setSync(event.payload.status, event.payload.height)
-      console.log('btc_sync', event.payload)
+    listen('btc_sync', (event: Event<SyncHeightUpdateEvent>) => {
+      this.setHeight(event.payload.height)
+      this.setStatus(event.payload.status)
+    })
+    listen('btc_sync_progress', (event: Event<SyncProgressEvent>) => {
+      this.setProgress(event.payload.progress)
+    })
+    listen('btc_sync_warning', (event: Event<SyncWarningEvent>) => {
+      this.setWarning(event.payload.msg)
     })
   }
 
   address!: string
 
-  sync?: SyncState
-  setSync(status: SyncStatus, height: number | null) {
-    if (!this.sync) {
-      this.sync = {
-        status: 'in progress',
-        height: 0
-      }
-    }
+  warning?: string
+  setWarning(w?: string) {
+    this.warning = w
+  }
 
-    this.sync.status = status
-    if (height) {
-      this.sync.height = height
-    }
+  height?: number
+  setHeight(h: number) {
+    this.height = h
+    this.warning = undefined
+  }
+  progress: number = 0
+  setProgress(p: number) {
+    this.progress = p
+    this.warning = undefined
+  }
+  status?: SyncHeightUpdateEvent['status']
+  setStatus(s: SyncHeightUpdateEvent['status']) {
+    this.status = s
+    this.warning = undefined
   }
 }

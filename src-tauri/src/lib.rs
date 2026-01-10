@@ -22,7 +22,7 @@ use tauri_specta::collect_events;
 use tokio::sync::Mutex;
 
 use crate::{
-    btc::neutrino::{NeutrinoStarter, SyncProgress},
+    btc::neutrino::{NeutrinoStarter, SyncHeightUpdateEvent, SyncProgressEvent, SyncWarningEvent},
     repository::ChainRepository,
     wallet_keeper::WalletKeeper,
 };
@@ -69,7 +69,11 @@ pub fn run() {
             eth::commands::eth_anvil_set_initial_balances,
         ])
         .constant("MIN_PASSPHRASE_LEN", config::MIN_PASSPHRASE_LEN)
-        .events(collect_events![SyncProgress]);
+        .events(collect_events![
+            SyncHeightUpdateEvent,
+            SyncProgressEvent,
+            SyncWarningEvent
+        ]);
 
     #[cfg(debug_assertions)]
     builder

@@ -163,9 +163,13 @@ async ethAnvilSetInitialBalances(address: string) : Promise<Result<string, strin
 
 
 export const events = __makeEvents__<{
-syncProgress: SyncProgress
+syncHeightUpdateEvent: SyncHeightUpdateEvent,
+syncProgressEvent: SyncProgressEvent,
+syncWarningEvent: SyncWarningEvent
 }>({
-syncProgress: "sync-progress"
+syncHeightUpdateEvent: "sync-height-update-event",
+syncProgressEvent: "sync-progress-event",
+syncWarningEvent: "sync-warning-event"
 })
 
 /** user-defined constants **/
@@ -182,10 +186,12 @@ export type ChainStatus = { height: number }
 export type DerivedAddress = { label: string; address: string; deriv_path: string }
 export type EthereumUnlock = { address: string }
 export type FeeMode = "Minimal" | "Standard" | "Increased"
+export type HeightUpdateStatus = "in progress" | "completed"
 export type PrepareTxReqReq = { wallet_name: string; token_address: string; amount: string; recipient: string; fee_mode: FeeMode }
 export type PrepareTxReqRes = { estimated_gas: string; max_fee_per_gas: string; fee_ceiling: string; fee_in_usd: number }
-export type SyncProgress = { status: SyncStatus; height: number | null }
-export type SyncStatus = "in progress" | "completed" | "failed"
+export type SyncHeightUpdateEvent = { status: HeightUpdateStatus; height: number }
+export type SyncProgressEvent = { progress: number }
+export type SyncWarningEvent = { msg: string }
 export type TokenBalance = { symbol: string; balance: string; decimals: number; address: string }
 export type TokenType = { chain: Chain; symbol: string; decimals: number }
 export type UIConfig = { eth_anvil: boolean }

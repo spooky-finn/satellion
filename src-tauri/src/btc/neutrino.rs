@@ -8,7 +8,7 @@ use bitcoin::{
     blockdata::block::{TxMerkleNode, Version},
     pow::CompactTarget,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use specta::Type;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
@@ -20,7 +20,9 @@ use crate::{
 
 const REGTEST_PEER: &str = "127.0.0.1:18444";
 
-pub const EVENT_CHAIN_SYNC: &str = "btc_sync";
+pub const EVENT_HEIGHT_UPDATE: &str = "btc_sync";
+pub const EVENT_SYNC_PROGRESS: &str = "btc_sync_progress";
+pub const EVENT_SYNC_WARNING: &str = "btc_sync_warning";
 
 #[derive(Clone)]
 pub struct NeutrinoStarter {
@@ -123,20 +125,28 @@ impl Neutrino {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-enum SyncStatus {
+#[derive(Debug, Clone, Serialize, Type)]
+enum HeightUpdateStatus {
     #[serde(rename = "in progress")]
     Progress,
     #[serde(rename = "completed")]
     Completed,
-    #[serde(rename = "failed")]
-    Failed,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
-pub struct SyncProgress {
-    status: SyncStatus,
-    height: Option<u32>,
+#[derive(Debug, Clone, Serialize, Type, tauri_specta::Event)]
+pub struct SyncHeightUpdateEvent {
+    status: HeightUpdateStatus,
+    height: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Type, tauri_specta::Event)]
+pub struct SyncProgressEvent {
+    progress: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Type, tauri_specta::Event)]
+pub struct SyncWarningEvent {
+    msg: String,
 }
 
 pub struct CFilterProcessor {
@@ -231,10 +241,10 @@ pub async fn handle_chain_updates(
                 Event::FiltersSynced(sync_update) => {
                     println!("Synced to height: {}", sync_update.tip.height);
                     app.emit(
-                    EVENT_CHAIN_SYNC,
-                    SyncProgress {
-                        height: Some(sync_update.tip.height),
-                        status: SyncStatus::Completed,
+                    EVENT_HEIGHT_UPDATE,
+                    SyncHeightUpdateEvent {
+                        height: sync_update.tip.height,
+                        status: HeightUpdateStatus::Completed,
                     },
                     )
                     .unwrap();
@@ -254,10 +264,10 @@ pub async fn handle_chain_updates(
                     };
                     if let Some(height) = new_height {
                     app.emit(
-                        EVENT_CHAIN_SYNC,
-                        SyncProgress {
-                        height: Some(height),
-                        status: SyncStatus::Progress,
+                        EVENT_HEIGHT_UPDATE,
+                        SyncHeightUpdateEvent {
+                        height,
+                        status: HeightUpdateStatus::Progress,
                         },
                     )
                     .unwrap();
@@ -273,12 +283,13 @@ pub async fn handle_chain_updates(
 
             info = info_rx.recv() => {
             if let Some(info) = info {
-
                 match info {
                     bip157::Info::SuccessfulHandshake => {},
                     bip157::Info::ConnectionsMet => {},
                     bip157::Info::Progress(progress) => {
-                         println!("progress {}", progress.percentage_complete());
+                        app.emit(EVENT_SYNC_PROGRESS, SyncProgressEvent {
+                            progress: progress.percentage_complete()
+                         }).unwrap();
                     },
                     bip157::Info::BlockReceived(_) => {},
                 }
@@ -287,7 +298,10 @@ pub async fn handle_chain_updates(
 
             warn = warn_rx.recv() => {
             if let Some(warn) = warn {
-                eprintln!("{warn}");
+                eprintln!("Bitcoin sync warning: {}", warn);
+                app.emit(EVENT_SYNC_WARNING, SyncWarningEvent {
+                    msg: warn.to_string()
+                }).unwrap();
             }
             }
         }
