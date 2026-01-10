@@ -21,7 +21,7 @@ async createWallet(mnemonic: string, passphrase: string, name: string) : Promise
     else return { status: "error", error: e  as any };
 }
 },
-async chainStatus() : Promise<Result<SyncStatus, string>> {
+async chainStatus() : Promise<Result<ChainStatus, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("chain_status") };
 } catch (e) {
@@ -178,13 +178,14 @@ export type Balance = { wei: string; eth_price: string; tokens: TokenBalance[] }
 export type BitcoinUnlock = { address: string }
 export type Chain = "Bitcoin" | "Ethereum"
 export type ChainInfo = { block_number: string; block_hash: string; base_fee_per_gas: string | null }
+export type ChainStatus = { height: number }
 export type DerivedAddress = { label: string; address: string; deriv_path: string }
 export type EthereumUnlock = { address: string }
 export type FeeMode = "Minimal" | "Standard" | "Increased"
 export type PrepareTxReqReq = { wallet_name: string; token_address: string; amount: string; recipient: string; fee_mode: FeeMode }
 export type PrepareTxReqRes = { estimated_gas: string; max_fee_per_gas: string; fee_ceiling: string; fee_in_usd: number }
-export type SyncProgress = { height: number }
-export type SyncStatus = { height: number; sync_completed: boolean }
+export type SyncProgress = { status: SyncStatus; height: number | null }
+export type SyncStatus = "in progress" | "completed" | "failed"
 export type TokenBalance = { symbol: string; balance: string; decimals: number; address: string }
 export type TokenType = { chain: Chain; symbol: string; decimals: number }
 export type UIConfig = { eth_anvil: boolean }

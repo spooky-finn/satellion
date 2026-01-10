@@ -16,7 +16,7 @@ use crate::{
 };
 
 #[derive(Type, Serialize)]
-pub struct SyncStatus {
+pub struct ChainStatus {
     pub height: u32,
 }
 
@@ -24,7 +24,7 @@ pub struct SyncStatus {
 #[tauri::command]
 pub async fn chain_status(
     db_pool: tauri::State<'_, crate::db::Pool>,
-) -> Result<SyncStatus, String> {
+) -> Result<ChainStatus, String> {
     let mut conn = db_pool.get().expect("Error getting connection from pool");
 
     let last_block = schema::bitcoin_block_headers::table
@@ -33,7 +33,7 @@ pub async fn chain_status(
         .first::<BlockHeader>(&mut conn)
         .map_err(|_| "Error getting last block height".to_string())?;
 
-    Ok(SyncStatus {
+    Ok(ChainStatus {
         height: last_block.height as u32,
     })
 }

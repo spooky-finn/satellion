@@ -1,7 +1,7 @@
 use std::{net::SocketAddrV4, str::FromStr, sync::Arc, time::Duration};
 
 use bip157::{
-    BlockHash, Builder, Client, Event, Header, Network, TrustedPeer,
+    BlockHash, Builder, Client, Event, Header, Network, Requester, TrustedPeer,
     chain::{BlockHeaderChanges, ChainState, IndexedHeader},
 };
 use bitcoin::{
@@ -20,8 +20,7 @@ use crate::{
 
 const REGTEST_PEER: &str = "127.0.0.1:18444";
 
-pub const EVENT_SYNC_COMPLETED: &str = "btc_sync_completed";
-pub const EVENT_SYNC_PROGRESS: &str = "btc_sync_progress";
+pub const EVENT_CHAIN_SYNC: &str = "btc_sync";
 
 #[derive(Clone)]
 pub struct NeutrinoStarter {
@@ -58,12 +57,17 @@ impl NeutrinoStarter {
             }
         });
 
+        let cfilter_processor = CFilterProcessor {
+            session_keeper: self.session_keeper.clone(),
+            wallet_name,
+            requester: client.requester.clone(),
+        };
+
         tauri::async_runtime::spawn(handle_chain_updates(
             app,
             client,
             repository,
-            self.session_keeper.clone(),
-            wallet_name,
+            cfilter_processor,
         ));
 
         Ok(())
@@ -119,117 +123,172 @@ impl Neutrino {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+enum SyncStatus {
+    #[serde(rename = "in progress")]
+    Progress,
+    #[serde(rename = "completed")]
+    Completed,
+    #[serde(rename = "failed")]
+    Failed,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
 pub struct SyncProgress {
-    height: u32,
+    status: SyncStatus,
+    height: Option<u32>,
+}
+
+pub struct CFilterProcessor {
+    session_keeper: Arc<Mutex<SessionKeeper>>,
+    wallet_name: String,
+    requester: Requester,
+}
+
+impl CFilterProcessor {
+    async fn handle(&self, filter: bip157::IndexedFilter) {
+        let mut session_keeper = self.session_keeper.lock().await;
+        let wallet = match session_keeper.get(&self.wallet_name) {
+            Err(e) => {
+                eprint!("fail to get wallet from session {e}");
+                return;
+            }
+            Ok(s) => &mut s.wallet,
+        };
+
+        let scripts_iter = wallet.btc.scripts_of_interes.iter().map(|s| &s.script);
+        if !filter.contains_any(scripts_iter) {
+            return;
+        }
+
+        let block_hash = filter.block_hash();
+        let indexed_block = match self.requester.get_block(block_hash).await {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("Error processing indexed filter: {}", e);
+                return;
+            }
+        };
+        let block_height = indexed_block.height;
+        let unspent_outputs = indexed_block
+            .block
+            .txdata
+            .iter()
+            .flat_map(|tx| {
+                wallet
+                    .btc
+                    .scripts_of_interes
+                    .iter()
+                    .flat_map(move |derived_script| {
+                        tx.output
+                            .iter()
+                            .enumerate()
+                            .filter(|(_, vout)| derived_script.script == vout.script_pubkey)
+                            .map(move |(vout, output)| UTxO {
+                                tx_id: tx.compute_wtxid(),
+                                output: output.clone(),
+                                vout,
+                                derive_path: derived_script.derive_path.clone(),
+                                block: crate::btc::utxo::BlockHeader {
+                                    hash: block_hash,
+                                    height: block_height,
+                                },
+                            })
+                    })
+            })
+            .collect::<Vec<UTxO>>();
+
+        if let Err(e) = wallet.mutate_btc(|btc| {
+            let len = unspent_outputs.len();
+            btc.insert_utxos(unspent_outputs);
+            println!("Saved {} utxos", len);
+            Ok(())
+        }) {
+            eprintln!("fail to insert utxos: {e}");
+        }
+    }
 }
 
 /// Handle incoming neutrino events and update shared state
 pub async fn handle_chain_updates(
     app: AppHandle,
-    mut client: bip157::Client,
+    client: bip157::Client,
     repository: Arc<ChainRepository>,
-    session_keeper: Arc<Mutex<SessionKeeper>>,
-    wallet_name: String,
+    cfilter_processor: CFilterProcessor,
 ) {
-    let Client { requester, .. } = client;
+    let Client {
+        mut info_rx,
+        mut warn_rx,
+        mut event_rx,
+        ..
+    } = client;
 
-    while let Some(event) = client.event_rx.recv().await {
-        match event {
-            Event::FiltersSynced(sync_update) => {
-                println!("Synced to height: {}", sync_update.tip.height);
-                app.emit(
-                    EVENT_SYNC_COMPLETED,
+    loop {
+        tokio::select! {
+            event = event_rx.recv() => {
+            if let Some(event) = event {
+                match event {
+                Event::FiltersSynced(sync_update) => {
+                    println!("Synced to height: {}", sync_update.tip.height);
+                    app.emit(
+                    EVENT_CHAIN_SYNC,
                     SyncProgress {
-                        height: sync_update.tip.height,
+                        height: Some(sync_update.tip.height),
+                        status: SyncStatus::Completed,
                     },
-                )
-                .unwrap();
-            }
-            Event::ChainUpdate(changes) => {
-                let new_height = match changes {
+                    )
+                    .unwrap();
+                }
+                Event::ChainUpdate(changes) => {
+                    let new_height = match changes {
                     BlockHeaderChanges::Connected(header) => {
-                        if let Err(e) = repository.save_block_header(header) {
-                            eprintln!("Error inserting block: {e:?}");
-                        }
+                        repository
+                        .save_block_header(header)
+                        .expect("fail to insert block headers");
                         Some(header.height)
                     }
                     BlockHeaderChanges::Reorganized { accepted, .. } => {
                         accepted.last().map(|h| h.height)
                     }
                     BlockHeaderChanges::ForkAdded(_) => None,
-                };
-                match new_height {
-                    Some(height) => {
-                        app.emit(EVENT_SYNC_PROGRESS, SyncProgress { height })
-                            .unwrap();
+                    };
+                    if let Some(height) = new_height {
+                    app.emit(
+                        EVENT_CHAIN_SYNC,
+                        SyncProgress {
+                        height: Some(height),
+                        status: SyncStatus::Progress,
+                        },
+                    )
+                    .unwrap();
                     }
-                    None => {
-                        eprintln!("Chain error: no new height");
-                    }
+                }
+                Event::Block(_block) => {}
+                Event::IndexedFilter(filter) => {
+                    cfilter_processor.handle(filter).await;
+                }
                 }
             }
-            Event::Block(_block) => {}
-            Event::IndexedFilter(filter) => {
-                let mut session_keeper = session_keeper.lock().await;
-                let wallet = match session_keeper.get(&wallet_name) {
-                    Err(e) => {
-                        eprint!("fail to get wallet from session {e}");
-                        return;
-                    }
-                    Ok(s) => &mut s.wallet,
-                };
+            }
 
-                let scripts_iter = wallet.btc.scripts_of_interes.iter().map(|s| &s.script);
-                if !filter.contains_any(scripts_iter) {
-                    return;
+            info = info_rx.recv() => {
+            if let Some(info) = info {
+
+                match info {
+                    bip157::Info::SuccessfulHandshake => {},
+                    bip157::Info::ConnectionsMet => {},
+                    bip157::Info::Progress(progress) => {
+                         println!("progress {}", progress.percentage_complete());
+                    },
+                    bip157::Info::BlockReceived(_) => {},
                 }
+            }
+            }
 
-                let block_hash = filter.block_hash();
-                let indexed_block = match requester.get_block(block_hash).await {
-                    Ok(b) => b,
-                    Err(e) => {
-                        eprintln!("Error processing indexed filter: {}", e);
-                        continue;
-                    }
-                };
-                let block_height = indexed_block.height;
-                let unspent_outputs = indexed_block
-                    .block
-                    .txdata
-                    .iter()
-                    .flat_map(|tx| {
-                        wallet
-                            .btc
-                            .scripts_of_interes
-                            .iter()
-                            .flat_map(move |derived_script| {
-                                tx.output
-                                    .iter()
-                                    .enumerate()
-                                    .filter(|(_, vout)| derived_script.script == vout.script_pubkey)
-                                    .map(move |(vout, output)| UTxO {
-                                        tx_id: tx.compute_wtxid(),
-                                        output: output.clone(),
-                                        vout,
-                                        derive_path: derived_script.derive_path.clone(),
-                                        block: crate::btc::utxo::BlockHeader {
-                                            hash: block_hash,
-                                            height: block_height,
-                                        },
-                                    })
-                            })
-                    })
-                    .collect::<Vec<UTxO>>();
-
-                if let Err(e) = wallet.mutate_btc(|btc| {
-                    let len = unspent_outputs.len();
-                    btc.insert_utxos(unspent_outputs);
-                    println!("Saved {} utxos", len);
-                    Ok(())
-                }) {
-                    eprintln!("fail to insert utxos: {e}");
-                }
+            warn = warn_rx.recv() => {
+            if let Some(warn) = warn {
+                eprintln!("{warn}");
+            }
             }
         }
     }

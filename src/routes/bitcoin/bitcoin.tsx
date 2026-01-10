@@ -48,13 +48,12 @@ const Bitcoin = () => {
             <ListDerivedAddresses />
             <ListUtxo />
           </Row>
-
-          {btc.sync && (
-            <P>
-              {btc.sync.status} - height {btc.sync.height}
-            </P>
-          )}
         </Card>
+      )}
+      {btc.sync && (
+        <P>
+          Blockchain sync {btc.sync.status} - height {btc.sync.height}
+        </P>
       )}
     </Stack>
   )
