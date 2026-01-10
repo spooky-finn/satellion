@@ -162,6 +162,11 @@ async ethAnvilSetInitialBalances(address: string) : Promise<Result<string, strin
 /** user-defined events **/
 
 
+export const events = __makeEvents__<{
+syncProgress: SyncProgress
+}>({
+syncProgress: "sync-progress"
+})
 
 /** user-defined constants **/
 
@@ -178,6 +183,7 @@ export type EthereumUnlock = { address: string }
 export type FeeMode = "Minimal" | "Standard" | "Increased"
 export type PrepareTxReqReq = { wallet_name: string; token_address: string; amount: string; recipient: string; fee_mode: FeeMode }
 export type PrepareTxReqRes = { estimated_gas: string; max_fee_per_gas: string; fee_ceiling: string; fee_in_usd: number }
+export type SyncProgress = { height: number }
 export type SyncStatus = { height: number; sync_completed: boolean }
 export type TokenBalance = { symbol: string; balance: string; decimals: number; address: string }
 export type TokenType = { chain: Chain; symbol: string; decimals: number }

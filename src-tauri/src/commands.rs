@@ -1,13 +1,11 @@
-use std::sync::Arc;
-
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use serde::Serialize;
 use shush_rs::ExposeSecret;
 use specta::{Type, specta};
+use tauri::AppHandle;
 use zeroize::Zeroize;
 
 use crate::{
-    app_state::AppState,
     btc::{self, neutrino::NeutrinoStarter},
     chain_trait::ChainTrait,
     config::{CONFIG, Chain, Config, constants},
@@ -20,20 +18,14 @@ use crate::{
 #[derive(Type, Serialize)]
 pub struct SyncStatus {
     pub height: u32,
-    pub sync_completed: bool,
 }
 
 #[specta]
 #[tauri::command]
 pub async fn chain_status(
-    state: tauri::State<'_, Arc<AppState>>,
     db_pool: tauri::State<'_, crate::db::Pool>,
 ) -> Result<SyncStatus, String> {
     let mut conn = db_pool.get().expect("Error getting connection from pool");
-    let sync_completed = state
-        .sync_completed
-        .lock()
-        .map_err(|_| "Failed to lock sync completed".to_string())?;
 
     let last_block = schema::bitcoin_block_headers::table
         .select(schema::bitcoin_block_headers::all_columns)
@@ -43,7 +35,6 @@ pub async fn chain_status(
 
     Ok(SyncStatus {
         height: last_block.height as u32,
-        sync_completed: *sync_completed,
     })
 }
 
@@ -92,6 +83,7 @@ pub struct UnlockMsg {
 #[specta]
 #[tauri::command]
 pub async fn unlock_wallet(
+    app: AppHandle,
     wallet_name: String,
     passphrase: String,
     wallet_keeper: tauri::State<'_, WalletKeeper>,
@@ -119,7 +111,7 @@ pub async fn unlock_wallet(
     // Start Bitcoin sync in background without waiting
     let neutrino_starter_clone = (*neutrino_starter).clone();
     tauri::async_runtime::spawn(async move {
-        if let Err(e) = neutrino_starter_clone.sync(wallet_name).await {
+        if let Err(e) = neutrino_starter_clone.sync(app, wallet_name).await {
             eprintln!("Failed to start Bitcoin sync: {}", e);
         }
     });

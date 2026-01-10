@@ -14,7 +14,8 @@ const explorer_url = 'https://mempool.space/address/'
 
 const Bitcoin = () => {
   const navigate = useNavigate()
-  const addr = root_store.wallet.btc.address
+  const { btc } = root_store.wallet
+  const addr = btc.address
 
   useEffect(() => {
     if (!addr) navigate(route.unlock_wallet)
@@ -47,6 +48,12 @@ const Bitcoin = () => {
             <ListDerivedAddresses />
             <ListUtxo />
           </Row>
+
+          {btc.sync && (
+            <P>
+              {btc.sync.status} - height {btc.sync.height}
+            </P>
+          )}
         </Card>
       )}
     </Stack>

@@ -8,14 +8,20 @@ use bitcoin::{
     blockdata::block::{TxMerkleNode, Version},
     pow::CompactTarget,
 };
+use serde::{Deserialize, Serialize};
+use specta::Type;
+use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 
 use crate::{
-    app_state::AppState, btc::utxo::UTxO, config::CONFIG, db::BlockHeader,
-    repository::ChainRepository, session::SessionKeeper,
+    btc::utxo::UTxO, config::CONFIG, db::BlockHeader, repository::ChainRepository,
+    session::SessionKeeper,
 };
 
 const REGTEST_PEER: &str = "127.0.0.1:18444";
+
+pub const EVENT_SYNC_COMPLETED: &str = "btc_sync_completed";
+pub const EVENT_SYNC_PROGRESS: &str = "btc_sync_progress";
 
 #[derive(Clone)]
 pub struct NeutrinoStarter {
@@ -31,7 +37,7 @@ impl NeutrinoStarter {
         }
     }
 
-    pub async fn sync(&self, wallet_name: String) -> Result<(), String> {
+    pub async fn sync(&self, app: AppHandle, wallet_name: String) -> Result<(), String> {
         let block_headers = self
             .repository
             .get_block_headers(10)
@@ -44,7 +50,6 @@ impl NeutrinoStarter {
 
         let node = neutrino.node;
         let client = neutrino.client;
-        let app_state = Arc::new(AppState::new());
         let repository = Arc::new(self.repository.clone());
 
         tauri::async_runtime::spawn(async move {
@@ -54,8 +59,8 @@ impl NeutrinoStarter {
         });
 
         tauri::async_runtime::spawn(handle_chain_updates(
+            app,
             client,
-            app_state,
             repository,
             self.session_keeper.clone(),
             wallet_name,
@@ -114,24 +119,32 @@ impl Neutrino {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct SyncProgress {
+    height: u32,
+}
+
 /// Handle incoming neutrino events and update shared state
 pub async fn handle_chain_updates(
+    app: AppHandle,
     mut client: bip157::Client,
-    app_state: Arc<AppState>,
     repository: Arc<ChainRepository>,
     session_keeper: Arc<Mutex<SessionKeeper>>,
     wallet_name: String,
 ) {
-    let block_height = app_state.chain_height.clone();
-    let sync_completed = app_state.sync_completed.clone();
     let Client { requester, .. } = client;
 
     while let Some(event) = client.event_rx.recv().await {
         match event {
             Event::FiltersSynced(sync_update) => {
-                *block_height.lock().unwrap() = sync_update.tip.height;
-                *sync_completed.lock().unwrap() = true;
                 println!("Synced to height: {}", sync_update.tip.height);
+                app.emit(
+                    EVENT_SYNC_COMPLETED,
+                    SyncProgress {
+                        height: sync_update.tip.height,
+                    },
+                )
+                .unwrap();
             }
             Event::ChainUpdate(changes) => {
                 let new_height = match changes {
@@ -147,13 +160,12 @@ pub async fn handle_chain_updates(
                     BlockHeaderChanges::ForkAdded(_) => None,
                 };
                 match new_height {
-                    Some(h) => {
-                        *block_height.lock().unwrap() = h;
-                        *sync_completed.lock().unwrap() = false;
+                    Some(height) => {
+                        app.emit(EVENT_SYNC_PROGRESS, SyncProgress { height })
+                            .unwrap();
                     }
                     None => {
                         eprintln!("Chain error: no new height");
-                        *sync_completed.lock().unwrap() = true;
                     }
                 }
             }

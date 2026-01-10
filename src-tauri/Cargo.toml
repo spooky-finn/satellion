@@ -51,7 +51,7 @@ bip39 = "2.2.0"
 # Codegen
 specta = "=2.0.0-rc.22"
 specta-typescript = "0.0.9"
-tauri-specta = { version = "=2.0.0-rc.21", features = ["typescript"] }
+tauri-specta = { version = "=2.0.0-rc.21", features = ["typescript", "derive"] }
 # RAM security
 zeroize = "1.8.2"
 shush-rs = "0.1.11"

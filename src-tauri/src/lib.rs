@@ -1,4 +1,3 @@
-mod app_state;
 mod btc;
 mod chain_trait;
 mod commands;
@@ -19,10 +18,13 @@ use std::sync::Arc;
 
 use specta_typescript::Typescript;
 use tauri::Manager;
+use tauri_specta::collect_events;
 use tokio::sync::Mutex;
 
 use crate::{
-    btc::neutrino::NeutrinoStarter, repository::ChainRepository, wallet_keeper::WalletKeeper,
+    btc::neutrino::{NeutrinoStarter, SyncProgress},
+    repository::ChainRepository,
+    wallet_keeper::WalletKeeper,
 };
 
 const ENABLE_DEVTOOLS: bool = true;
@@ -66,7 +68,8 @@ pub fn run() {
             eth::commands::eth_untrack_token,
             eth::commands::eth_anvil_set_initial_balances,
         ])
-        .constant("MIN_PASSPHRASE_LEN", config::MIN_PASSPHRASE_LEN);
+        .constant("MIN_PASSPHRASE_LEN", config::MIN_PASSPHRASE_LEN)
+        .events(collect_events![SyncProgress]);
 
     #[cfg(debug_assertions)]
     builder
@@ -78,7 +81,6 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .manage(Arc::new(app_state::AppState::new()))
         .manage(db.clone())
         .manage(wallet_keeper)
         .manage(eth_provider.clone())
