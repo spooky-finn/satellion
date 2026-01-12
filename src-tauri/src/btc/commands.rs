@@ -113,6 +113,7 @@ pub struct Utxo {
     utxo_id: UtxoId,
     value: String,
     deriv_path: String,
+    address_label: Option<String>,
 }
 
 #[specta]
@@ -121,17 +122,34 @@ pub async fn btc_list_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<Utxo>, Strin
     let mut sk = sk.lock().await;
     let Session { wallet, .. } = sk.take_session()?;
 
+    let derivepath_label_map: std::collections::HashMap<String, String> = wallet
+        .btc
+        .derived_addresses
+        .iter()
+        .map(|e| (e.derive_path.to_string(), e.label.clone()))
+        .collect();
+
     let mut utxos: Vec<_> = wallet
         .btc
         .utxos
         .iter()
-        .map(|utxo| Utxo {
-            value: utxo.output.value.to_sat().to_string(),
-            utxo_id: UtxoId {
-                tx_id: utxo.tx_id.to_string(),
-                vout: utxo.vout.to_string(),
-            },
-            deriv_path: utxo.derive_path.to_string(),
+        .map(|utxo| {
+            let label: Option<String> = match utxo.derive_path.change {
+                address::Change::Internal => Some("Change".to_string()),
+                address::Change::External => derivepath_label_map
+                    .get(&utxo.derive_path.to_string())
+                    .cloned(),
+            };
+
+            Utxo {
+                value: utxo.output.value.to_sat().to_string(),
+                utxo_id: UtxoId {
+                    tx_id: utxo.tx_id.to_string(),
+                    vout: utxo.vout.to_string(),
+                },
+                deriv_path: utxo.derive_path.to_string(),
+                address_label: label,
+            }
         })
         .collect();
 

@@ -204,7 +204,7 @@ export type TokenBalance = { symbol: string; balance: string; decimals: number; 
 export type TokenType = { chain: Chain; symbol: string; decimals: number }
 export type UIConfig = { eth_anvil: boolean }
 export type UnlockMsg = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock; last_used_chain: Chain }
-export type Utxo = { utxo_id: UtxoId; value: string; deriv_path: string }
+export type Utxo = { utxo_id: UtxoId; value: string; deriv_path: string; address_label: string | null }
 export type UtxoId = { tx_id: string; vout: string }
 
 /** tauri-specta globals **/

@@ -63,7 +63,12 @@ export const ListUtxo = observer(() => {
       </Button>
 
       <Modal open={store.isOpen} onClose={() => store.setIsOpen(false)}>
-        <ModalDialog sx={{ pr: 6, minWidth: 300 }} size="lg">
+        <ModalDialog
+          variant="soft"
+          sx={{ pr: 6, minWidth: 300 }}
+          size="lg"
+          layout="fullscreen"
+        >
           <ModalClose />
 
           <P>Unspent transaction outputs</P>
@@ -78,11 +83,14 @@ export const ListUtxo = observer(() => {
             {store.utxos.length === 0 ? (
               <P>No utxos yet.</P>
             ) : (
-              <Table>
+              <Table variant="soft">
                 <thead>
                   <tr>
                     <th align="left">
                       <P>Derivation path</P>
+                    </th>
+                    <th align="left">
+                      <P>Label</P>
                     </th>
                     <th align="left">
                       <P>Transaction ID</P>
@@ -100,7 +108,11 @@ export const ListUtxo = observer(() => {
                     return (
                       <tr key={key}>
                         <td>
-                          <P>{utxo.deriv_path}</P>
+                          <P fontFamily={'monospace'}>{utxo.deriv_path}</P>
+                        </td>
+
+                        <td>
+                          <P>{utxo.address_label}</P>
                         </td>
 
                         <td>
