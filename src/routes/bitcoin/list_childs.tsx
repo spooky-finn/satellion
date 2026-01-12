@@ -44,7 +44,7 @@ export const ListDerivedAddresses = observer(() => {
         sx={{ width: 'fit-content' }}
         onClick={() => store.setIsOpen(true)}
       >
-        List child addresses
+        List childs
       </Button>
       <Modal open={store.isOpen} onClose={() => store.setIsOpen(false)}>
         <ModalDialog sx={{ pr: 6, minWidth: 300 }}>

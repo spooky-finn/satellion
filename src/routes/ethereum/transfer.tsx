@@ -111,8 +111,8 @@ const TransactionFee = observer(({ state }: { state: TransferStore }) => {
   }
   return (
     <P>
-      Network fee: {state.preconfirmInfo.fee_ceiling} gwei ~{' '}
-      {state.preconfirmInfo.fee_in_usd.toFixed(2)} USD
+      Network fee: {state.preconfirmInfo.fee_ceiling} gwei ~ $
+      {state.preconfirmInfo.fee_in_usd.toFixed(2)}
     </P>
   )
 })

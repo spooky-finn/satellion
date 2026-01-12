@@ -43,7 +43,7 @@ export const Ethereum = observer(() => {
           <BalanceCard />
 
           <Stack py={2}>
-            <P>Ether price {root_store.wallet.eth.usd_price} USD</P>
+            <P>Ether price ${root_store.wallet.eth.usd_price}</P>
             <P>Block Height: {root_store.wallet.eth.chainInfo?.block_number}</P>
             <P>Block Hash: {root_store.wallet.eth.chainInfo?.block_hash}</P>
           </Stack>

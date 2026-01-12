@@ -29,10 +29,10 @@ const Bitcoin = () => {
       </P>
       {addr && (
         <Card size="sm" variant="soft">
-          <Row gap={1}>
-            <P>Main Address</P>
-            <P fontWeight="bold"> {addr}</P>
-          </Row>
+          <Stack>
+            <P fontWeight="bold">{addr}</P>
+            <P level="body-xs">Main Address</P>
+          </Stack>
           <P level="body-xs">
             Do not share this address with untrusted parties who may send
             tainted or illicit coins.
@@ -61,7 +61,7 @@ const Bitcoin = () => {
               {btc.warning}
             </P>
           )}
-          <P>Price {root_store.wallet.btc.usd_price} USD</P>
+          <P>Price ${root_store.wallet.btc.usd_price}</P>
         </>
       )}
     </Stack>
