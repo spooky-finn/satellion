@@ -247,7 +247,7 @@ pub async fn handle_chain_updates(
                 if let Some(event) = event {
                     match event {
                     Event::FiltersSynced(sync_update) => {
-                        debug!("Bitcoin sync: height {}", sync_update.tip.height);
+                        debug!("Bitcoin sync: cfilter synced: height {}", sync_update.tip.height);
                         app.emit(
                             EVENT_HEIGHT_UPDATE,
                             SyncHeightUpdateEvent {
@@ -262,13 +262,15 @@ pub async fn handle_chain_updates(
                     }
                     Event::ChainUpdate(changes) => {
                         let new_height = match changes {
-                            BlockHeaderChanges::Connected(header) => {
+                        BlockHeaderChanges::Connected(header) => {
                             debug!("Bitcoin sync: chain update {}", header.height);
-                        if let Err(err) = repository.save_block_header(header) {
-                            error!("Bitcoin sync: warning: failed to insert block header: {}", err);
-                        }
-                            Some(header.height)
-                        }
+                            if let Err(err) = repository.save_block_header(header) {
+                                if !err.to_string().contains("UNIQUE constraint failed") {
+                                    error!("Bitcoin sync: warning: failed to insert block header: {}", err);
+                                }
+                            }
+                                Some(header.height)
+                            }
                         BlockHeaderChanges::Reorganized { accepted, .. } => {
                             accepted.last().map(|h| h.height)
                         }

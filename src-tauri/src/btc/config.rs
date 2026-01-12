@@ -8,7 +8,7 @@ pub struct BitcoinConfig {
 
 impl BitcoinConfig {
     pub fn new() -> Self {
-        Self { regtest: true }
+        Self { regtest: false }
     }
 
     pub fn network(&self) -> Network {

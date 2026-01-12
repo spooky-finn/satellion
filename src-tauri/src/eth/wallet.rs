@@ -5,6 +5,7 @@ use alloy_signer_local::{MnemonicBuilder, PrivateKeySigner, coins_bip39::English
 
 use crate::{
     chain_trait::{AssetTracker, ChainTrait, Persistable, SecureKey},
+    config::CONFIG,
     eth::{
         PriceFeed,
         constants::{self, ETH_USD_PRICE_FEED},
@@ -110,11 +111,9 @@ impl EthereumWallet {
     pub fn build_prk(&self, mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
         MnemonicBuilder::<English>::default()
             .phrase(mnemonic)
-            .password(passphrase)
-            .derivation_path("m/44'/60'/0'/0")
+            .derivation_path("m/44'/60'/0'/0/0")
             .unwrap()
-            .index(0)
-            .unwrap()
+            .password(CONFIG.xprk_passphrase(passphrase))
             .build()
             .map_err(|e| format!("fail to derive eth signer: {}", e))
             .map(|signer| Prk { signer })

@@ -73,10 +73,10 @@ impl BitcoinWallet {
     }
 
     pub fn build_prk(&self, mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
-        let network = crate::config::CONFIG.bitcoin.network();
+        let network = CONFIG.bitcoin.network();
         let mnemonic = bip39::Mnemonic::parse_in_normalized(Language::English, mnemonic)
             .map_err(|e| e.to_string())?;
-        let seed = mnemonic.to_seed(passphrase);
+        let seed = mnemonic.to_seed(CONFIG.xprk_passphrase(passphrase));
         let xpriv = bip32::Xpriv::new_master(network, &seed).map_err(|e| e.to_string())?;
         Ok(Prk { xpriv })
     }

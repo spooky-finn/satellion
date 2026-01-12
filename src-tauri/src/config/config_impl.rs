@@ -9,6 +9,8 @@ use crate::{btc::config::BitcoinConfig, eth::config::EthereumConfig};
 pub struct Config {
     pub ethereum: EthereumConfig,
     pub bitcoin: BitcoinConfig,
+    /// Require a passphrase when generating private keys
+    pub omit_passphrase_on_private_key: bool,
 }
 
 impl Config {
@@ -75,6 +77,14 @@ impl Config {
 
     pub fn session_exp_duration() -> chrono::TimeDelta {
         chrono::TimeDelta::minutes(10)
+    }
+
+    pub fn xprk_passphrase<'a>(&self, passphrase: &'a str) -> &'a str {
+        if self.omit_passphrase_on_private_key {
+            ""
+        } else {
+            passphrase
+        }
     }
 }
 
