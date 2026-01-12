@@ -20,6 +20,7 @@ use crate::{
     db::BlockHeader,
     repository::ChainRepository,
     session::{SK, SessionKeeper},
+    utils::Throttler,
 };
 
 const REGTEST_PEER: &str = "127.0.0.1:18444";
@@ -240,6 +241,7 @@ pub async fn handle_chain_updates(
         mut event_rx,
         ..
     } = client;
+    let mut progress_throttler = Throttler::new(Duration::from_secs(1));
 
     loop {
         tokio::select! {
@@ -304,13 +306,16 @@ pub async fn handle_chain_updates(
                         bip157::Info::SuccessfulHandshake => {},
                         bip157::Info::ConnectionsMet => {},
                         bip157::Info::Progress(progress) => {
-                            debug!("Bitcoin sync: chain headers: progress {}", progress.percentage_complete());
-                            app.emit(EVENT_SYNC_PROGRESS, SyncProgressEvent {
-                                progress: progress.percentage_complete()
-                            }).unwrap();
+                            if progress_throttler.should_emit() {
+                                let pct = progress.percentage_complete();
+                                debug!("Bitcoin sync: chain headers: progress {}", pct);
+                                app.emit(EVENT_SYNC_PROGRESS, SyncProgressEvent {
+                                    progress: pct
+                                }).unwrap();
+                            }
                         },
                         bip157::Info::BlockReceived(_) => {},
-                    }
+                        }
                 }
             }
 
