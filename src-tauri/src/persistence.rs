@@ -193,6 +193,7 @@ mod tests {
             version: 0,
             last_used_chain: 1,
             bitcoin_data: crate::btc::persistence::Wallet {
+                cfilter_scanner_height: Some(0),
                 childs: vec![crate::btc::persistence::ChildAddress {
                     label: "Secret contractor".to_string(),
                     devive_path: "m/86/0/0/1/1".to_string(),

@@ -6,7 +6,7 @@ use crate::{
     btc::{DerivedScript, Prk, address},
     chain_trait::SecureKey,
     config::{CONFIG, Chain},
-    session::{AppSession, Session},
+    session::{SK, Session},
     wallet::Wallet,
 };
 
@@ -21,10 +21,10 @@ pub async fn btc_derive_address(
     wallet_name: String,
     label: String,
     index: u32,
-    session_keeper: tauri::State<'_, AppSession>,
+    sk: tauri::State<'_, SK>,
 ) -> Result<String, String> {
-    let mut session_keeper = session_keeper.lock().await;
-    let Session { wallet, .. } = session_keeper.get(&wallet_name)?;
+    let mut sk = sk.lock().await;
+    let Session { wallet, .. } = sk.take_session(&wallet_name)?;
     let derive_path = address::DerivePath {
         change: address::Change::External,
         index,
@@ -60,11 +60,11 @@ pub async fn btc_derive_address(
 #[tauri::command]
 pub async fn btc_unoccupied_deriviation_index(
     wallet_name: String,
-    session_keeper: tauri::State<'_, AppSession>,
+    sk: tauri::State<'_, SK>,
 ) -> Result<u32, String> {
-    let mut session_keeper = session_keeper.lock().await;
-    let session = session_keeper.get(&wallet_name)?;
-    Ok(session
+    let mut sk = sk.lock().await;
+    Ok(sk
+        .take_session(&wallet_name)?
         .wallet
         .btc
         .unoccupied_deriviation_index(address::Change::External))
@@ -81,10 +81,10 @@ pub struct DerivedAddress {
 #[tauri::command]
 pub async fn btc_list_derived_addresess(
     wallet_name: String,
-    session_keeper: tauri::State<'_, AppSession>,
+    sk: tauri::State<'_, SK>,
 ) -> Result<Vec<DerivedAddress>, String> {
-    let mut session_keeper = session_keeper.lock().await;
-    let Session { wallet, .. } = session_keeper.get(&wallet_name)?;
+    let mut sk = sk.lock().await;
+    let Session { wallet, .. } = sk.take_session(&wallet_name)?;
     let prk = build_prk(wallet)?;
     Ok(wallet
         .btc
@@ -124,10 +124,10 @@ pub struct Utxo {
 #[tauri::command]
 pub async fn btc_list_utxos(
     wallet_name: String,
-    session_keeper: tauri::State<'_, AppSession>,
+    sk: tauri::State<'_, SK>,
 ) -> Result<Vec<Utxo>, String> {
-    let mut session_keeper = session_keeper.lock().await;
-    let Session { wallet, .. } = session_keeper.get(&wallet_name)?;
+    let mut sk = sk.lock().await;
+    let Session { wallet, .. } = sk.take_session(&wallet_name)?;
     Ok(wallet
         .btc
         .utxos

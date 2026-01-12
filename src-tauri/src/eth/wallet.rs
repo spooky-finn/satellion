@@ -5,7 +5,7 @@ use alloy_signer_local::{MnemonicBuilder, PrivateKeySigner, coins_bip39::English
 
 use crate::{
     chain_trait::{AssetTracker, ChainTrait, Persistable, SecureKey},
-    eth::token::Token,
+    eth::{constants, token::Token},
 };
 
 pub struct EthereumWallet {
@@ -85,6 +85,12 @@ impl AssetTracker<Token> for EthereumWallet {
 }
 
 impl EthereumWallet {
+    pub fn default() -> EthereumWallet {
+        EthereumWallet {
+            tracked_tokens: constants::default_tokens(),
+        }
+    }
+
     pub fn build_prk(&self, mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
         MnemonicBuilder::<English>::default()
             .phrase(mnemonic)

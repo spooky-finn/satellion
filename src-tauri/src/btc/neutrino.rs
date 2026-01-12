@@ -1,4 +1,4 @@
-use std::{net::SocketAddrV4, str::FromStr, sync::Arc, time::Duration};
+use std::{collections::HashMap, net::SocketAddrV4, str::FromStr, sync::Arc, time::Duration};
 
 use bip157::{
     BlockHash, Builder, Client, Event, Header, Network, Requester, TrustedPeer,
@@ -12,10 +12,14 @@ use serde::Serialize;
 use specta::Type;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
+use tracing::{debug, error, info, warn};
 
 use crate::{
-    btc::utxo::UTxO, config::CONFIG, db::BlockHeader, repository::ChainRepository,
-    session::SessionKeeper,
+    btc::utxo::UTxO,
+    config::CONFIG,
+    db::BlockHeader,
+    repository::ChainRepository,
+    session::{SK, SessionKeeper},
 };
 
 const REGTEST_PEER: &str = "127.0.0.1:18444";
@@ -26,26 +30,35 @@ pub const EVENT_SYNC_WARNING: &str = "btc_sync_warning";
 
 #[derive(Clone)]
 pub struct NeutrinoStarter {
+    sk: Arc<Mutex<SessionKeeper>>,
     repository: ChainRepository,
-    session_keeper: Arc<Mutex<SessionKeeper>>,
 }
 
 impl NeutrinoStarter {
-    pub fn new(repository: ChainRepository, session_keeper: Arc<Mutex<SessionKeeper>>) -> Self {
-        Self {
-            repository,
-            session_keeper,
-        }
+    pub fn new(repository: ChainRepository, sk: SK) -> Self {
+        Self { repository, sk }
     }
 
-    pub async fn sync(&self, app: AppHandle, wallet_name: String) -> Result<(), String> {
+    pub async fn sync(
+        &self,
+        app: AppHandle,
+        wallet_name: String,
+        last_seen_height: u32,
+    ) -> Result<(), String> {
         let block_headers = self
             .repository
-            .get_block_headers(10)
+            .get_block_headers(last_seen_height, 10)
             .map_err(|e| format!("Failed to load block headers: {}", e))?;
+        debug!("Last seen height {}", last_seen_height);
+        debug!(
+            "is block headers contains last checkd wallet {}",
+            block_headers
+                .iter()
+                .any(|each| each.height as u32 == last_seen_height),
+        );
 
         let (network, trusted_peers) = NeutrinoStarter::select_network().await?;
-        println!("starting neutrino for network {}", network);
+        info!("Starting neutrino for network {}", network);
         let neutrino = Neutrino::connect(network, trusted_peers, block_headers)
             .map_err(|e| format!("Failed to connect to regtest: {}", e))?;
 
@@ -55,12 +68,12 @@ impl NeutrinoStarter {
 
         tauri::async_runtime::spawn(async move {
             if let Err(e) = node.run().await {
-                eprintln!("Neutrinos: {}", e);
+                error!("Neutrino err: {}", e);
             }
         });
 
-        let cfilter_processor = CFilterProcessor {
-            session_keeper: self.session_keeper.clone(),
+        let cfilter_processor = CFilterScanner {
+            sk: self.sk.clone(),
             wallet_name,
             requester: client.requester.clone(),
         };
@@ -149,25 +162,27 @@ pub struct SyncWarningEvent {
     msg: String,
 }
 
-pub struct CFilterProcessor {
-    session_keeper: Arc<Mutex<SessionKeeper>>,
+pub struct CFilterScanner {
+    sk: SK,
     wallet_name: String,
     requester: Requester,
 }
 
-impl CFilterProcessor {
+impl CFilterScanner {
     async fn handle(&self, filter: bip157::IndexedFilter) {
-        let mut session_keeper = self.session_keeper.lock().await;
-        let wallet = match session_keeper.get(&self.wallet_name) {
-            Err(e) => {
-                eprint!("fail to get wallet from session {e}");
-                return;
-            }
-            Ok(s) => &mut s.wallet,
+        let scripts_of_interes = {
+            let mut sk = self.sk.lock().await;
+            let wallet = match sk.take_session(&self.wallet_name) {
+                Ok(s) => &s.wallet,
+                Err(_) => return,
+            };
+            wallet.btc.runtime.scripts_of_interes.clone()
         };
-
-        let scripts_iter = wallet.btc.scripts_of_interes.iter().map(|s| &s.script);
-        if !filter.contains_any(scripts_iter) {
+        let script_map: HashMap<_, _> = scripts_of_interes
+            .into_iter()
+            .map(|s| (s.script.clone(), s.derive_path))
+            .collect();
+        if !filter.contains_any(script_map.keys()) {
             return;
         }
 
@@ -175,47 +190,47 @@ impl CFilterProcessor {
         let indexed_block = match self.requester.get_block(block_hash).await {
             Ok(b) => b,
             Err(e) => {
-                eprintln!("Error processing indexed filter: {}", e);
+                error!("Neutrino requester: get block: {}", e);
                 return;
             }
         };
         let block_height = indexed_block.height;
-        let unspent_outputs = indexed_block
-            .block
-            .txdata
-            .iter()
-            .flat_map(|tx| {
-                wallet
-                    .btc
-                    .scripts_of_interes
-                    .iter()
-                    .flat_map(move |derived_script| {
-                        tx.output
-                            .iter()
-                            .enumerate()
-                            .filter(|(_, vout)| derived_script.script == vout.script_pubkey)
-                            .map(move |(vout, output)| UTxO {
-                                tx_id: tx.compute_wtxid(),
-                                output: output.clone(),
-                                vout,
-                                derive_path: derived_script.derive_path.clone(),
-                                block: crate::btc::utxo::BlockHeader {
-                                    hash: block_hash,
-                                    height: block_height,
-                                },
-                            })
-                    })
-            })
-            .collect::<Vec<UTxO>>();
+        let mut utxos: Vec<UTxO> = vec![];
 
-        if let Err(e) = wallet.mutate_btc(|btc| {
-            let len = unspent_outputs.len();
-            btc.insert_utxos(unspent_outputs);
-            println!("Saved {} utxos", len);
-            Ok(())
-        }) {
-            eprintln!("fail to insert utxos: {e}");
+        for tx in &indexed_block.block.txdata {
+            for (vout, output) in tx.output.iter().enumerate() {
+                if let Some(derive_path) = script_map.get(&output.script_pubkey) {
+                    utxos.push(UTxO {
+                        tx_id: tx.compute_wtxid(),
+                        output: output.clone(),
+                        vout,
+                        derive_path: derive_path.clone(),
+                        block: crate::btc::utxo::BlockHeader {
+                            hash: block_hash,
+                            height: block_height,
+                        },
+                    });
+                }
+            }
         }
+
+        let mut sk = self.sk.lock().await;
+        let wallet = match sk.take_session(&self.wallet_name) {
+            Ok(s) => &mut s.wallet,
+            Err(_) => return,
+        };
+        wallet.btc.insert_utxos(block_height, utxos);
+    }
+
+    pub async fn save(&self) -> Result<(), String> {
+        let mut sk = self.sk.lock().await;
+        let wallet = match sk.take_session(&self.wallet_name) {
+            Ok(s) => &mut s.wallet,
+            Err(e) => return Err(e),
+        };
+        wallet
+            .persist()
+            .map_err(|e| format!("Bitcoin sync: fail to save wallet: {}", e))
     }
 }
 
@@ -224,7 +239,7 @@ pub async fn handle_chain_updates(
     app: AppHandle,
     client: bip157::Client,
     repository: Arc<ChainRepository>,
-    cfilter_processor: CFilterProcessor,
+    cfilter_processor: CFilterScanner,
 ) {
     let Client {
         mut info_rx,
@@ -236,73 +251,81 @@ pub async fn handle_chain_updates(
     loop {
         tokio::select! {
             event = event_rx.recv() => {
-            if let Some(event) = event {
-                match event {
-                Event::FiltersSynced(sync_update) => {
-                    println!("Synced to height: {}", sync_update.tip.height);
-                    app.emit(
-                    EVENT_HEIGHT_UPDATE,
-                    SyncHeightUpdateEvent {
-                        height: sync_update.tip.height,
-                        status: HeightUpdateStatus::Completed,
-                    },
-                    )
-                    .unwrap();
-                }
-                Event::ChainUpdate(changes) => {
-                    let new_height = match changes {
-                    BlockHeaderChanges::Connected(header) => {
-                        repository
-                        .save_block_header(header)
-                        .expect("fail to insert block headers");
-                        Some(header.height)
+                if let Some(event) = event {
+                    match event {
+                    Event::FiltersSynced(sync_update) => {
+                        debug!("Bitcoin sync: height {}", sync_update.tip.height);
+                        app.emit(
+                            EVENT_HEIGHT_UPDATE,
+                            SyncHeightUpdateEvent {
+                                height: sync_update.tip.height,
+                                status: HeightUpdateStatus::Completed,
+                            },
+                        )
+                        .unwrap();
+                        if let Err(e) = cfilter_processor.save().await {
+                            error!(e);
+                        }
                     }
-                    BlockHeaderChanges::Reorganized { accepted, .. } => {
-                        accepted.last().map(|h| h.height)
+                    Event::ChainUpdate(changes) => {
+                        let new_height = match changes {
+                            BlockHeaderChanges::Connected(header) => {
+                            debug!("Bitcoin sync: chain update {}", header.height);
+                        if let Err(err) = repository.save_block_header(header) {
+                            error!("Bitcoin sync: warning: failed to insert block header: {}", err);
+                        }
+                            Some(header.height)
+                        }
+                        BlockHeaderChanges::Reorganized { accepted, .. } => {
+                            accepted.last().map(|h| h.height)
+                        }
+                        BlockHeaderChanges::ForkAdded(_) => None,
+                        };
+                        if let Some(height) = new_height {
+                        app.emit(
+                            EVENT_HEIGHT_UPDATE,
+                            SyncHeightUpdateEvent {
+                            height,
+                            status: HeightUpdateStatus::Progress,
+                            },
+                        )
+                        .unwrap();
+                        }
                     }
-                    BlockHeaderChanges::ForkAdded(_) => None,
-                    };
-                    if let Some(height) = new_height {
-                    app.emit(
-                        EVENT_HEIGHT_UPDATE,
-                        SyncHeightUpdateEvent {
-                        height,
-                        status: HeightUpdateStatus::Progress,
-                        },
-                    )
-                    .unwrap();
+                    Event::Block(_block) => {
+                        debug!("Bitcoin sync: block {}", _block.height);
+                    }
+                    Event::IndexedFilter(filter) => {
+                        debug!("Bitcoin sync: cfilter: block {}", filter.height());
+                        cfilter_processor.handle(filter).await;
+                    }
                     }
                 }
-                Event::Block(_block) => {}
-                Event::IndexedFilter(filter) => {
-                    cfilter_processor.handle(filter).await;
-                }
-                }
-            }
             }
 
             info = info_rx.recv() => {
-            if let Some(info) = info {
-                match info {
-                    bip157::Info::SuccessfulHandshake => {},
-                    bip157::Info::ConnectionsMet => {},
-                    bip157::Info::Progress(progress) => {
-                        app.emit(EVENT_SYNC_PROGRESS, SyncProgressEvent {
-                            progress: progress.percentage_complete()
-                         }).unwrap();
-                    },
-                    bip157::Info::BlockReceived(_) => {},
+                if let Some(info) = info {
+                    match info {
+                        bip157::Info::SuccessfulHandshake => {},
+                        bip157::Info::ConnectionsMet => {},
+                        bip157::Info::Progress(progress) => {
+                            debug!("Bitcoin sync: chain headers: progress {}", progress.percentage_complete());
+                            app.emit(EVENT_SYNC_PROGRESS, SyncProgressEvent {
+                                progress: progress.percentage_complete()
+                            }).unwrap();
+                        },
+                        bip157::Info::BlockReceived(_) => {},
+                    }
                 }
-            }
             }
 
             warn = warn_rx.recv() => {
-            if let Some(warn) = warn {
-                eprintln!("Bitcoin sync warning: {}", warn);
-                app.emit(EVENT_SYNC_WARNING, SyncWarningEvent {
-                    msg: warn.to_string()
-                }).unwrap();
-            }
+                if let Some(warn) = warn {
+                    warn!("Bitcoin sync: warning: {}", warn);
+                    app.emit(EVENT_SYNC_WARNING, SyncWarningEvent {
+                        msg: warn.to_string()
+                    }).unwrap();
+                }
             }
         }
     }

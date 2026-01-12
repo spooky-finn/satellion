@@ -2,7 +2,7 @@ use bip157::chain::IndexedHeader;
 use diesel::{SqliteConnection, prelude::*, r2d2::ConnectionManager, result::Error};
 use r2d2::Pool;
 
-use crate::{db::BlockHeader, repository::BaseRepository, schema};
+use crate::{db::BlockHeader, repository::BaseRepository, schema::bitcoin_block_headers};
 
 #[derive(Clone)]
 pub struct ChainRepository {
@@ -18,7 +18,7 @@ impl ChainRepository {
 
     pub fn save_block_header(&self, block_header: IndexedHeader) -> Result<usize, Error> {
         let mut conn = self.base.get_conn()?;
-        diesel::insert_into(schema::bitcoin_block_headers::table)
+        diesel::insert_into(bitcoin_block_headers::table)
             .values(&BlockHeader {
                 height: block_header.height as i32,
                 merkle_root: block_header.header.merkle_root.to_string(),
@@ -31,12 +31,28 @@ impl ChainRepository {
             .execute(&mut conn)
     }
 
-    pub fn get_block_headers(&self, limit: i64) -> Result<Vec<BlockHeader>, Error> {
+    pub fn last_block(&self) -> Result<BlockHeader, Error> {
         let mut conn = self.base.get_conn()?;
-        schema::bitcoin_block_headers::table
-            .select(schema::bitcoin_block_headers::all_columns)
-            .limit(limit)
-            .order(schema::bitcoin_block_headers::height.desc())
+        let last_block = bitcoin_block_headers::table
+            .select(bitcoin_block_headers::all_columns)
+            .order(bitcoin_block_headers::height.desc())
+            .first::<BlockHeader>(&mut conn)?;
+
+        Ok(last_block)
+    }
+
+    pub fn get_block_headers(
+        &self,
+        last_seen_height: u32,
+        limit: i64,
+    ) -> Result<Vec<BlockHeader>, Error> {
+        let mut conn = self.base.get_conn()?;
+        let min_height = (last_seen_height as i64 - limit) as i32;
+        bitcoin_block_headers::table
+            .select(bitcoin_block_headers::all_columns)
+            .filter(bitcoin_block_headers::height.gt(min_height))
+            .filter(bitcoin_block_headers::height.le(last_seen_height as i32))
+            .order(bitcoin_block_headers::height.desc())
             .load::<BlockHeader>(&mut conn)
     }
 }

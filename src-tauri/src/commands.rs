@@ -1,4 +1,3 @@
-use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 use serde::Serialize;
 use shush_rs::ExposeSecret;
 use specta::{Type, specta};
@@ -9,9 +8,9 @@ use crate::{
     btc::{self, neutrino::NeutrinoStarter},
     chain_trait::ChainTrait,
     config::{CONFIG, Chain, Config, constants},
-    db::BlockHeader,
-    eth, mnemonic, schema,
-    session::{AppSession, Session},
+    eth, mnemonic,
+    repository::ChainRepository,
+    session::{SK, Session},
     wallet_keeper::WalletKeeper,
 };
 
@@ -23,16 +22,11 @@ pub struct ChainStatus {
 #[specta]
 #[tauri::command]
 pub async fn chain_status(
-    db_pool: tauri::State<'_, crate::db::Pool>,
+    chain_repository: tauri::State<'_, ChainRepository>,
 ) -> Result<ChainStatus, String> {
-    let mut conn = db_pool.get().expect("Error getting connection from pool");
-
-    let last_block = schema::bitcoin_block_headers::table
-        .select(schema::bitcoin_block_headers::all_columns)
-        .order(schema::bitcoin_block_headers::height.desc())
-        .first::<BlockHeader>(&mut conn)
+    let last_block = chain_repository
+        .last_block()
         .map_err(|_| "Error getting last block height".to_string())?;
-
     Ok(ChainStatus {
         height: last_block.height as u32,
     })
@@ -87,7 +81,7 @@ pub async fn unlock_wallet(
     wallet_name: String,
     passphrase: String,
     wallet_keeper: tauri::State<'_, WalletKeeper>,
-    session_keeper: tauri::State<'_, AppSession>,
+    sk: tauri::State<'_, SK>,
     neutrino_starter: tauri::State<'_, NeutrinoStarter>,
 ) -> Result<UnlockMsg, String> {
     let mut wallet = wallet_keeper.load(&wallet_name, &passphrase)?;
@@ -105,13 +99,17 @@ pub async fn unlock_wallet(
     let bitcoin = wallet.btc.unlock(&btc_prk)?;
 
     let last_used_chain = wallet.last_used_chain;
+    let btc_last_seen_heigh = wallet.btc.cfilter_scanner_height;
 
     let session = Session::new(wallet, Config::session_exp_duration());
-    session_keeper.lock().await.start(session);
+    sk.lock().await.start(session);
     // Start Bitcoin sync in background without waiting
     let neutrino_starter_clone = (*neutrino_starter).clone();
     tauri::async_runtime::spawn(async move {
-        if let Err(e) = neutrino_starter_clone.sync(app, wallet_name).await {
+        if let Err(e) = neutrino_starter_clone
+            .sync(app, wallet_name, btc_last_seen_heigh)
+            .await
+        {
             eprintln!("Failed to start Bitcoin sync: {}", e);
         }
     });
@@ -128,9 +126,9 @@ pub async fn unlock_wallet(
 pub async fn forget_wallet(
     wallet_name: String,
     wallet_keeper: tauri::State<'_, WalletKeeper>,
-    session_keeper: tauri::State<'_, AppSession>,
+    sk: tauri::State<'_, SK>,
 ) -> Result<(), String> {
-    session_keeper.lock().await.end();
+    sk.lock().await.end();
     wallet_keeper
         .delete(&wallet_name)
         .map_err(|e| e.to_string())?;

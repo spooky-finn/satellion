@@ -19,12 +19,24 @@ use crate::{
     config::CONFIG,
 };
 
+pub struct RuntimeData {
+    // runtime storage for storing scripts to check in compact block filters
+    pub scripts_of_interes: HashSet<DerivedScript>,
+}
+
+impl Default for RuntimeData {
+    fn default() -> Self {
+        Self {
+            scripts_of_interes: HashSet::new(),
+        }
+    }
+}
+
 pub struct BitcoinWallet {
     pub derived_addresses: Vec<LabeledDerivationPath>,
     pub utxos: Vec<UTxO>,
-
-    // runtime storage for storing scripts to check in compact block filters
-    pub scripts_of_interes: HashSet<DerivedScript>,
+    pub cfilter_scanner_height: u32,
+    pub runtime: RuntimeData,
 }
 
 #[derive(serde::Serialize, specta::Type)]
@@ -49,13 +61,22 @@ impl SecureKey for Prk {
         &self.xpriv
     }
 }
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct DerivedScript {
     pub script: bip157::ScriptBuf,
     pub derive_path: DerivePath,
 }
 
 impl BitcoinWallet {
+    pub fn default() -> BitcoinWallet {
+        BitcoinWallet {
+            cfilter_scanner_height: 0,
+            derived_addresses: Vec::new(),
+            utxos: vec![],
+            runtime: RuntimeData::default(),
+        }
+    }
+
     pub fn build_prk(&self, mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
         let network = crate::config::CONFIG.bitcoin.network();
         let mnemonic = bip39::Mnemonic::parse_in_normalized(Language::English, mnemonic)
@@ -158,12 +179,13 @@ impl BitcoinWallet {
             .filter(|a| a.derive_path.change == Change::External)
     }
 
-    pub fn insert_utxos(&mut self, utxos: Vec<UTxO>) {
+    pub fn insert_utxos(&mut self, block_height: u32, utxos: Vec<UTxO>) {
         self.utxos.extend(utxos);
+        self.cfilter_scanner_height = block_height;
     }
 
     pub fn add_script_of_interes(&mut self, script: DerivedScript) {
-        self.scripts_of_interes.insert(script);
+        self.runtime.scripts_of_interes.insert(script);
     }
 }
 
@@ -220,6 +242,7 @@ impl Persistable for BitcoinWallet {
                     vout: each.vout,
                 })
                 .collect(),
+            cfilter_scanner_height: Some(self.cfilter_scanner_height),
         })
     }
 
@@ -258,7 +281,8 @@ impl Persistable for BitcoinWallet {
         Ok(Self {
             derived_addresses,
             utxos,
-            scripts_of_interes: HashSet::new(),
+            cfilter_scanner_height: data.cfilter_scanner_height.unwrap_or(0),
+            runtime: RuntimeData::default(),
         })
     }
 }
@@ -322,6 +346,7 @@ pub mod persistence {
     pub struct Wallet {
         pub childs: Vec<ChildAddress>,
         pub utxos: Vec<Utxo>,
+        pub cfilter_scanner_height: Option<u32>,
     }
 }
 
@@ -334,7 +359,8 @@ mod tests {
         let network = CONFIG.bitcoin.network();
         let wallet = BitcoinWallet {
             utxos: vec![],
-            scripts_of_interes: HashSet::new(),
+            cfilter_scanner_height: 0,
+            runtime: RuntimeData::default(),
             derived_addresses: vec![
                 LabeledDerivationPath {
                     label: "addr1".to_string(),

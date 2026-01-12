@@ -23,9 +23,10 @@ impl Session {
         self.created_at + self.session_exp_duration < Utc::now()
     }
 }
+/// Session Keeper Type
+pub type SK = Arc<tokio::sync::Mutex<SessionKeeper>>;
 
-pub type AppSession = Arc<tokio::sync::Mutex<SessionKeeper>>;
-
+/// Session Keeper
 #[derive(Default)]
 pub struct SessionKeeper {
     session: Option<Session>,
@@ -36,7 +37,7 @@ impl SessionKeeper {
         Self { session: None }
     }
 
-    pub fn get(&mut self, wallet_name: &str) -> Result<&mut Session, String> {
+    pub fn take_session(&mut self, wallet_name: &str) -> Result<&mut Session, String> {
         if let Some(session) = &self.session {
             if session.is_expired() || session.wallet.name != wallet_name {
                 self.session = None;
@@ -71,7 +72,7 @@ mod tests {
     #[test]
     fn test_store_get() {
         let session_exp_duration = TimeDelta::seconds(2);
-        let mut session_keeper = SessionKeeper::new();
+        let mut sk = SessionKeeper::new();
         let name = "test_wallet";
         let wallet = Wallet::new(
             name.to_string(),
@@ -80,16 +81,16 @@ mod tests {
         ).expect("Failed to create test wallet");
 
         let session = Session::new(wallet, session_exp_duration);
-        session_keeper.start(session);
+        sk.start(session);
 
-        assert!(session_keeper.get(name).is_ok());
-        assert!(session_keeper.get(name).unwrap().is_expired() == false);
-        assert!(session_keeper.get(name).unwrap().wallet.name == name);
-
-        thread::sleep(std::time::Duration::from_secs(1));
-        assert!(session_keeper.get(name).unwrap().is_expired() == false);
+        assert!(sk.take_session(name).is_ok());
+        assert!(sk.take_session(name).unwrap().is_expired() == false);
+        assert!(sk.take_session(name).unwrap().wallet.name == name);
 
         thread::sleep(std::time::Duration::from_secs(1));
-        assert!(session_keeper.get(name).is_err());
+        assert!(sk.take_session(name).unwrap().is_expired() == false);
+
+        thread::sleep(std::time::Duration::from_secs(1));
+        assert!(sk.take_session(name).is_err());
     }
 }

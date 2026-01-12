@@ -20,6 +20,8 @@ use specta_typescript::Typescript;
 use tauri::Manager;
 use tauri_specta::collect_events;
 use tokio::sync::Mutex;
+use tracing::Level;
+use tracing_subscriber::FmtSubscriber;
 
 use crate::{
     btc::neutrino::{NeutrinoStarter, SyncHeightUpdateEvent, SyncProgressEvent, SyncWarningEvent},
@@ -31,6 +33,13 @@ const ENABLE_DEVTOOLS: bool = true;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let subscriber = FmtSubscriber::builder()
+        .without_time()
+        .compact()
+        .with_max_level(Level::DEBUG)
+        .finish();
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+
     db::initialize();
 
     let db = db::connect();
