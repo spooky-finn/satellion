@@ -8,7 +8,8 @@ use crate::{
     btc::{self, neutrino::NeutrinoStarter},
     chain_trait::ChainTrait,
     config::{CONFIG, Chain, Config, constants},
-    eth, mnemonic,
+    eth::{self, PriceFeed},
+    mnemonic,
     repository::ChainRepository,
     session::{SK, Session},
     wallet_keeper::WalletKeeper,
@@ -93,6 +94,7 @@ pub async fn unlock_wallet(
     wallet_keeper: tauri::State<'_, WalletKeeper>,
     sk: tauri::State<'_, SK>,
     neutrino_starter: tauri::State<'_, NeutrinoStarter>,
+    price_feed: tauri::State<'_, PriceFeed>,
 ) -> Result<UnlockMsg, String> {
     let mut wallet = wallet_keeper.load(&wallet_name, &passphrase)?;
 
@@ -104,9 +106,11 @@ pub async fn unlock_wallet(
         .btc
         .build_prk(&wallet.mnemonic.expose_secret(), &passphrase)?;
 
-    // Unlock both wallets using the ChainWallet trait
-    let ethereum = wallet.eth.unlock(&eth_prk)?;
-    let bitcoin = wallet.btc.unlock(&btc_prk)?;
+    // Unlock both wallets in parallel using the ChainWallet trait
+    let (ethereum, bitcoin) = tokio::try_join!(
+        wallet.eth.unlock(price_feed.inner().clone(), &eth_prk),
+        wallet.btc.unlock(price_feed.inner().clone(), &btc_prk)
+    )?;
 
     let last_used_chain = wallet.last_used_chain;
     let btc_last_seen_heigh = wallet.btc.cfilter_scanner_height;

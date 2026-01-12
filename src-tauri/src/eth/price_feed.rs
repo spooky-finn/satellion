@@ -10,6 +10,7 @@ sol!(
     "src/eth/abi/chainlink.json"
 );
 
+#[derive(Clone)]
 pub struct PriceFeed {
     provider: DynProvider,
 }

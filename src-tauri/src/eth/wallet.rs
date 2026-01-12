@@ -5,13 +5,22 @@ use alloy_signer_local::{MnemonicBuilder, PrivateKeySigner, coins_bip39::English
 
 use crate::{
     chain_trait::{AssetTracker, ChainTrait, Persistable, SecureKey},
-    eth::{constants, token::Token},
+    eth::{
+        PriceFeed,
+        constants::{self, ETH_USD_PRICE_FEED},
+        token::Token,
+    },
 };
 
 pub struct EthereumWallet {
     pub tracked_tokens: Vec<Token>,
 }
 
+#[derive(serde::Serialize, specta::Type)]
+pub struct EthereumUnlock {
+    pub address: String,
+    pub usd_price: String,
+}
 pub struct Prk {
     signer: PrivateKeySigner,
 }
@@ -25,10 +34,17 @@ impl SecureKey for Prk {
 
 impl ChainTrait for EthereumWallet {
     type Prk = Prk;
+    type UnlockContext = PriceFeed;
     type UnlockResult = EthereumUnlock;
 
-    fn unlock(&mut self, prk: &Self::Prk) -> Result<Self::UnlockResult, String> {
+    async fn unlock(
+        &mut self,
+        ctx: Self::UnlockContext,
+        prk: &Self::Prk,
+    ) -> Result<Self::UnlockResult, String> {
+        let usd_price = ctx.get_price(ETH_USD_PRICE_FEED).await?;
         Ok(EthereumUnlock {
+            usd_price,
             address: prk.expose().address().to_string(),
         })
     }
@@ -113,11 +129,6 @@ impl EthereumWallet {
 
 pub fn parse_addres(addres: &str) -> Result<Address, String> {
     Address::from_str(addres).map_err(|e| format!("Invalid Ethereum address: {}", e))
-}
-
-#[derive(serde::Serialize, specta::Type)]
-pub struct EthereumUnlock {
-    pub address: String,
 }
 
 pub mod persistence {

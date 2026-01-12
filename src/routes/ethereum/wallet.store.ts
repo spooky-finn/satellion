@@ -15,10 +15,7 @@ export class EthereumWallet {
   address!: string
   chainInfo!: ChainInfo
 
-  price!: number | null
-  setPrice(v: number | null) {
-    this.price = v
-  }
+  usd_price!: string | null
 
   setChainInfo(c: ChainInfo) {
     this.chainInfo = c
@@ -45,7 +42,6 @@ export class EthereumWallet {
       return
     }
     this.balance.set(r.data)
-    this.setPrice(Number(r.data.eth_price))
   }
 
   async removeTokenFromBalance(address: string) {

@@ -4,9 +4,9 @@ import type {
   SyncHeightUpdateEvent,
   SyncProgressEvent,
   SyncWarningEvent
-} from '../bindings'
+} from '../../bindings'
 
-export class BitcoinWallet {
+export class BitcoinChain {
   constructor() {
     makeAutoObservable(this)
 
@@ -23,6 +23,7 @@ export class BitcoinWallet {
   }
 
   address!: string
+  usd_price!: string
 
   warning?: string
   setWarning(w?: string) {

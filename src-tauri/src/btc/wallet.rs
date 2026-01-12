@@ -17,6 +17,7 @@ use crate::{
     },
     chain_trait::{AssetTracker, ChainTrait, Persistable, SecureKey},
     config::CONFIG,
+    eth::{PriceFeed, constants::BTC_USD_PRICE_FEED},
 };
 
 #[derive(Default)]
@@ -35,6 +36,7 @@ pub struct BitcoinWallet {
 #[derive(serde::Serialize, specta::Type)]
 pub struct BitcoinUnlock {
     pub address: String,
+    pub usd_price: String,
 }
 
 pub struct Prk {
@@ -185,8 +187,13 @@ impl BitcoinWallet {
 impl ChainTrait for BitcoinWallet {
     type Prk = Prk;
     type UnlockResult = BitcoinUnlock;
+    type UnlockContext = PriceFeed;
 
-    fn unlock(&mut self, prk: &Self::Prk) -> Result<Self::UnlockResult, String> {
+    async fn unlock(
+        &mut self,
+        ctx: Self::UnlockContext,
+        prk: &Self::Prk,
+    ) -> Result<Self::UnlockResult, String> {
         let scripts = self.derive_scripts_of_interes(prk.expose())?;
         for script in scripts {
             self.add_script_of_interes(script);
@@ -200,8 +207,10 @@ impl ChainTrait for BitcoinWallet {
             )
             .map_err(|e| e.to_string())?;
 
+        let usd_price = ctx.get_price(BTC_USD_PRICE_FEED).await?;
         Ok(BitcoinUnlock {
             address: btc_main_address.to_string(),
+            usd_price,
         })
     }
 }

@@ -61,6 +61,7 @@ const Bitcoin = () => {
               {btc.warning}
             </P>
           )}
+          <P>Price {root_store.wallet.btc.usd_price} USD</P>
         </>
       )}
     </Stack>

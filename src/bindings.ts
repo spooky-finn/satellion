@@ -186,13 +186,13 @@ export const MIN_PASSPHRASE_LEN = 4 as const;
 
 /** user-defined types **/
 
-export type Balance = { wei: string; eth_price: string; tokens: TokenBalance[] }
-export type BitcoinUnlock = { address: string }
+export type Balance = { wei: string; tokens: TokenBalance[] }
+export type BitcoinUnlock = { address: string; usd_price: string }
 export type Chain = "Bitcoin" | "Ethereum"
 export type ChainInfo = { block_number: string; block_hash: string; base_fee_per_gas: string | null }
 export type ChainStatus = { height: number }
 export type DerivedAddress = { label: string; address: string; deriv_path: string }
-export type EthereumUnlock = { address: string }
+export type EthereumUnlock = { address: string; usd_price: string }
 export type FeeMode = "Minimal" | "Standard" | "Increased"
 export type HeightUpdateStatus = "in progress" | "completed"
 export type PrepareTxReqReq = { token_address: string; amount: string; recipient: string; fee_mode: FeeMode }

@@ -106,7 +106,7 @@ const AmountInput = observer(({ state }: { state: TransferStore }) => (
 
 const TransactionFee = observer(({ state }: { state: TransferStore }) => {
   const { wallet } = root_store
-  if (!state.preconfirmInfo || !wallet.eth.price) {
+  if (!state.preconfirmInfo || !wallet.eth.usd_price) {
     return null
   }
   return (
@@ -119,7 +119,7 @@ const TransactionFee = observer(({ state }: { state: TransferStore }) => {
 
 const SendTransaction = observer(({ state }: { state: TransferStore }) => {
   const { wallet } = root_store
-  if (!state.preconfirmInfo || !wallet.eth.price) {
+  if (!state.preconfirmInfo || !wallet.eth.usd_price) {
     return null
   }
   return (

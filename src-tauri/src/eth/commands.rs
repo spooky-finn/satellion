@@ -67,7 +67,6 @@ pub struct TokenBalance {
 #[derive(Type, Serialize)]
 pub struct Balance {
     wei: String,
-    eth_price: String,
     tokens: Vec<TokenBalance>,
 }
 
@@ -77,7 +76,6 @@ pub async fn eth_get_balance(
     address: String,
     provider: tauri::State<'_, DynProvider>,
     erc20_retriever: tauri::State<'_, Erc20Retriever>,
-    price_feed: tauri::State<'_, PriceFeed>,
     sk: tauri::State<'_, SK>,
 ) -> Result<Balance, String> {
     let mut sk = sk.lock().await;
@@ -113,12 +111,10 @@ pub async fn eth_get_balance(
         decimals: eth.decimals,
         address: eth.address.to_string(),
     });
-    let eth_price = price_feed.get_price(ETH_USD_PRICE_FEED).await?.to_string();
 
     wallet.persist()?;
     Ok(Balance {
         wei: wei_balance.to_string(),
-        eth_price,
         tokens: token_balances,
     })
 }

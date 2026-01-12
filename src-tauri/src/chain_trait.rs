@@ -2,11 +2,15 @@
 pub trait ChainTrait {
     /// The private key type used by this chain for signing.
     type Prk;
-
+    type UnlockContext;
     type UnlockResult;
 
     /// Unlocks the wallet using the provided private key material.
-    fn unlock(&mut self, prk: &Self::Prk) -> Result<Self::UnlockResult, String>;
+    async fn unlock(
+        &mut self,
+        ctx: Self::UnlockContext,
+        prk: &Self::Prk,
+    ) -> Result<Self::UnlockResult, String>;
 }
 
 /// Trait for secure private key handling across different blockchains.
