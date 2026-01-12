@@ -4,13 +4,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BitcoinConfig {
     pub regtest: bool,
+    pub min_peers: u8,
 }
 
 impl BitcoinConfig {
-    pub fn new() -> Self {
-        Self { regtest: false }
-    }
-
     pub fn network(&self) -> Network {
         if self.regtest {
             Network::Regtest
@@ -22,6 +19,9 @@ impl BitcoinConfig {
 
 impl Default for BitcoinConfig {
     fn default() -> Self {
-        Self::new()
+        Self {
+            regtest: false,
+            min_peers: 3,
+        }
     }
 }

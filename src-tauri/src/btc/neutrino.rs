@@ -124,7 +124,7 @@ impl Neutrino {
             .collect();
         let chain_state = ChainState::Snapshot(indexed_headers);
         let (node, client) = Builder::new(network)
-            .required_peers(1)
+            .required_peers(CONFIG.bitcoin.min_peers)
             .chain_state(chain_state)
             .add_peers(trusted_peers)
             .response_timeout(Duration::from_secs(10))
