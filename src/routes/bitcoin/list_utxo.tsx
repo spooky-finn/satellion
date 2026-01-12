@@ -4,7 +4,8 @@ import {
   Modal,
   ModalClose,
   ModalDialog,
-  Stack
+  Stack,
+  Table
 } from '@mui/joy'
 import { makeAutoObservable } from 'mobx'
 import { observer } from 'mobx-react-lite'
@@ -13,7 +14,6 @@ import { commands, type Utxo } from '../../bindings'
 import { CuttedString } from '../../components/cutted_str'
 import { notifier } from '../../components/notifier'
 import { P, Row } from '../../shortcuts'
-import { root_store } from '../../stores/root'
 
 class UtxoList {
   constructor() {
@@ -26,8 +26,8 @@ class UtxoList {
   }
   utxos: Utxo[] = []
 
-  async fetch(walletName: string) {
-    const res = await commands.btcListUtxos(walletName)
+  async fetch() {
+    const res = await commands.btcListUtxos()
     if (res.status === 'error') {
       notifier.err(res.error)
       throw new Error(res.error)
@@ -42,13 +42,12 @@ class UtxoList {
     return this.total_value_sat / 10 ** 8
   }
 }
-
 export const ListUtxo = observer(() => {
   const [store] = useState(() => new UtxoList())
 
   useEffect(() => {
     if (store.isOpen) {
-      store.fetch(root_store.wallet.name!)
+      store.fetch()
     }
   }, [store.isOpen])
 
@@ -62,35 +61,62 @@ export const ListUtxo = observer(() => {
       >
         Utxo
       </Button>
+
       <Modal open={store.isOpen} onClose={() => store.setIsOpen(false)}>
-        <ModalDialog sx={{ pr: 6, minWidth: 300 }}>
+        <ModalDialog sx={{ pr: 6, minWidth: 300 }} size="lg">
           <ModalClose />
+
           <P>Unspent transaction outputs</P>
           <Divider sx={{ my: 1 }} />
+
           <P>
             Total evaluation {store.total_value_sat} sat ={' '}
             {store.total_value_btc} btc
           </P>
 
-          <Stack sx={{ overflow: 'auto' }}>
+          <Stack sx={{ overflow: 'auto', mt: 1 }}>
             {store.utxos.length === 0 ? (
               <P>No utxos yet.</P>
             ) : (
-              store.utxos.map(utxo => (
-                <Row
-                  key={utxo.utxoid.tx_id + utxo.utxoid.vout}
-                  justifyContent="space-between"
-                  sx={{ mb: 1 }}
-                >
-                  <CuttedString level="body-xs">
-                    {utxo.utxoid.tx_id}
-                  </CuttedString>
-                  {/* <P level="body-xs">{utxo.utxoid.vout}</P> */}
-                  <P level="body-xs" sx={{ fontFamily: 'monospace' }}>
-                    {utxo.value} sat
-                  </P>
-                </Row>
-              ))
+              <Table>
+                <thead>
+                  <tr>
+                    <th align="left">
+                      <P>Derivation path</P>
+                    </th>
+                    <th align="left">
+                      <P>Transaction ID</P>
+                    </th>
+                    <th align="right">
+                      <P>Value</P>
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {store.utxos.map(utxo => {
+                    const key = utxo.utxo_id.tx_id + utxo.utxo_id.vout
+
+                    return (
+                      <tr key={key}>
+                        <td>
+                          <P>{utxo.deriv_path}</P>
+                        </td>
+
+                        <td>
+                          <CuttedString>{utxo.utxo_id.tx_id}</CuttedString>
+                        </td>
+
+                        <td align="right">
+                          <P sx={{ fontFamily: 'monospace' }}>
+                            {utxo.value} sat
+                          </P>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </Table>
             )}
           </Stack>
         </ModalDialog>

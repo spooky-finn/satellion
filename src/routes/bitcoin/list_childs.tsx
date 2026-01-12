@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react'
 import { commands, type DerivedAddress } from '../../bindings'
 import { notifier } from '../../components/notifier'
 import { P, Row } from '../../shortcuts'
-import { root_store } from '../../stores/root'
 
 class ChildAddressList {
   constructor() {
@@ -18,8 +17,8 @@ class ChildAddressList {
   }
   addresses: DerivedAddress[] = []
 
-  async fetch(walletName: string) {
-    const res = await commands.btcListDerivedAddresess(walletName)
+  async fetch() {
+    const res = await commands.btcListDerivedAddresess()
     if (res.status === 'error') {
       notifier.err(res.error)
       throw new Error(res.error)
@@ -33,7 +32,7 @@ export const ListDerivedAddresses = observer(() => {
 
   useEffect(() => {
     if (store.isOpen) {
-      store.fetch(root_store.wallet.name!).catch(() => {})
+      store.fetch().catch(() => {})
     }
   }, [store.isOpen])
 

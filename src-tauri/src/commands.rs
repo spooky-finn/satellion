@@ -67,6 +67,16 @@ pub async fn list_wallets(
     wallet_keeper.ls().map_err(|e| e.to_string())
 }
 
+#[specta]
+#[tauri::command]
+pub async fn chain_switch_event(chain: Chain, sk: tauri::State<'_, SK>) -> Result<(), String> {
+    let mut sk = sk.lock().await;
+    let Session { wallet, .. } = sk.take_session()?;
+    wallet.last_used_chain = chain;
+    wallet.persist()?;
+    Ok(())
+}
+
 #[derive(Type, Serialize)]
 pub struct UnlockMsg {
     ethereum: eth::wallet::EthereumUnlock,
@@ -106,10 +116,7 @@ pub async fn unlock_wallet(
     // Start Bitcoin sync in background without waiting
     let neutrino_starter_clone = (*neutrino_starter).clone();
     tauri::async_runtime::spawn(async move {
-        if let Err(e) = neutrino_starter_clone
-            .sync(app, wallet_name, btc_last_seen_heigh)
-            .await
-        {
+        if let Err(e) = neutrino_starter_clone.sync(app, btc_last_seen_heigh).await {
             eprintln!("Failed to start Bitcoin sync: {}", e);
         }
     });

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { commands, SyncStatus } from '../../bindings'
+import { ChainStatus, commands } from '../../bindings'
 import { notifier } from '../../components/notifier'
 
 export const BitcoinSync = () => {
-  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
+  const [syncStatus, setSyncStatus] = useState<ChainStatus | null>(null)
 
   useEffect(() => {
     const interval = setInterval(async () => {
@@ -22,7 +22,7 @@ export const BitcoinSync = () => {
       <p>Block height: {syncStatus?.height ?? 'Loading...'}</p>
       <p>
         Sync completed:{' '}
-        {syncStatus?.sync_completed ? 'Chain is up to date' : 'Syncing...'}
+        {syncStatus?.height ? 'Chain is up to date' : 'Syncing...'}
       </p>
     </main>
   )

@@ -19,7 +19,7 @@ export class Wallet {
     this.btc.address = unlock.bitcoin.address
 
     this.eth.getChainInfo()
-    this.eth.getBalance(name)
+    this.eth.getBalance()
   }
 
   async forget(name: string) {

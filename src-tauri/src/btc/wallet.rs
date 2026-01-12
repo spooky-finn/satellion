@@ -19,17 +19,10 @@ use crate::{
     config::CONFIG,
 };
 
+#[derive(Default)]
 pub struct RuntimeData {
     // runtime storage for storing scripts to check in compact block filters
     pub scripts_of_interes: HashSet<DerivedScript>,
-}
-
-impl Default for RuntimeData {
-    fn default() -> Self {
-        Self {
-            scripts_of_interes: HashSet::new(),
-        }
-    }
 }
 
 pub struct BitcoinWallet {

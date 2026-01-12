@@ -39,12 +39,7 @@ impl NeutrinoStarter {
         Self { repository, sk }
     }
 
-    pub async fn sync(
-        &self,
-        app: AppHandle,
-        wallet_name: String,
-        last_seen_height: u32,
-    ) -> Result<(), String> {
+    pub async fn sync(&self, app: AppHandle, last_seen_height: u32) -> Result<(), String> {
         let block_headers = self
             .repository
             .get_block_headers(last_seen_height, 10)
@@ -74,7 +69,6 @@ impl NeutrinoStarter {
 
         let cfilter_processor = CFilterScanner {
             sk: self.sk.clone(),
-            wallet_name,
             requester: client.requester.clone(),
         };
 
@@ -164,7 +158,6 @@ pub struct SyncWarningEvent {
 
 pub struct CFilterScanner {
     sk: SK,
-    wallet_name: String,
     requester: Requester,
 }
 
@@ -172,7 +165,7 @@ impl CFilterScanner {
     async fn handle(&self, filter: bip157::IndexedFilter) {
         let scripts_of_interes = {
             let mut sk = self.sk.lock().await;
-            let wallet = match sk.take_session(&self.wallet_name) {
+            let wallet = match sk.take_session() {
                 Ok(s) => &s.wallet,
                 Err(_) => return,
             };
@@ -215,7 +208,7 @@ impl CFilterScanner {
         }
 
         let mut sk = self.sk.lock().await;
-        let wallet = match sk.take_session(&self.wallet_name) {
+        let wallet = match sk.take_session() {
             Ok(s) => &mut s.wallet,
             Err(_) => return,
         };
@@ -224,7 +217,7 @@ impl CFilterScanner {
 
     pub async fn save(&self) -> Result<(), String> {
         let mut sk = self.sk.lock().await;
-        let wallet = match sk.take_session(&self.wallet_name) {
+        let wallet = match sk.take_session() {
             Ok(s) => &mut s.wallet,
             Err(e) => return Err(e),
         };

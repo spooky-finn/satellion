@@ -16,7 +16,6 @@ import { TransferStore } from './transfer.store'
 import { OpenExplorerButton } from './utils/shared'
 
 export const EthereumTransfer = observer(() => {
-  const { wallet } = root_store
   const [state] = useState(() => new TransferStore())
   return (
     <Stack gap={1}>
@@ -43,7 +42,7 @@ export const EthereumTransfer = observer(() => {
         disabled={state.disabled}
         sx={{ width: 'min-content' }}
         size="sm"
-        onClick={() => state.createTrasaction(wallet.name!)}
+        onClick={() => state.createTrasaction()}
       >
         Estimate
       </Button>
@@ -126,7 +125,7 @@ const SendTransaction = observer(({ state }: { state: TransferStore }) => {
   return (
     <Button
       loading={state.isSending}
-      onClick={() => state.signAndSend(wallet.name!)}
+      onClick={() => state.signAndSend()}
       sx={{ width: 'max-content' }}
       size="sm"
     >

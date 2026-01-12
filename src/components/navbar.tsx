@@ -1,6 +1,7 @@
 import LockIcon from '@mui/icons-material/Lock'
 import { Button, Tooltip } from '@mui/joy'
 import { Link, useNavigate } from 'react-router'
+import { commands, type Chain } from '../bindings'
 import { route } from '../routes'
 import { Row } from '../shortcuts'
 import { AppMenu } from './menu'
@@ -15,14 +16,12 @@ export const Navbar = ({ hideLedgers }: { hideLedgers?: boolean }) => {
           <BlockchainLink
             to={route.bitcoin}
             src={new URL('/bitcoin.webp', import.meta.url).toString()}
-            alt="Bitcoin"
-            label="Bitcoin"
+            chain="Bitcoin"
           />
           <BlockchainLink
             to={route.ethereum}
             src={new URL('/ethereum.webp', import.meta.url).toString()}
-            alt="Ethereum"
-            label="Ethereum"
+            chain="Ethereum"
           />
         </Row>
       )}
@@ -43,22 +42,23 @@ export const Navbar = ({ hideLedgers }: { hideLedgers?: boolean }) => {
   )
 }
 
-const BlockchainLink = (props: {
-  to: string
-  src: string
-  alt: string
-  label: string
-}) => (
+const BlockchainLink = (props: { to: string; src: string; chain: Chain }) => (
   <Link to={props.to}>
     <Button
       size="sm"
       color="neutral"
       variant="soft"
       startDecorator={
-        <img src={props.src} alt={props.alt} width={'auto'} height={22} />
+        <img src={props.src} alt={props.chain} width={'auto'} height={22} />
       }
+      onClick={async () => {
+        const res = await commands.chainSwitchEvent(props.chain)
+        if (res.status === 'error') {
+          console.error(console.error(res.error))
+        }
+      }}
     >
-      {props.label}
+      {props.chain}
     </Button>
   </Link>
 )

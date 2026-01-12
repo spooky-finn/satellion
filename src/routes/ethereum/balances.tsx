@@ -30,9 +30,7 @@ export const BalanceCard = observer(() => (
         {root_store.ui_config?.eth_anvil && <AnvilSetBalanceButton />}
         <SpecifyTokenToTrack />
         <IconButton
-          onClick={() =>
-            root_store.wallet.eth.getBalance(root_store.wallet.name!)
-          }
+          onClick={() => root_store.wallet.eth.getBalance()}
           variant="plain"
         >
           <CachedIcon />
@@ -72,7 +70,7 @@ const Balances = observer(() => {
   if (!tokens?.length) return <P color="neutral">Tokens not found</P>
 
   const handleTokenUntrack = async (token_address: string) => {
-    await commands.ethUntrackToken(root_store.wallet.name!, token_address)
+    await commands.ethUntrackToken(token_address)
     eth.removeTokenFromBalance(token_address)
   }
 
@@ -102,7 +100,7 @@ const AnvilSetBalanceButton = observer(() => {
       notifier.err(res.error)
     } else {
       notifier.ok(res.data)
-      root_store.wallet.eth.getBalance(root_store.wallet.name!)
+      root_store.wallet.eth.getBalance()
     }
   }
   return (
@@ -125,7 +123,7 @@ const SpecifyTokenToTrack = observer(() => {
   const handleAddressInput = async (e: ChangeEvent<HTMLInputElement>) => {
     const address = e.target.value
     if (address.length >= 40) {
-      const res = await commands.ethTrackToken(root_store.wallet.name!, address)
+      const res = await commands.ethTrackToken(address)
       if (res.status === 'error') {
         setOpen(false)
         notifier.err(res.error)

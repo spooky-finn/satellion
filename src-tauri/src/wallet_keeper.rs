@@ -17,7 +17,7 @@ impl WalletKeeper {
         self.repository.ls()
     }
 
-    pub fn create(&self, mnemonic: &str, passphrase: &str, name: &str) -> Result<(), String> {
+    pub fn create(&self, mnemonic: &str, passphrase: &str, name: &str) -> Result<Wallet, String> {
         let name = if name.is_empty() {
             self.gen_wallet_name()?
         } else {
@@ -29,7 +29,7 @@ impl WalletKeeper {
             SecretBox::new(Box::new(passphrase.to_string())),
         )?;
         self.repository.store(&wallet)?;
-        Ok(())
+        Ok(wallet)
     }
 
     pub fn load(&self, wallet_name: &str, passphrase: &str) -> Result<Wallet, String> {

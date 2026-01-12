@@ -64,6 +64,7 @@ pub fn run() {
             commands::unlock_wallet,
             commands::forget_wallet,
             commands::get_config,
+            commands::chain_switch_event,
             btc::commands::btc_derive_address,
             btc::commands::btc_unoccupied_deriviation_index,
             btc::commands::btc_list_derived_addresess,

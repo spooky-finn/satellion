@@ -38,6 +38,10 @@ impl Wallet {
         })
     }
 
+    pub fn persist(&self) -> Result<(), String> {
+        self.keeper.save(self)
+    }
+
     pub fn mutate_btc<F>(&mut self, f: F) -> Result<(), String>
     where
         F: FnOnce(&mut btc::BitcoinWallet) -> Result<(), String>,
@@ -52,9 +56,5 @@ impl Wallet {
     {
         f(&mut self.eth)?;
         self.persist()
-    }
-
-    pub fn persist(&self) -> Result<(), String> {
-        self.keeper.save(self)
     }
 }

@@ -13,7 +13,6 @@ import { commands } from '../../bindings'
 import { notifier } from '../../components/notifier'
 import { NumberInput } from '../../components/number_input'
 import { P, Row } from '../../shortcuts'
-import { root_store } from '../../stores/root'
 
 class DeriveChild {
   constructor() {
@@ -36,8 +35,8 @@ class DeriveChild {
     this.address = a
   }
 
-  async getAvaiableIndex(walletName: string) {
-    const res = await commands.btcUnoccupiedDeriviationIndex(walletName)
+  async getAvaiableIndex() {
+    const res = await commands.btcUnoccupiedDeriviationIndex()
     if (res.status == 'error') {
       notifier.err(res.error)
       throw Error(res.error)
@@ -45,14 +44,10 @@ class DeriveChild {
     this.index = res.data
   }
 
-  async derive(walletName: string) {
+  async derive() {
     if (!this.label) throw Error('label is not set')
     if (!this.index) throw Error('index is not set')
-    const res = await commands.btcDeriveAddress(
-      walletName,
-      this.label,
-      this.index
-    )
+    const res = await commands.btcDeriveAddress(this.label, this.index)
     if (res.status == 'error') {
       notifier.err(res.error)
       throw Error(res.error)
@@ -71,7 +66,7 @@ export const DeriveChildAddress = observer(() => {
         sx={{ width: 'fit-content' }}
         onClick={() => {
           state.setIsOpen(true)
-          state.getAvaiableIndex(root_store.wallet.name!)
+          state.getAvaiableIndex()
         }}
       >
         Derive child
@@ -100,7 +95,7 @@ export const DeriveChildAddress = observer(() => {
             sx={{ width: 'fit-content' }}
             disabled={!state.label || !state.index}
             size="sm"
-            onClick={() => state.derive(root_store.wallet.name!)}
+            onClick={() => state.derive()}
           >
             Derive
           </Button>

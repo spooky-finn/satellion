@@ -61,33 +61,41 @@ async getConfig() : Promise<Result<UIConfig, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async btcDeriveAddress(walletName: string, label: string, index: number) : Promise<Result<string, string>> {
+async chainSwitchEvent(chain: Chain) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("btc_derive_address", { walletName, label, index }) };
+    return { status: "ok", data: await TAURI_INVOKE("chain_switch_event", { chain }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async btcUnoccupiedDeriviationIndex(walletName: string) : Promise<Result<number, string>> {
+async btcDeriveAddress(label: string, index: number) : Promise<Result<string, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("btc_unoccupied_deriviation_index", { walletName }) };
+    return { status: "ok", data: await TAURI_INVOKE("btc_derive_address", { label, index }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async btcListDerivedAddresess(walletName: string) : Promise<Result<DerivedAddress[], string>> {
+async btcUnoccupiedDeriviationIndex() : Promise<Result<number, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("btc_list_derived_addresess", { walletName }) };
+    return { status: "ok", data: await TAURI_INVOKE("btc_unoccupied_deriviation_index") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async btcListUtxos(walletName: string) : Promise<Result<Utxo[], string>> {
+async btcListDerivedAddresess() : Promise<Result<DerivedAddress[], string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("btc_list_utxos", { walletName }) };
+    return { status: "ok", data: await TAURI_INVOKE("btc_list_derived_addresess") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async btcListUtxos() : Promise<Result<Utxo[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("btc_list_utxos") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -101,9 +109,9 @@ async ethChainInfo() : Promise<Result<ChainInfo, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async ethGetBalance(address: string, walletName: string) : Promise<Result<Balance, string>> {
+async ethGetBalance(address: string) : Promise<Result<Balance, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("eth_get_balance", { address, walletName }) };
+    return { status: "ok", data: await TAURI_INVOKE("eth_get_balance", { address }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -117,9 +125,9 @@ async ethPrepareSendTx(req: PrepareTxReqReq) : Promise<Result<PrepareTxReqRes, s
     else return { status: "error", error: e  as any };
 }
 },
-async ethSignAndSendTx(walletName: string) : Promise<Result<string, string>> {
+async ethSignAndSendTx() : Promise<Result<string, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("eth_sign_and_send_tx", { walletName }) };
+    return { status: "ok", data: await TAURI_INVOKE("eth_sign_and_send_tx") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -133,17 +141,17 @@ async ethVerifyAddress(address: string) : Promise<Result<boolean, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async ethTrackToken(walletName: string, address: string) : Promise<Result<TokenType, string>> {
+async ethTrackToken(address: string) : Promise<Result<TokenType, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("eth_track_token", { walletName, address }) };
+    return { status: "ok", data: await TAURI_INVOKE("eth_track_token", { address }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async ethUntrackToken(walletName: string, tokenAddress: string) : Promise<Result<null, string>> {
+async ethUntrackToken(tokenAddress: string) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("eth_untrack_token", { walletName, tokenAddress }) };
+    return { status: "ok", data: await TAURI_INVOKE("eth_untrack_token", { tokenAddress }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -187,7 +195,7 @@ export type DerivedAddress = { label: string; address: string; deriv_path: strin
 export type EthereumUnlock = { address: string }
 export type FeeMode = "Minimal" | "Standard" | "Increased"
 export type HeightUpdateStatus = "in progress" | "completed"
-export type PrepareTxReqReq = { wallet_name: string; token_address: string; amount: string; recipient: string; fee_mode: FeeMode }
+export type PrepareTxReqReq = { token_address: string; amount: string; recipient: string; fee_mode: FeeMode }
 export type PrepareTxReqRes = { estimated_gas: string; max_fee_per_gas: string; fee_ceiling: string; fee_in_usd: number }
 export type SyncHeightUpdateEvent = { status: HeightUpdateStatus; height: number }
 export type SyncProgressEvent = { progress: number }
@@ -195,9 +203,9 @@ export type SyncWarningEvent = { msg: string }
 export type TokenBalance = { symbol: string; balance: string; decimals: number; address: string }
 export type TokenType = { chain: Chain; symbol: string; decimals: number }
 export type UIConfig = { eth_anvil: boolean }
-export type UTxOID = { tx_id: string; vout: string }
 export type UnlockMsg = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock; last_used_chain: Chain }
-export type Utxo = { utxoid: UTxOID; value: string }
+export type Utxo = { utxo_id: UtxoId; value: string; deriv_path: string }
+export type UtxoId = { tx_id: string; vout: string }
 
 /** tauri-specta globals **/
 

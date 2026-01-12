@@ -37,9 +37,9 @@ impl SessionKeeper {
         Self { session: None }
     }
 
-    pub fn take_session(&mut self, wallet_name: &str) -> Result<&mut Session, String> {
+    pub fn take_session(&mut self) -> Result<&mut Session, String> {
         if let Some(session) = &self.session {
-            if session.is_expired() || session.wallet.name != wallet_name {
+            if session.is_expired() {
                 self.session = None;
                 return Err("Session has expired".to_string());
             }
@@ -83,14 +83,14 @@ mod tests {
         let session = Session::new(wallet, session_exp_duration);
         sk.start(session);
 
-        assert!(sk.take_session(name).is_ok());
-        assert!(sk.take_session(name).unwrap().is_expired() == false);
-        assert!(sk.take_session(name).unwrap().wallet.name == name);
+        assert!(sk.take_session().is_ok());
+        assert!(sk.take_session().unwrap().is_expired() == false);
+        assert!(sk.take_session().unwrap().wallet.name == name);
 
         thread::sleep(std::time::Duration::from_secs(1));
-        assert!(sk.take_session(name).unwrap().is_expired() == false);
+        assert!(sk.take_session().unwrap().is_expired() == false);
 
         thread::sleep(std::time::Duration::from_secs(1));
-        assert!(sk.take_session(name).is_err());
+        assert!(sk.take_session().is_err());
     }
 }
