@@ -29,7 +29,7 @@ use crate::{
     wallet_keeper::WalletKeeper,
 };
 
-const ENABLE_DEVTOOLS: bool = true;
+const ENABLE_DEVTOOLS: bool = false;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

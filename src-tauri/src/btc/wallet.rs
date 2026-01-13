@@ -1,7 +1,7 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use bip39::Language;
-use bip157::BlockHash;
+use bip157::{BlockHash, ScriptBuf};
 pub use bitcoin::network::Network;
 use bitcoin::{
     Address,
@@ -28,7 +28,7 @@ pub struct RuntimeData {
 
 pub struct BitcoinWallet {
     pub derived_addresses: Vec<LabeledDerivationPath>,
-    pub utxos: Vec<UTxO>,
+    pub utxos: HashMap<ScriptBuf, UTxO>,
     pub cfilter_scanner_height: u32,
     pub runtime: RuntimeData,
 }
@@ -67,7 +67,7 @@ impl BitcoinWallet {
         BitcoinWallet {
             cfilter_scanner_height: 0,
             derived_addresses: Vec::new(),
-            utxos: vec![],
+            utxos: HashMap::new(),
             runtime: RuntimeData::default(),
         }
     }
@@ -174,9 +174,10 @@ impl BitcoinWallet {
             .filter(|a| a.derive_path.change == Change::External)
     }
 
-    pub fn insert_utxos(&mut self, block_height: u32, utxos: Vec<UTxO>) {
-        self.utxos.extend(utxos);
-        self.cfilter_scanner_height = block_height;
+    pub fn insert_utxos(&mut self, utxos: Vec<UTxO>) {
+        for utxo in utxos {
+            self.utxos.insert(utxo.output.script_pubkey.clone(), utxo);
+        }
     }
 
     pub fn add_script_of_interes(&mut self, script: DerivedScript) {
@@ -233,15 +234,15 @@ impl Persistable for BitcoinWallet {
                 .collect::<Result<Vec<_>, String>>()?,
             utxos: self
                 .utxos
-                .iter()
-                .map(|each| persistence::Utxo {
-                    block_hash: each.block.hash.to_byte_array(),
-                    block_height: each.block.height,
-                    deriviation_path: each.derive_path.to_string(),
-                    script_pubkey: each.output.script_pubkey.to_bytes(),
-                    txid: each.tx_id.to_byte_array(),
-                    value: each.output.value.to_sat(),
-                    vout: each.vout,
+                .values()
+                .map(|utxo| persistence::Utxo {
+                    block_hash: utxo.block.hash.to_byte_array(),
+                    block_height: utxo.block.height,
+                    deriviation_path: utxo.derive_path.to_string(),
+                    script_pubkey: utxo.output.script_pubkey.to_bytes(),
+                    txid: utxo.tx_id.to_byte_array(),
+                    value: utxo.output.value.to_sat(),
+                    vout: utxo.vout,
                 })
                 .collect(),
             cfilter_scanner_height: Some(self.cfilter_scanner_height),
@@ -260,12 +261,12 @@ impl Persistable for BitcoinWallet {
                 })
             })
             .collect::<Result<Vec<LabeledDerivationPath>, String>>()?;
-        let utxos = data
+        let utxos: HashMap<ScriptBuf, UTxO> = data
             .utxos
             .iter()
             .map(|utxo| {
                 let derive_path = DerivePath::from_str(&utxo.deriviation_path)?;
-                Ok(UTxO {
+                let utxo = UTxO {
                     tx_id: Hash::from_byte_array(utxo.txid),
                     block: crate::btc::utxo::BlockHeader {
                         hash: BlockHash::from_byte_array(utxo.block_hash),
@@ -277,9 +278,10 @@ impl Persistable for BitcoinWallet {
                         script_pubkey: bip157::ScriptBuf::from_bytes(utxo.script_pubkey.clone()),
                         value: bitcoin::Amount::from_sat(utxo.value),
                     },
-                })
+                };
+                Ok((utxo.output.script_pubkey.clone(), utxo))
             })
-            .collect::<Result<Vec<UTxO>, String>>()?;
+            .collect::<Result<_, String>>()?;
         Ok(Self {
             derived_addresses,
             utxos,
@@ -360,7 +362,7 @@ mod tests {
     fn test_unoccupied_deriviation_index() {
         let network = CONFIG.bitcoin.network();
         let wallet = BitcoinWallet {
-            utxos: vec![],
+            utxos: HashMap::new(),
             cfilter_scanner_height: 0,
             runtime: RuntimeData::default(),
             derived_addresses: vec![

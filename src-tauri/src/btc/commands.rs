@@ -132,7 +132,7 @@ pub async fn btc_list_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<Utxo>, Strin
     let mut utxos: Vec<_> = wallet
         .btc
         .utxos
-        .iter()
+        .values()
         .map(|utxo| {
             let label: Option<String> = match utxo.derive_path.change {
                 address::Change::Internal => Some("Change".to_string()),
@@ -140,7 +140,6 @@ pub async fn btc_list_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<Utxo>, Strin
                     .get(&utxo.derive_path.to_string())
                     .cloned(),
             };
-
             Utxo {
                 value: utxo.output.value.to_sat().to_string(),
                 utxo_id: UtxoId {

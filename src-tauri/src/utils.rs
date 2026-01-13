@@ -1,4 +1,4 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 pub fn now() -> u64 {
     SystemTime::now()
@@ -6,8 +6,6 @@ pub fn now() -> u64 {
         .unwrap()
         .as_secs()
 }
-
-use std::time::{Duration, Instant};
 
 /// Throttler that only allows action every `interval`.
 pub struct Throttler {
