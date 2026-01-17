@@ -16,7 +16,7 @@ impl ChainRepository {
         }
     }
 
-    pub fn save_block_header(&self, block_header: IndexedHeader) -> Result<usize, Error> {
+    pub fn insert_block_header(&self, block_header: &IndexedHeader) -> Result<usize, Error> {
         let mut conn = self.base.get_conn()?;
         diesel::insert_into(bitcoin_block_headers::table)
             .values(&BlockHeader {
@@ -41,18 +41,27 @@ impl ChainRepository {
         Ok(last_block)
     }
 
-    pub fn get_block_headers(
-        &self,
-        last_seen_height: u32,
-        limit: i64,
-    ) -> Result<Vec<BlockHeader>, Error> {
+    // pub fn get_block_headers(
+    //     &self,
+    //     last_seen_height: u32,
+    //     limit: i64,
+    // ) -> Result<Vec<BlockHeader>, Error> {
+    //     let mut conn = self.base.get_conn()?;
+    //     let min_height = (last_seen_height as i64 - limit) as i32;
+    //     bitcoin_block_headers::table
+    //         .select(bitcoin_block_headers::all_columns)
+    //         .filter(bitcoin_block_headers::height.gt(min_height))
+    //         .filter(bitcoin_block_headers::height.le(last_seen_height as i32))
+    //         .order(bitcoin_block_headers::height.desc())
+    //         .load::<BlockHeader>(&mut conn)
+    // }
+
+    pub fn get_block_header(&self, height: u32) -> Result<Option<BlockHeader>, Error> {
         let mut conn = self.base.get_conn()?;
-        let min_height = (last_seen_height as i64 - limit) as i32;
         bitcoin_block_headers::table
             .select(bitcoin_block_headers::all_columns)
-            .filter(bitcoin_block_headers::height.gt(min_height))
-            .filter(bitcoin_block_headers::height.le(last_seen_height as i32))
-            .order(bitcoin_block_headers::height.desc())
-            .load::<BlockHeader>(&mut conn)
+            .filter(bitcoin_block_headers::height.eq(height as i32))
+            .first::<BlockHeader>(&mut conn)
+            .optional()
     }
 }

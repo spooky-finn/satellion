@@ -61,7 +61,7 @@ const CreatePassphrase = observer(() => {
             onClick={() => {
               passphraseStore.verifyPassphrase()
               store.createWallet().then(() => {
-                navigate(route.ethereum)
+                navigate(route.unlock_wallet)
               })
             }}
           >

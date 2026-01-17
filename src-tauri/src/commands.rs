@@ -115,15 +115,13 @@ pub async fn unlock_wallet(
     let last_used_chain = wallet.last_used_chain;
     let btc_last_seen_heigh = wallet.btc.cfilter_scanner_height;
 
-    let session = Session::new(wallet, Config::session_exp_duration());
-    sk.lock().await.start(session);
-    // Start Bitcoin sync in background without waiting
-    let neutrino_starter_clone = (*neutrino_starter).clone();
-    tauri::async_runtime::spawn(async move {
-        if let Err(e) = neutrino_starter_clone.sync(app, btc_last_seen_heigh).await {
-            eprintln!("Failed to start Bitcoin sync: {}", e);
-        }
-    });
+    neutrino_starter
+        .request_node_start(app, wallet_name, btc_last_seen_heigh)
+        .await?;
+
+    sk.lock()
+        .await
+        .start(Session::new(wallet, Config::session_exp_duration()));
 
     Ok(UnlockMsg {
         ethereum,
