@@ -7,53 +7,46 @@ class PassphraseStore {
     makeAutoObservable(this)
   }
   passphrase: string = ''
-  repeatPassphrase: string = ''
-  setPassphrase(passphrase: string) {
+  repeat_passphrase: string = ''
+  set_passphrase(passphrase: string) {
     this.passphrase = passphrase
   }
-  setRepeatPassphrase(repeatPassphrase: string) {
-    this.repeatPassphrase = repeatPassphrase
+  set_repeat_passphrase(repeatPassphrase: string) {
+    this.repeat_passphrase = repeatPassphrase
   }
-  isSomethingEntered() {
-    return this.passphrase && this.repeatPassphrase
+  get is_something_entered() {
+    return this.passphrase && this.repeat_passphrase
   }
-  matched() {
+  get is_passphrase_matched() {
     return (
-      this.passphrase === this.repeatPassphrase &&
+      this.passphrase === this.repeat_passphrase &&
       this.passphrase.length >= MIN_PASSPHRASE_LEN
     )
   }
-  mismatch() {
-    return this.isSomethingEntered() && !this.matched()
-  }
-  verifyPassphrase() {
-    if (this.passphrase !== this.repeatPassphrase) {
-      const msg = 'Passphrases do not match'
-      notifier.err(msg)
-      throw Error(msg)
-    }
+  get is_mismatch() {
+    return this.is_something_entered && !this.is_passphrase_matched
   }
 }
 
 class MnemonicStore {
-  readonly passphraseStore = new PassphraseStore()
+  readonly passphrase_store = new PassphraseStore()
   constructor() {
     makeAutoObservable(this)
   }
-  walletName: string = ''
-  setWalletName(walletName: string) {
-    this.walletName = walletName
+  wallet_name: string = ''
+  set_wallet_name(walletName: string) {
+    this.wallet_name = walletName
   }
   mnemonic: string[] = []
-  setMnemonic(mnemonic: string[]) {
+  set_mnemonic(mnemonic: string[]) {
     this.mnemonic = mnemonic
   }
-  verificationWords: Record<number, string> = {}
-  setVirificationWords(index: number, value: string) {
-    this.verificationWords[index] = value.trim()
+  verification_words: Record<number, string> = {}
+  set_verification_words(index: number, value: string) {
+    this.verification_words[index] = value.trim()
   }
-  verificationIndices: number[] = []
-  verificationSuccessfull: boolean | null = null
+  verification_indices: number[] = []
+  verification_successfull: boolean | null = null
 
   async generate() {
     const resp = await commands.generateMnemonic()
@@ -62,15 +55,15 @@ class MnemonicStore {
       return
     }
     const words = resp.data.split(' ')
-    this.setMnemonic(words)
+    this.set_mnemonic(words)
     this.setVerificationIndices(words)
   }
 
   verify() {
-    const status = this.verificationIndices.every(
-      index => this.verificationWords[index] === this.mnemonic[index]
+    const status = this.verification_indices.every(
+      index => this.verification_words[index] === this.mnemonic[index]
     )
-    this.verificationSuccessfull = status
+    this.verification_successfull = status
     return status
   }
 
@@ -86,14 +79,14 @@ class MnemonicStore {
     }
     const verifyRandom: number[] = indices.slice(0, pickCount)
     verifyRandom.sort((a, b) => a - b)
-    this.verificationIndices = verifyRandom
+    this.verification_indices = verifyRandom
   }
 
   async createWallet() {
     const resp = await commands.createWallet(
       this.mnemonic.join(' '),
-      this.passphraseStore.passphrase,
-      this.walletName
+      this.passphrase_store.passphrase,
+      this.wallet_name
     )
     if (resp.status === 'error') {
       notifier.err(resp.error)

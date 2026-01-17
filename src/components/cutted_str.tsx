@@ -1,16 +1,12 @@
 import type { TypographyProps } from '@mui/joy'
 import { P } from '../shortcuts'
 
-type CuttedStringProps = {
+type Props = {
   children: string
   n?: number
 } & TypographyProps
 
-export const CuttedString = ({
-  children,
-  n = 6,
-  ...props
-}: CuttedStringProps) => {
+export const CuttedString = ({ children, n = 6, ...props }: Props) => {
   if (children.length <= n * 2) {
     return <span>{children}</span>
   }

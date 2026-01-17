@@ -15,7 +15,7 @@ import {
 } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useState, type ChangeEvent } from 'react'
-import { commands, TokenBalance, type TokenType } from '../../bindings'
+import { commands, type TokenBalance, type TokenType } from '../../bindings'
 import { notifier } from '../../components/notifier'
 import { P, Progress, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'

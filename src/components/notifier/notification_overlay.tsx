@@ -13,8 +13,8 @@ export const NotifierOverlay = observer(() => (
   >
     <Stack gap={1}>
       {notifier
-        .all()
-        .toReversed()
+        .list()
+
         .map(each => (
           <Alert
             key={each.id}

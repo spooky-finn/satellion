@@ -1,14 +1,42 @@
 import { Button, Card, Container, Stack } from '@mui/joy'
+import { makeAutoObservable } from 'mobx'
 import { observer } from 'mobx-react-lite'
 import { useEffect, useState } from 'react'
 import { Navbar } from '../../components/navbar'
-import { route, useNavigate } from '../../routes'
 import { P, Row } from '../../shortcuts'
+import { VerifyMnemonic } from './mnemonic_verify'
+import { CreatePassphrase } from './passphrase_create'
 import { store } from './store'
 
-const GenerateMnemonic = observer(() => {
+type Stage = 'select_mnemonic' | 'verify_mnemonic' | 'set_passphrase'
+
+export class State {
+  constructor() {
+    makeAutoObservable(this)
+  }
+
+  stage: Stage = 'select_mnemonic'
+  set_stage(s: Stage) {
+    this.stage = s
+  }
+}
+
+export const GenerateMnemonicFlow = observer(() => {
+  const [state] = useState(() => new State())
+
+  switch (state.stage) {
+    case 'select_mnemonic':
+      return <GenerateMnemonic state={state} />
+    case 'verify_mnemonic':
+      return <VerifyMnemonic state={state} />
+    case 'set_passphrase':
+      return <CreatePassphrase />
+  }
+})
+
+const GenerateMnemonic = observer(({ state }: { state: State }) => {
   const [isCopied, setIsCopied] = useState(false)
-  const navigate = useNavigate()
+
   useEffect(() => {
     store.generate()
   }, [])
@@ -52,7 +80,7 @@ const GenerateMnemonic = observer(() => {
             <Button
               variant="soft"
               color="primary"
-              onClick={() => navigate(route.verify_mnemonic)}
+              onClick={() => state.set_stage('verify_mnemonic')}
             >
               Continue
             </Button>
@@ -62,5 +90,3 @@ const GenerateMnemonic = observer(() => {
     </Stack>
   )
 })
-
-export default GenerateMnemonic

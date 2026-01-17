@@ -13,7 +13,7 @@ const UnlockWallet = () => {
 
   function handleUnlockWallet() {
     root_store.init()
-    unlock.unlockWallet(root_store.wallet).then(lastUsedChain => {
+    unlock.unlock_wallet(root_store.wallet).then(lastUsedChain => {
       navigate(lastUsedChain === 'Bitcoin' ? route.bitcoin : route.ethereum)
     })
   }
@@ -28,7 +28,7 @@ const UnlockWallet = () => {
     wallet.reset()
     unlock.reset()
 
-    unlock.loadAvailableWallets().then(wallets => {
+    unlock.load_available_wallets().then(wallets => {
       if (wallets.length === 0) {
         navigate(route.create_wallet)
       }
@@ -55,12 +55,12 @@ const UnlockWallet = () => {
         sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}
         width={'fit-content'}
       >
-        {unlock.availableWallets.map(name => (
+        {unlock.available_wallets.map(name => (
           <Button
             key={name}
             color="neutral"
-            onClick={() => unlock.setUnlockWallet(name)}
-            variant={unlock.walletToUnlock === name ? 'solid' : 'outlined'}
+            onClick={() => unlock.set_target_wallet(name)}
+            variant={unlock.target_wallet === name ? 'solid' : 'outlined'}
           >
             {name}
           </Button>
@@ -78,7 +78,7 @@ const UnlockWallet = () => {
           Add
         </Button>
       </Box>
-      {unlock.walletToUnlock &&
+      {unlock.target_wallet &&
         (unlock.loader.loading ? (
           <>
             <Progress color="primary" />
@@ -91,7 +91,7 @@ const UnlockWallet = () => {
             color="primary"
             placeholder={`Passphrase`}
             value={unlock.passphrase}
-            onChange={e => unlock.setPassphrase(e.target.value)}
+            onChange={e => unlock.set_passphrase(e.target.value)}
           />
         ))}
     </Stack>

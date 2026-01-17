@@ -1,9 +1,9 @@
 import {
   Button,
-  ButtonProps,
+  type ButtonProps,
   CircularProgress,
   Stack,
-  StackProps,
+  type StackProps,
   Typography,
   type CircularProgressProps
 } from '@mui/joy'

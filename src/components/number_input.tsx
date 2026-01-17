@@ -1,4 +1,4 @@
-import { Input, InputProps } from '@mui/joy'
+import { Input, type InputProps } from '@mui/joy'
 import { useState } from 'react'
 
 interface Props {

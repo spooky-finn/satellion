@@ -118,7 +118,7 @@ export const ListUtxo = observer(() => {
                       const value =
                         (parseFloat(root_store.wallet.btc.usd_price ?? '0') /
                           10 ** 8) *
-                        parseInt(utxo.value)
+                        parseInt(utxo.value, 10)
 
                       return (
                         <tr key={key}>

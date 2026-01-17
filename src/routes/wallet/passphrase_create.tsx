@@ -1,4 +1,4 @@
-import { Button, Container, Input, InputProps, Stack } from '@mui/joy'
+import { Button, Container, Input, type InputProps, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { MIN_PASSPHRASE_LEN } from '../../bindings'
 import { route, useNavigate } from '../../routes'
@@ -17,9 +17,9 @@ export const PassphraseInput = (props: InputProps) => (
   />
 )
 
-const CreatePassphrase = observer(() => {
+export const CreatePassphrase = observer(() => {
   const navigate = useNavigate()
-  const { passphraseStore } = store
+  const { passphrase_store } = store
   return (
     <Stack gap={1} alignItems={'center'}>
       <P level="h2">Imagine a passphrase</P>
@@ -28,8 +28,8 @@ const CreatePassphrase = observer(() => {
           <Input
             sx={{ width: '200px' }}
             placeholder="Wallet name"
-            value={store.walletName}
-            onChange={e => store.setWalletName(e.target.value)}
+            value={store.wallet_name}
+            onChange={e => store.set_wallet_name(e.target.value)}
           />
           <P level="body-sm">
             Passphrase should contains at least {MIN_PASSPHRASE_LEN} symbols.
@@ -41,25 +41,30 @@ const CreatePassphrase = observer(() => {
           </P>
           <PassphraseInput
             placeholder={`Passphrase`}
-            value={passphraseStore.passphrase}
-            onChange={e => passphraseStore.setPassphrase(e.target.value)}
+            value={passphrase_store.passphrase}
+            onChange={e => passphrase_store.set_passphrase(e.target.value)}
           />
           <KeyboardStatus />
           <PassphraseInput
             placeholder="Repeat passphrase"
-            value={passphraseStore.repeatPassphrase}
-            onChange={e => passphraseStore.setRepeatPassphrase(e.target.value)}
+            value={passphrase_store.repeat_passphrase}
+            onChange={e =>
+              passphrase_store.set_repeat_passphrase(e.target.value)
+            }
           />
-          {passphraseStore.mismatch() && (
+          {passphrase_store.is_mismatch && (
             <P level="body-xs" color="danger">
               Passphrases mismatch
             </P>
           )}
           <Button
             sx={{ width: 'min-content' }}
-            disabled={!passphraseStore.matched()}
+            disabled={!passphrase_store.is_passphrase_matched}
             onClick={() => {
-              passphraseStore.verifyPassphrase()
+              if (passphrase_store.is_mismatch) {
+                notifier.err('Passphrases do not match')
+              }
+
               store.createWallet().then(() => {
                 navigate(route.unlock_wallet)
               })
@@ -74,6 +79,7 @@ const CreatePassphrase = observer(() => {
 })
 
 import { useEffect, useState } from 'react'
+import { notifier } from '../../components/notifier'
 
 export const KeyboardStatus = () => {
   const [capsLock, setCapsLock] = useState(false)
@@ -101,5 +107,3 @@ export const KeyboardStatus = () => {
     </Stack>
   )
 }
-
-export default CreatePassphrase

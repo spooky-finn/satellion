@@ -5,6 +5,7 @@ import { commands, type Chain } from '../bindings'
 import { route } from '../routes'
 import { Row } from '../shortcuts'
 import { AppMenu } from './menu'
+import { notifier } from './notifier'
 import { ThemeSwitcher } from './theme_switcher'
 
 export const Navbar = ({ hideLedgers }: { hideLedgers?: boolean }) => {
@@ -54,7 +55,7 @@ const BlockchainLink = (props: { to: string; src: string; chain: Chain }) => (
       onClick={async () => {
         const res = await commands.chainSwitchEvent(props.chain)
         if (res.status === 'error') {
-          console.error(console.error(res.error))
+          notifier.err(res.error)
         }
       }}
     >

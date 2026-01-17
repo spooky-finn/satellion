@@ -8,7 +8,7 @@ import { P } from '../../shortcuts'
 import { PassphraseInput } from './passphrase_create'
 import { store } from './store'
 
-const ImportMnemonic = observer(() => {
+export const ImportMnemonic = observer(() => {
   const navigate = useNavigate()
   const [mnemonicText, setMnemonicText] = useState('')
   const [passphrase, setPassphrase] = useState('')
@@ -29,9 +29,9 @@ const ImportMnemonic = observer(() => {
       return
     }
 
-    store.setMnemonic(words)
-    store.passphraseStore.setPassphrase(passphrase)
-    store.setWalletName(walletName)
+    store.set_mnemonic(words)
+    store.passphrase_store.set_passphrase(passphrase)
+    store.set_wallet_name(walletName)
 
     await store.createWallet()
     navigate(route.unlock_wallet)
@@ -80,5 +80,3 @@ const ImportMnemonic = observer(() => {
     </Stack>
   )
 })
-
-export default ImportMnemonic

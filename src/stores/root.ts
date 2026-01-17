@@ -1,4 +1,4 @@
-import { makeAutoObservable } from 'mobx'
+import { makeAutoObservable, runInAction } from 'mobx'
 import { commands, type UIConfig } from '../bindings'
 import { notifier } from '../components/notifier'
 import { Unlock } from './unlock'
@@ -19,7 +19,9 @@ class RootStore {
       notifier.err(res.error)
       return
     }
-    this.ui_config = res.data
+    runInAction(() => {
+      this.ui_config = res.data
+    })
   }
 }
 

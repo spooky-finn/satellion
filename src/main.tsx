@@ -10,14 +10,10 @@ import { CreateWallet } from './routes/create_wallet'
 import { Ethereum } from './routes/ethereum/ethereum'
 import { EthereumTransfer } from './routes/ethereum/transfer'
 import UnlockWallet from './routes/unlock_wallet'
-import ImportMnemonic from './routes/wallet/import'
-import GenMnemonic from './routes/wallet/mnemonic_generate'
-import VerifyMnemonic from './routes/wallet/mnemonic_verify'
-import CreatePassphrase from './routes/wallet/passphrase_create'
 
 const theme = extendTheme({
   cssVarPrefix: 'mode-toggle',
-  // @ts-ignore
+  // @ts-expect-error
   colorSchemeSelector: '.demo_mode-toggle-%s',
   components: {
     JoyButton: {
@@ -37,10 +33,6 @@ const App = () => {
     <Routes>
       <Route path={route.unlock_wallet} element={<UnlockWallet />} />
       <Route path={route.create_wallet} element={<CreateWallet />} />
-      <Route path={route.gen_mnemonic} element={<GenMnemonic />} />
-      <Route path={route.verify_mnemonic} element={<VerifyMnemonic />} />
-      <Route path={route.create_passphrase} element={<CreatePassphrase />} />
-      <Route path={route.import_mnemonic} element={<ImportMnemonic />} />
       <Route path={route.ethereum} element={<Ethereum />} />
       <Route path={route.ethereum_send} element={<EthereumTransfer />} />
       <Route path={route.bitcoin} element={<Bitcoin />} />

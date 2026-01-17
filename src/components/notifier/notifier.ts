@@ -16,7 +16,7 @@ class NotifierStore {
     makeAutoObservable(this)
   }
 
-  notify(level: Notification['level'], msg: string, timeout?: number) {
+  private notify(level: Notification['level'], msg: string, timeout: number) {
     const id = crypto.randomUUID()
 
     // Add notification immediately
@@ -29,19 +29,19 @@ class NotifierStore {
       runInAction(() => {
         this.notifications = this.notifications.filter(each => each.id !== id)
       })
-    }, timeout || ErrMsgTime)
+    }, timeout)
   }
 
-  all() {
-    return this.notifications
+  list() {
+    return this.notifications.toReversed()
   }
 
-  ok(msg: string) {
-    this.notify('info', msg, OkMsgTime)
+  ok(msg: string, timeout?: number) {
+    this.notify('info', msg, timeout || OkMsgTime)
   }
 
-  err(msg: string) {
-    this.notify('err', msg, ErrMsgTime)
+  err(msg: string, timeout?: number) {
+    this.notify('err', msg, timeout || ErrMsgTime)
   }
 }
 
