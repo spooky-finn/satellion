@@ -4,8 +4,8 @@ import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
 import { Navbar } from '../components/navbar'
 import { P, Row } from '../shortcuts'
+import { GenerateMnemonicFlow } from './wallet/gen/flow'
 import { ImportMnemonic } from './wallet/import'
-import { GenerateMnemonicFlow } from './wallet/mnemonic_generate'
 
 type Flow = 'import' | 'gen'
 

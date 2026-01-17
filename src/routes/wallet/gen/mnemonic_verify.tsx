@@ -1,11 +1,11 @@
 import { Button, Container, Input, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
-import { Navbar } from '../../components/navbar'
-import { NavigateUnlock, P, Row } from '../../shortcuts'
-import type { State } from './mnemonic_generate'
-import { store } from './store'
+import { Navbar } from '../../../components/navbar'
+import { NavigateUnlock, P, Row } from '../../../shortcuts'
+import { store } from '../store'
+import type { FlowState } from './flow_state'
 
-export const VerifyMnemonic = observer(({ state }: { state: State }) => (
+export const VerifyMnemonic = observer(({ flow }: { flow: FlowState }) => (
   <Stack gap={1} alignItems={'center'}>
     <Navbar hideLedgers />
     <Container maxWidth="sm">
@@ -34,7 +34,7 @@ export const VerifyMnemonic = observer(({ state }: { state: State }) => (
             onClick={() => {
               const status = store.verify()
               if (status) {
-                state.set_stage('set_passphrase')
+                flow.set_stage('set_passphrase')
               }
             }}
           >

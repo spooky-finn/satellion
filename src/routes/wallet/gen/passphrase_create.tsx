@@ -1,21 +1,12 @@
-import { Button, Container, Input, type InputProps, Stack } from '@mui/joy'
+import { Button, Container, Input, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
-import { MIN_PASSPHRASE_LEN } from '../../bindings'
-import { route, useNavigate } from '../../routes'
-import { P } from '../../shortcuts'
-import { store } from './store'
-
-export const PassphraseInput = (props: InputProps) => (
-  <Input
-    {...props}
-    type="password"
-    autoComplete="off"
-    sx={{
-      width: '200px',
-      ...props.sx
-    }}
-  />
-)
+import { useEffect, useState } from 'react'
+import { MIN_PASSPHRASE_LEN } from '../../../bindings'
+import { notifier } from '../../../components/notifier'
+import { PassphraseInput } from '../../../components/passphrase_input'
+import { route, useNavigate } from '../../../routes'
+import { P } from '../../../shortcuts'
+import { store } from '../store'
 
 export const CreatePassphrase = observer(() => {
   const navigate = useNavigate()
@@ -77,9 +68,6 @@ export const CreatePassphrase = observer(() => {
     </Stack>
   )
 })
-
-import { useEffect, useState } from 'react'
-import { notifier } from '../../components/notifier'
 
 export const KeyboardStatus = () => {
   const [capsLock, setCapsLock] = useState(false)

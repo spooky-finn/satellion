@@ -2,10 +2,10 @@ import { Box, Button, Divider, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
+import { PassphraseInput } from '../components/passphrase_input'
 import { route } from '../routes'
 import { P, Progress } from '../shortcuts'
 import { root_store } from '../stores/root'
-import { PassphraseInput } from './wallet/passphrase_create'
 
 const UnlockWallet = () => {
   const { unlock, wallet } = root_store

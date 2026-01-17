@@ -3,9 +3,9 @@ import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
 import { Navbar } from '../../components/navbar'
 import { notifier } from '../../components/notifier'
+import { PassphraseInput } from '../../components/passphrase_input'
 import { route, useNavigate } from '../../routes'
 import { P } from '../../shortcuts'
-import { PassphraseInput } from './passphrase_create'
 import { store } from './store'
 
 export const ImportMnemonic = observer(() => {
