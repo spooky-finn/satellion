@@ -2,7 +2,7 @@ import { Button, Card, Container, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect, useState } from 'react'
 import { Navbar } from '../../../components/navbar'
-import { P, Row } from '../../../shortcuts'
+import { NavigateUnlock, P, Row } from '../../../shortcuts'
 import { store } from '../mnemonic_store'
 import type { FlowState } from './flow_state'
 
@@ -41,9 +41,10 @@ export const GenerateMnemonic = observer(({ flow }: { flow: FlowState }) => {
 						)}
 					</Stack>
 
-					<Stack gap={1}>
+					<Row flexWrap={'wrap'}>
+						<NavigateUnlock />
 						<Button
-							variant="soft"
+							variant="plain"
 							color="neutral"
 							onClick={() => store.generate()}
 						>
@@ -56,7 +57,7 @@ export const GenerateMnemonic = observer(({ flow }: { flow: FlowState }) => {
 						>
 							Continue
 						</Button>
-					</Stack>
+					</Row>
 				</Stack>
 			</Container>
 		</Stack>

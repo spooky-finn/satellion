@@ -1,5 +1,5 @@
 import { makeAutoObservable } from 'mobx'
-import { commands, MIN_PASSPHRASE_LEN } from '../../bindings'
+import { type CreationType, commands, MIN_PASSPHRASE_LEN } from '../../bindings'
 import { notifier } from '../../components/notifier/notifier'
 
 class PassphraseStore {
@@ -82,11 +82,12 @@ class MnemonicStore {
 		this.verification_indices = verifyRandom
 	}
 
-	async createWallet() {
+	async createWallet(creation_type: CreationType) {
 		const resp = await commands.createWallet(
 			this.mnemonic.join(' '),
 			this.passphrase_store.passphrase,
 			this.wallet_name,
+			creation_type,
 		)
 		if (resp.status === 'error') {
 			notifier.err(resp.error)

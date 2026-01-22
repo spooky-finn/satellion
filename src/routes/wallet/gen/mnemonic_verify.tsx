@@ -1,7 +1,8 @@
-import { Button, Container, Input, Stack } from '@mui/joy'
+import { Button, Container, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
+import { MnemonicWordInput } from '../../../components/mnemonic_word_input'
 import { Navbar } from '../../../components/navbar'
-import { NavigateUnlock, P, Row } from '../../../shortcuts'
+import { NavigateUnlock, P } from '../../../shortcuts'
 import { store } from '../mnemonic_store'
 import type { FlowState } from './flow_state'
 
@@ -12,18 +13,13 @@ export const VerifyMnemonic = observer(({ flow }: { flow: FlowState }) => (
 			<Stack gap={1} alignItems={'center'}>
 				<P level="h2">Enter your mnemonic words</P>
 				{store.verification_indices.map(index => (
-					<Row key={index} alignItems={'center'}>
-						<P>{index + 1}</P>
-						<Input
-							autoComplete="chrome-off"
-							autoCorrect="off"
-							key={index}
-							value={store.verification_words[index]}
-							onChange={e => {
-								store.set_verification_words(index, e.target.value)
-							}}
-						/>
-					</Row>
+					<MnemonicWordInput
+						id={index}
+						key={index}
+						value={store.verification_words[index]}
+						onChange={e => store.set_verification_words(index, e.target.value)}
+						visible
+					/>
 				))}
 
 				<Stack gap={1} alignItems={'center'}>

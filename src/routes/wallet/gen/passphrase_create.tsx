@@ -56,7 +56,7 @@ export const CreatePassphrase = observer(() => {
 								notifier.err('Passphrases do not match')
 							}
 
-							store.createWallet().then(() => {
+							store.createWallet('Generation').then(() => {
 								navigate(route.unlock_wallet)
 							})
 						}}

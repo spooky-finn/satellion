@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use shush_rs::ExposeSecret;
 use specta::{Type, specta};
 use tauri::AppHandle;
@@ -39,15 +39,23 @@ pub async fn generate_mnemonic() -> Result<String, String> {
     mnemonic::new()
 }
 
+#[derive(Type, PartialEq, Deserialize)]
+pub enum CreationType {
+    Import,
+    Generation,
+}
+
 #[specta]
 #[tauri::command]
 pub async fn create_wallet(
     mut mnemonic: String,
     mut passphrase: String,
     name: String,
+    creation_type: CreationType,
     wallet_keeper: tauri::State<'_, WalletKeeper>,
 ) -> Result<bool, String> {
-    if passphrase.len() < constants::MIN_PASSPHRASE_LEN {
+    if creation_type == CreationType::Generation && passphrase.len() < constants::MIN_PASSPHRASE_LEN
+    {
         return Err(format!(
             "Passphrase must contain at least {} characters",
             constants::MIN_PASSPHRASE_LEN

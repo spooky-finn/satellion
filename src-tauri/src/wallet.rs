@@ -24,7 +24,7 @@ impl Wallet {
         mnemonic: String,
         passphrase: SecretBox<String>,
     ) -> Result<Self, String> {
-        mnemonic::verify(&mnemonic)?;
+        mnemonic::validate(&mnemonic)?;
         Ok(Wallet {
             name,
             mnemonic: SecretBox::new(Box::new(mnemonic)),

@@ -8,10 +8,10 @@ pub fn new() -> Result<String, String> {
     Ok(mnemnonic.to_phrase())
 }
 
-pub fn verify(mnemonic: &str) -> Result<bool, String> {
+pub fn validate(mnemonic: &str) -> Result<bool, String> {
     let mnemonic = coins_bip39::Mnemonic::<English>::new_from_phrase(mnemonic);
     match mnemonic {
         Ok(_) => Ok(true),
-        Err(e) => Err(format!("Invalid mnemonic {e}")),
+        Err(e) => Err(format!("Invalid mnemonic: {e}")),
     }
 }

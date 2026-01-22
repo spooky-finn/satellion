@@ -1,8 +1,8 @@
-import { Button, Input, Stack, Textarea } from '@mui/joy'
+import { Button, Input, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
+import { MnemonicInput, MnemonicInputSt } from '../../components/mnemonic_input'
 import { Navbar } from '../../components/navbar'
-import { notifier } from '../../components/notifier'
 import { PassphraseInput } from '../../components/passphrase_input'
 import { route, useNavigate } from '../../routes'
 import { P } from '../../shortcuts'
@@ -10,39 +10,17 @@ import { store } from './mnemonic_store'
 
 export const ImportMnemonic = observer(() => {
 	const navigate = useNavigate()
-	const [mnemonicText, setMnemonicText] = useState('')
 	const [passphrase, setPassphrase] = useState('')
 	const [walletName, setWalletName] = useState('')
+	const [st] = useState(() => new MnemonicInputSt())
 
 	const handleImport = async () => {
-		const words = mnemonicText
-			.trim()
-			.split(/\s+/)
-			.filter(w => w.length > 0)
-		if (words.length < 12) {
-			notifier.err('Mnemonic must be between 12 words')
-			return
-		}
-
-		if (words.some(w => w.length < 2)) {
-			notifier.err('Invalid mnemonic format')
-			return
-		}
-
-		store.set_mnemonic(words)
+		store.set_mnemonic(st.mnemonic)
 		store.passphrase_store.set_passphrase(passphrase)
 		store.set_wallet_name(walletName)
 
-		await store.createWallet()
+		await store.createWallet('Import')
 		navigate(route.unlock_wallet)
-	}
-
-	const isFormValid = () => {
-		const words = mnemonicText
-			.trim()
-			.split(/\s+/)
-			.filter(w => w.length > 0)
-		return words.length >= 12 && words.length <= 24
 	}
 
 	return (
@@ -54,16 +32,10 @@ export const ImportMnemonic = observer(() => {
 					sx={{ width: '200px' }}
 					placeholder="Wallet name"
 					value={walletName}
+					autoComplete="off"
 					onChange={e => setWalletName(e.target.value)}
 				/>
-				<Textarea
-					autoComplete="chrome-off"
-					autoCorrect="off"
-					placeholder="Enter your mnemonic phrase (12 words)"
-					value={mnemonicText}
-					onChange={e => setMnemonicText(e.target.value)}
-					minRows={3}
-				/>
+				<MnemonicInput st={st} />
 				<PassphraseInput
 					placeholder="Passphrase"
 					value={passphrase}
@@ -72,7 +44,7 @@ export const ImportMnemonic = observer(() => {
 				<Button
 					sx={{ width: 'min-content' }}
 					onClick={handleImport}
-					disabled={!isFormValid()}
+					disabled={!st.is_input_completed}
 				>
 					Import
 				</Button>

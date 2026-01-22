@@ -13,9 +13,9 @@ async generateMnemonic() : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async createWallet(mnemonic: string, passphrase: string, name: string) : Promise<Result<boolean, string>> {
+async createWallet(mnemonic: string, passphrase: string, name: string, creationType: CreationType) : Promise<Result<boolean, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("create_wallet", { mnemonic, passphrase, name }) };
+    return { status: "ok", data: await TAURI_INVOKE("create_wallet", { mnemonic, passphrase, name, creationType }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -191,6 +191,7 @@ export type BitcoinUnlock = { address: string; usd_price: string }
 export type Chain = "Bitcoin" | "Ethereum"
 export type ChainInfo = { block_number: string; block_hash: string; base_fee_per_gas: string | null }
 export type ChainStatus = { height: number }
+export type CreationType = "Import" | "Generation"
 export type DerivedAddress = { label: string; address: string; deriv_path: string }
 export type EthereumUnlock = { address: string; usd_price: string }
 export type FeeMode = "Minimal" | "Standard" | "Increased"

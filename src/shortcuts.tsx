@@ -1,3 +1,4 @@
+import { HomeRounded } from '@mui/icons-material'
 import {
 	Button,
 	type ButtonProps,
@@ -31,7 +32,7 @@ export const NavigateUnlock = (props: ButtonProps) => {
 			{...props}
 			onClick={() => navigate(route.unlock_wallet)}
 		>
-			Back to Home
+			<HomeRounded />
 		</Button>
 	)
 }
