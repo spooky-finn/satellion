@@ -216,7 +216,9 @@ mod tests {
         let listed = repository.ls().unwrap();
         assert!(listed.contains(&FsRepository.sanitize_filename(&name)));
 
-        let saved_wallet = repository.load(&name, passphrase).unwrap();
+        let saved_wallet = repository
+            .load(&name, passphrase)
+            .expect("fail to load wallet");
         assert_eq!(
             wallet.mnemonic.expose_secret().to_string(),
             saved_wallet.mnemonic.expose_secret().to_string()

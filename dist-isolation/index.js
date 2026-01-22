@@ -1,1 +1,1 @@
-window.__TAURI_ISOLATION_HOOK__ = (payload) => payload;
+window.__TAURI_ISOLATION_HOOK__ = payload => payload

@@ -3,28 +3,28 @@ import { observer } from 'mobx-react-lite'
 import { notifier } from './notifier'
 
 export const NotifierOverlay = observer(() => (
-  <Box
-    sx={{
-      position: 'fixed',
-      bottom: 10,
-      right: 10,
-      zIndex: 1000
-    }}
-  >
-    <Stack gap={1}>
-      {notifier
-        .list()
+	<Box
+		sx={{
+			position: 'fixed',
+			bottom: 10,
+			right: 10,
+			zIndex: 1000,
+		}}
+	>
+		<Stack gap={1}>
+			{notifier
+				.list()
 
-        .map(each => (
-          <Alert
-            key={each.id}
-            variant="solid"
-            size="sm"
-            color={each.level === 'err' ? 'danger' : 'success'}
-          >
-            <Container maxWidth="sm">{each.msg}</Container>
-          </Alert>
-        ))}
-    </Stack>
-  </Box>
+				.map(each => (
+					<Alert
+						key={each.id}
+						variant="solid"
+						size="sm"
+						color={each.level === 'err' ? 'danger' : 'success'}
+					>
+						<Container maxWidth="sm">{each.msg}</Container>
+					</Alert>
+				))}
+		</Stack>
+	</Box>
 ))

@@ -1,37 +1,37 @@
 import {
-  Button,
-  type ButtonProps,
-  CircularProgress,
-  Stack,
-  type StackProps,
-  Typography,
-  type CircularProgressProps
+	Button,
+	type ButtonProps,
+	CircularProgress,
+	type CircularProgressProps,
+	Stack,
+	type StackProps,
+	Typography,
 } from '@mui/joy'
 import { useNavigate } from 'react-router'
 import { route } from './routes'
 
 export const P = Typography
 export const Row = (props: StackProps) => (
-  <Stack gap={1} direction={'row'} {...props} />
+	<Stack gap={1} direction={'row'} {...props} />
 )
 export const LinkButton = (props: ButtonProps & { to: string }) => {
-  const navigate = useNavigate()
-  return <Button size="sm" {...props} onClick={() => navigate(props.to)} />
+	const navigate = useNavigate()
+	return <Button size="sm" {...props} onClick={() => navigate(props.to)} />
 }
 export const Progress = (props: CircularProgressProps) => (
-  <CircularProgress size="sm" color="neutral" {...props} />
+	<CircularProgress size="sm" color="neutral" {...props} />
 )
 
 export const NavigateUnlock = (props: ButtonProps) => {
-  const navigate = useNavigate()
-  return (
-    <Button
-      variant="soft"
-      color="neutral"
-      {...props}
-      onClick={() => navigate(route.unlock_wallet)}
-    >
-      Back to Home
-    </Button>
-  )
+	const navigate = useNavigate()
+	return (
+		<Button
+			variant="soft"
+			color="neutral"
+			{...props}
+			onClick={() => navigate(route.unlock_wallet)}
+		>
+			Back to Home
+		</Button>
+	)
 }

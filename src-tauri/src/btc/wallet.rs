@@ -12,7 +12,7 @@ use bitcoin::{
 
 use crate::{
     btc::{
-        address::{Change, DerivePath, LabeledDerivationPath},
+        address::{Change, DerivePath, LabeledDerivationPath, Purpose},
         utxo::UTxO,
     },
     chain_trait::{AssetTracker, ChainTrait, Persistable, SecureKey},
@@ -83,6 +83,7 @@ impl BitcoinWallet {
 
     pub fn main_derive_path(&self) -> DerivePath {
         DerivePath {
+            purpose: Purpose::Bip86,
             network: CONFIG.bitcoin.network(),
             change: Change::External,
             index: 0,
@@ -128,9 +129,8 @@ impl BitcoinWallet {
     ) -> Result<(Keypair, Address), String> {
         let secp = Secp256k1::new();
         // derive child private key
-        let derive_path = &derive_path.as_bip86_path()?;
         let keypair = xpriv
-            .derive_priv(&secp, derive_path)
+            .derive_priv(&secp, &derive_path.to_path()?)
             .map_err(|e| format!("Derivation error: {}", e))?
             .to_keypair(&secp);
 
@@ -225,7 +225,7 @@ impl Persistable for BitcoinWallet {
                 .derived_addresses
                 .iter()
                 .map(|addr| {
-                    let path = addr.derive_path.as_bip86_path()?.to_string();
+                    let path = addr.derive_path.to_string();
                     Ok(persistence::ChildAddress {
                         label: addr.label.clone(),
                         devive_path: path,
@@ -356,11 +356,14 @@ pub mod persistence {
 
 #[cfg(test)]
 mod tests {
+    use crate::btc::address::Purpose;
+
     use super::*;
 
     #[test]
     fn test_unoccupied_deriviation_index() {
         let network = CONFIG.bitcoin.network();
+        let purpose = Purpose::Bip86;
         let wallet = BitcoinWallet {
             utxos: HashMap::new(),
             cfilter_scanner_height: 0,
@@ -369,6 +372,7 @@ mod tests {
                 LabeledDerivationPath {
                     label: "addr1".to_string(),
                     derive_path: DerivePath {
+                        purpose,
                         network,
                         change: Change::External,
                         index: 1,
@@ -377,6 +381,7 @@ mod tests {
                 LabeledDerivationPath {
                     label: "addr2".to_string(),
                     derive_path: DerivePath {
+                        purpose,
                         network,
                         change: Change::External,
                         index: 2,
@@ -385,6 +390,7 @@ mod tests {
                 LabeledDerivationPath {
                     label: "addr3".to_string(),
                     derive_path: DerivePath {
+                        purpose,
                         network,
                         change: Change::External,
                         index: 19,
@@ -393,6 +399,7 @@ mod tests {
                 LabeledDerivationPath {
                     label: "change1".to_string(),
                     derive_path: DerivePath {
+                        purpose,
                         network,
                         change: Change::Internal,
                         index: 0,

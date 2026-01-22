@@ -1,42 +1,44 @@
 {
-  "name": "satellion",
-  "private": true,
-  "version": "0.1.2",
-  "type": "module",
-  "packageManager": "pnpm@10.22.0",
-  "scripts": {
-    "dev": "vite",
-    "typecheck": "tsc --noEmit",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "tauri": "tauri"
-  },
-  "dependencies": {
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.1",
-    "@mui/icons-material": "^7.3.6",
-    "@mui/joy": "5.0.0-beta.52",
-    "@mui/material": "npm:@mui/joy@5.0.0-beta.52",
-    "@tauri-apps/api": "^2.9.1",
-    "@tauri-apps/plugin-opener": "^2.5.2",
-    "mobx": "^6.15.0",
-    "mobx-react-lite": "^4.1.1",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
-    "react-router": "^7.10.1"
-  },
-  "devDependencies": {
-    "@react-router/dev": "^7.10.1",
-    "@tauri-apps/cli": "^2.9.6",
-    "@types/react": "^19.2.7",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^4.7.0",
-    "typescript": "~5.8.3",
-    "vite": "^7.2.7"
-  },
-  "pnpm": {
-    "overrides": {
-      "chokidar": "3.5.3"
-    }
-  }
+	"name": "satellion",
+	"private": true,
+	"version": "0.1.2",
+	"type": "module",
+	"packageManager": "pnpm@10.22.0",
+	"scripts": {
+		"dev": "vite",
+		"typecheck": "tsc --noEmit",
+		"build": "tsc && vite build",
+		"biome": "pnpm exec biome check --write",
+		"preview": "vite preview",
+		"tauri": "tauri"
+	},
+	"dependencies": {
+		"@emotion/react": "^11.14.0",
+		"@emotion/styled": "^11.14.1",
+		"@mui/icons-material": "^7.3.6",
+		"@mui/joy": "5.0.0-beta.52",
+		"@mui/material": "npm:@mui/joy@5.0.0-beta.52",
+		"@tauri-apps/api": "^2.9.1",
+		"@tauri-apps/plugin-opener": "^2.5.2",
+		"mobx": "^6.15.0",
+		"mobx-react-lite": "^4.1.1",
+		"react": "^19.2.3",
+		"react-dom": "^19.2.3",
+		"react-router": "^7.10.1"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.3.11",
+		"@react-router/dev": "^7.10.1",
+		"@tauri-apps/cli": "^2.9.6",
+		"@types/react": "^19.2.7",
+		"@types/react-dom": "^19.2.3",
+		"@vitejs/plugin-react": "^4.7.0",
+		"typescript": "~5.8.3",
+		"vite": "^7.2.7"
+	},
+	"pnpm": {
+		"overrides": {
+			"chokidar": "3.5.3"
+		}
+	}
 }

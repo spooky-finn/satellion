@@ -28,6 +28,7 @@ pub async fn btc_derive_address(
         change: address::Change::External,
         index,
         network: CONFIG.bitcoin.network(),
+        purpose: address::Purpose::Bip86,
     };
     if !wallet
         .btc
