@@ -178,7 +178,7 @@ impl FsRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::eth::constants::USDT;
+    use crate::{btc::address::make_hardened, eth::constants::USDT};
 
     #[test]
     fn test_serialication() {
@@ -196,7 +196,7 @@ mod tests {
                 cfilter_scanner_height: Some(0),
                 childs: vec![crate::btc::persistence::ChildAddress {
                     label: "Secret contractor".to_string(),
-                    devive_path: "m/86/0/0/1/1".to_string(),
+                    devive_path: make_hardened([86,0,0,0,1])
                 }],
                 utxos: vec![],
             },

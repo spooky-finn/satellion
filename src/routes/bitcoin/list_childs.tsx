@@ -3,6 +3,7 @@ import { makeAutoObservable } from 'mobx'
 import { observer } from 'mobx-react-lite'
 import { useEffect, useState } from 'react'
 import { commands, type DerivedAddress } from '../../bindings'
+import { CuttedString } from '../../components/cutted_str'
 import { notifier } from '../../components/notifier'
 import { P, Row } from '../../shortcuts'
 
@@ -61,7 +62,10 @@ export const ListDerivedAddresses = observer(() => {
 								sx={{ mb: 1 }}
 							>
 								<P>{addr.label}</P>
-								<P sx={{ fontFamily: 'monospace' }}>{addr.address}</P>
+								<P>{addr.deriv_path}</P>
+								<CuttedString sx={{ fontFamily: 'monospace' }}>
+									{addr.address}
+								</CuttedString>
 							</Row>
 						))
 					)}

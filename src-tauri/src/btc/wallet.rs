@@ -84,6 +84,7 @@ impl BitcoinWallet {
     pub fn main_derive_path(&self) -> DerivePath {
         DerivePath {
             purpose: Purpose::Bip86,
+            account: 0,
             network: CONFIG.bitcoin.network(),
             change: Change::External,
             index: 0,
@@ -225,7 +226,7 @@ impl Persistable for BitcoinWallet {
                 .derived_addresses
                 .iter()
                 .map(|addr| {
-                    let path = addr.derive_path.to_string();
+                    let path = addr.derive_path.to_slice();
                     Ok(persistence::ChildAddress {
                         label: addr.label.clone(),
                         devive_path: path,
@@ -238,7 +239,7 @@ impl Persistable for BitcoinWallet {
                 .map(|utxo| persistence::Utxo {
                     block_hash: utxo.block.hash.to_byte_array(),
                     block_height: utxo.block.height,
-                    deriviation_path: utxo.derive_path.to_string(),
+                    deriviation_path: utxo.derive_path.to_slice(),
                     script_pubkey: utxo.output.script_pubkey.to_bytes(),
                     txid: utxo.tx_id.to_byte_array(),
                     value: utxo.output.value.to_sat(),
@@ -254,7 +255,7 @@ impl Persistable for BitcoinWallet {
             .childs
             .into_iter()
             .map(|addr| {
-                let derive_path = DerivePath::from_str(&addr.devive_path)?;
+                let derive_path = DerivePath::from_slice(addr.devive_path)?;
                 Ok(LabeledDerivationPath {
                     label: addr.label,
                     derive_path,
@@ -265,7 +266,7 @@ impl Persistable for BitcoinWallet {
             .utxos
             .iter()
             .map(|utxo| {
-                let derive_path = DerivePath::from_str(&utxo.deriviation_path)?;
+                let derive_path = DerivePath::from_slice(utxo.deriviation_path)?;
                 let utxo = UTxO {
                     tx_id: Hash::from_byte_array(utxo.txid),
                     block: crate::btc::utxo::BlockHeader {
@@ -322,10 +323,12 @@ impl AssetTracker<LabeledDerivationPath> for BitcoinWallet {
 pub mod persistence {
     use serde::{Deserialize, Serialize};
 
+    use crate::btc::address::DerivePathSlice;
+
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct ChildAddress {
         pub label: String,
-        pub devive_path: String,
+        pub devive_path: DerivePathSlice,
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -339,7 +342,7 @@ pub mod persistence {
         /// ScriptPubKey (raw hex)
         pub script_pubkey: Vec<u8>,
         /// BIP-84 path to derive priv key from xpriv key
-        pub deriviation_path: String,
+        pub deriviation_path: DerivePathSlice,
         /// Block height where this UTXO was created
         pub block_height: u32,
         /// Block hash for additional integrity
@@ -373,6 +376,7 @@ mod tests {
                     label: "addr1".to_string(),
                     derive_path: DerivePath {
                         purpose,
+                        account: 0,
                         network,
                         change: Change::External,
                         index: 1,
@@ -382,6 +386,7 @@ mod tests {
                     label: "addr2".to_string(),
                     derive_path: DerivePath {
                         purpose,
+                        account: 0,
                         network,
                         change: Change::External,
                         index: 2,
@@ -391,6 +396,7 @@ mod tests {
                     label: "addr3".to_string(),
                     derive_path: DerivePath {
                         purpose,
+                        account: 0,
                         network,
                         change: Change::External,
                         index: 19,
@@ -400,6 +406,7 @@ mod tests {
                     label: "change1".to_string(),
                     derive_path: DerivePath {
                         purpose,
+                        account: 0,
                         network,
                         change: Change::Internal,
                         index: 0,
