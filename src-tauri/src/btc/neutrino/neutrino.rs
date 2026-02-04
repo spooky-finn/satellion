@@ -5,13 +5,13 @@ use bip157::{
     chain::{ChainState, IndexedHeader},
 };
 use bitcoin::{CompactTarget, TxMerkleNode, block::Version};
-use tauri::async_runtime::JoinHandle;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
     btc::neutrino::{
-        EventEmitter, cf_scanner::CompactFilterScanner, node_listener::listen_neutrino_node,
+        CompactFilterScanner, EventEmitter, LifecycleState, NodeLifecycle,
+        node_listener::listen_neutrino_node,
     },
     config::CONFIG,
     db,
@@ -23,14 +23,7 @@ use crate::{
 pub struct NeutrinoStarter {
     sk: Arc<Mutex<SessionKeeper>>,
     repository: ChainRepository,
-
-    state: Arc<Mutex<NeutrinoState>>,
-}
-
-struct NeutrinoState {
-    running_for_wallet: Option<String>,
-    cancel_token: Option<CancellationToken>,
-    task: Option<JoinHandle<()>>,
+    state: Arc<Mutex<LifecycleState>>,
 }
 
 impl NeutrinoStarter {
@@ -38,11 +31,7 @@ impl NeutrinoStarter {
         Self {
             repository,
             sk,
-            state: Arc::new(Mutex::new(NeutrinoState {
-                running_for_wallet: None,
-                cancel_token: None,
-                task: None,
-            })),
+            state: Arc::new(Mutex::new(LifecycleState::new())),
         }
     }
 
@@ -53,20 +42,15 @@ impl NeutrinoStarter {
         last_seen_height: u32,
     ) -> Result<(), String> {
         let mut state = self.state.lock().await;
+
         // Case 1: same wallet -> node already running
-        if state.running_for_wallet.as_deref() == Some(&wallet_name) {
+        if state.is_running_for(&wallet_name) {
             tracing::debug!("Neutrino already running for wallet {}", wallet_name);
             return Ok(());
         }
-        // Case 2: different wallet unlocked -> shut down old instance
-        if let Some(token) = state.cancel_token.take() {
-            tracing::info!("Stopping neutrino for previous walletg");
-            token.cancel();
-        }
 
-        if let Some(task) = state.task.take() {
-            task.abort(); // defensive
-        }
+        // Case 2: different wallet unlocked -> shut down old instance
+        state.stop_current();
 
         let cancel_token = CancellationToken::new();
         let child_token = cancel_token.child_token();
@@ -82,9 +66,7 @@ impl NeutrinoStarter {
             }
         });
 
-        state.running_for_wallet = Some(wallet_name);
-        state.cancel_token = Some(cancel_token);
-        state.task = Some(task);
+        state.start_for_wallet(wallet_name, task, cancel_token);
 
         Ok(())
     }
@@ -95,59 +77,37 @@ impl NeutrinoStarter {
         last_seen_height: u32,
         cancel: CancellationToken,
     ) -> Result<(), String> {
-        let (network, trusted_peers) = NeutrinoStarter::select_network().await?;
+        let (network, trusted_peers) = Self::select_network().await?;
         tracing::info!("Starting neutrino for network {}", network);
 
         let block_header = self
             .repository
             .get_block_header(last_seen_height)
             .map_err(|e| format!("Failed to load block header: {}", e))?;
-        tracing::info!("Last seen height {:?}", block_header,);
+        tracing::info!("Last seen height {:?}", block_header);
 
         let neutrino = Neutrino::connect(network, trusted_peers, block_header)
-            .map_err(|e| format!("Failed to connect to regtest: {}", e))?;
+            .map_err(|e| format!("Failed to connect: {}", e))?;
 
-        let node = neutrino.node;
-        let client = neutrino.client;
         let repository = Arc::new(self.repository.clone());
+        let cf_scanner =
+            CompactFilterScanner::new(self.sk.clone(), neutrino.client.requester.clone());
 
-        let cf_scanner = CompactFilterScanner::new(self.sk.clone(), client.requester.clone());
+        let lifecycle = NodeLifecycle::spawn(
+            Self::run_node_task(neutrino.node),
+            listen_neutrino_node(event_emitter, neutrino.client, repository, cf_scanner),
+            cancel.clone(),
+        );
 
-        let node_cancel = cancel.clone();
-        let events_cancel = cancel.clone();
-
-        let node_task = tauri::async_runtime::spawn(async move {
-            tokio::select! {
-                res = node.run() => {
-                    if let Err(e) = res {
-                        tracing::error!("Neutrino start err: {}", e);
-                    }
-                }
-                _ = node_cancel.cancelled() => {
-                    tracing::info!("Neutrino node canceled");
-                }
-            }
-        });
-
-        let event_rx_task = tauri::async_runtime::spawn(async move {
-            tokio::select! {
-                _ = listen_neutrino_node(
-                    event_emitter,
-                    client,
-                    repository,
-                    cf_scanner,
-                ) => {}
-                _ = events_cancel.cancelled() => {
-                    tracing::info!("Neutrino event loop canceled");
-                }
-            }
-        });
-
-        cancel.cancelled().await; // Pause this function until someone else calls cancel()
-        node_task.abort();
-        event_rx_task.abort();
+        lifecycle.wait_for_cancellation(cancel).await;
 
         Ok(())
+    }
+
+    async fn run_node_task(node: bip157::Node) {
+        if let Err(e) = node.run().await {
+            tracing::error!("Kyoto node err: {}", e);
+        }
     }
 
     async fn select_network() -> Result<(Network, Vec<TrustedPeer>), String> {
@@ -185,6 +145,7 @@ impl Neutrino {
                 nonce: h.nonce as u32,
             },
         });
+
         let chain_state = indexed_header
             .map(|ih| {
                 // Todo: investigate how to migrate to snapshot state initialization
@@ -194,17 +155,20 @@ impl Neutrino {
                 })
             })
             .unwrap_or_else(|| ChainState::Checkpoint(HeaderCheckpoint::taproot_activation()));
+
         tracing::info!(
             "starting neutrino on network {}, chain state {:?}",
             network,
             chain_state
         );
+
         let (node, client) = Builder::new(network)
             .required_peers(CONFIG.bitcoin.min_peers)
             .chain_state(chain_state)
             .add_peers(trusted_peers)
             .response_timeout(Duration::from_secs(10))
             .build();
+
         Ok(Self { node, client })
     }
 }
