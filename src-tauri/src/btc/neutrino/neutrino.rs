@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    net::SocketAddrV4,
     str::FromStr,
     sync::Arc,
     time::{Duration, Instant},
@@ -11,27 +10,22 @@ use bip157::{
     chain::{BlockHeaderChanges, ChainState, IndexedHeader},
 };
 use bitcoin::{CompactTarget, TxMerkleNode, block::Version};
-use serde::Serialize;
-use specta::Type;
-use tauri::{AppHandle, Emitter, async_runtime::JoinHandle};
+use tauri::async_runtime::JoinHandle;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
 
 use crate::{
-    btc::utxo::UTxO,
+    btc::{
+        neutrino::{EventEmitter, HeightUpdateStatus},
+        utxo::UTxO,
+    },
     config::CONFIG,
-    db::BlockHeader,
+    db,
     repository::ChainRepository,
     session::{SK, SessionKeeper},
     utils::Throttler,
 };
-
-const REGTEST_PEER: &str = "127.0.0.1:18444";
-
-pub const EVENT_HEIGHT_UPDATE: &str = "btc_sync";
-pub const EVENT_SYNC_PROGRESS: &str = "btc_sync_progress";
-pub const EVENT_SYNC_WARNING: &str = "btc_sync_warning";
 
 #[derive(Clone)]
 pub struct NeutrinoStarter {
@@ -62,7 +56,7 @@ impl NeutrinoStarter {
 
     pub async fn request_node_start(
         &self,
-        app: AppHandle,
+        event_emitter: EventEmitter,
         wallet_name: String,
         last_seen_height: u32,
     ) -> Result<(), String> {
@@ -88,7 +82,10 @@ impl NeutrinoStarter {
         let this = self.clone();
 
         let task = tauri::async_runtime::spawn(async move {
-            if let Err(e) = this.run_node(app, last_seen_height, child_token).await {
+            if let Err(e) = this
+                .run_node(event_emitter, last_seen_height, child_token)
+                .await
+            {
                 tracing::error!("Neutrino exited: {}", e);
             }
         });
@@ -102,7 +99,7 @@ impl NeutrinoStarter {
 
     async fn run_node(
         &self,
-        app: AppHandle,
+        event_emitter: EventEmitter,
         last_seen_height: u32,
         cancel: CancellationToken,
     ) -> Result<(), String> {
@@ -146,7 +143,7 @@ impl NeutrinoStarter {
         let event_rx_task = tauri::async_runtime::spawn(async move {
             tokio::select! {
                 _ = handle_chain_updates(
-                    app,
+                    event_emitter,
                     client,
                     repository,
                     cfilter_processor,
@@ -166,9 +163,8 @@ impl NeutrinoStarter {
 
     async fn select_network() -> Result<(Network, Vec<TrustedPeer>), String> {
         if CONFIG.bitcoin.regtest {
-            let socket_addr = SocketAddrV4::from_str(REGTEST_PEER)
-                .map_err(|e| format!("error parsing regtest socket address: {e:?}"))?;
-            let peer = TrustedPeer::from_socket_addr(socket_addr);
+            let socket = CONFIG.bitcoin.regtest_peer_socket();
+            let peer = TrustedPeer::from_socket_addr(socket);
             return Ok((bip157::Network::Regtest, vec![peer]));
         }
 
@@ -187,23 +183,8 @@ impl Neutrino {
     pub fn connect(
         network: Network,
         trusted_peers: Vec<TrustedPeer>,
-        block_header: Option<BlockHeader>,
+        block_header: Option<db::BlockHeader>,
     ) -> Result<Self, String> {
-        // let indexed_headers = block_headers
-        //     .iter()
-        //     .map(|h| IndexedHeader {
-        //         height: h.height as u32,
-        //         header: Header {
-        //             merkle_root: TxMerkleNode::from_str(&h.merkle_root).unwrap(),
-        //             prev_blockhash: BlockHash::from_str(&h.prev_blockhash).unwrap(),
-        //             time: h.time as u32,
-        //             version: Version::from_consensus(h.version),
-        //             bits: CompactTarget::from_consensus(h.bits as u32),
-        //             nonce: h.nonce as u32,
-        //         },
-        //     })
-        //     .collect::<Vec<IndexedHeader>>();
-        // let f = indexed_headers.first().unwrap();
         let indexed_header = block_header.map(|h| IndexedHeader {
             height: h.height as u32,
             header: Header {
@@ -217,6 +198,7 @@ impl Neutrino {
         });
         let chain_state = indexed_header
             .map(|ih| {
+                // Todo: investigate how to migrate to snapshot state initialization
                 ChainState::Checkpoint(HeaderCheckpoint {
                     height: ih.height,
                     hash: ih.block_hash(),
@@ -238,30 +220,6 @@ impl Neutrino {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Type)]
-enum HeightUpdateStatus {
-    #[serde(rename = "in progress")]
-    Progress,
-    #[serde(rename = "completed")]
-    Completed,
-}
-
-#[derive(Debug, Clone, Serialize, Type, tauri_specta::Event)]
-pub struct SyncHeightUpdateEvent {
-    status: HeightUpdateStatus,
-    height: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Type, tauri_specta::Event)]
-pub struct SyncProgressEvent {
-    progress: f32,
-}
-
-#[derive(Debug, Clone, Serialize, Type, tauri_specta::Event)]
-pub struct SyncWarningEvent {
-    msg: String,
-}
-
 pub struct CFilterScanner {
     sk: SK,
     requester: Requester,
@@ -277,10 +235,12 @@ impl CFilterScanner {
             };
             wallet.btc.runtime.scripts_of_interes.clone()
         };
+
         let script_map: HashMap<_, _> = scripts_of_interes
             .into_iter()
             .map(|s| (s.script.clone(), s.derive_path))
             .collect();
+
         if !filter.contains_any(script_map.keys()) {
             return;
         }
@@ -336,7 +296,7 @@ impl CFilterScanner {
 
 /// Handle incoming neutrino events and update shared state
 pub async fn handle_chain_updates(
-    app: AppHandle,
+    event_emitter: EventEmitter,
     client: bip157::Client,
     repository: Arc<ChainRepository>,
     cfilter_processor: CFilterScanner,
@@ -369,14 +329,8 @@ pub async fn handle_chain_updates(
                             Ok(avg_fee_rate) => tracing::info!("Last block average fee rate: {:#}", avg_fee_rate),
                             Err(e) => error!("Failed to get average fee rate: {}", e),
                         }
-                        app.emit(
-                            EVENT_HEIGHT_UPDATE,
-                            SyncHeightUpdateEvent {
-                                height: sync_update.tip.height,
-                                status: HeightUpdateStatus::Completed,
-                            },
-                        )
-                        .unwrap();
+
+                        event_emitter.height_updated(sync_update.tip.height, HeightUpdateStatus::Completed);
                         if let Err(e) = cfilter_processor.update_scanner_height(sync_update.tip.height).await {
                             error!(e);
                         }
@@ -396,14 +350,7 @@ pub async fn handle_chain_updates(
                             BlockHeaderChanges::ForkAdded(_) => None,
                         };
                         if let Some(height) = new_height && height_throttler.should_emit() {
-                            app.emit(
-                                EVENT_HEIGHT_UPDATE,
-                                SyncHeightUpdateEvent {
-                                height,
-                                status: HeightUpdateStatus::Progress,
-                                },
-                            )
-                            .unwrap();
+                            event_emitter.height_updated(height, HeightUpdateStatus::Progress);
                         }
                     }
                     Event::Block(_block) => {
@@ -425,9 +372,7 @@ pub async fn handle_chain_updates(
                                 let pct = progress.percentage_complete();
                                 if pct != 0.0  && progress_throttler.should_emit() {
                                     debug!("Block filter download progress {}", pct);
-                                    app.emit(EVENT_SYNC_PROGRESS, SyncProgressEvent {
-                                        progress: pct
-                                    }).unwrap();
+                                    event_emitter.cf_sync_progress(pct)
                                 }
                         },
                         bip157::Info::BlockReceived(_) => {},
@@ -438,9 +383,7 @@ pub async fn handle_chain_updates(
             warn = warn_rx.recv() => {
                 if let Some(warn) = warn {
                     warn!("Bitcoin sync: warning: {}", warn);
-                    app.emit(EVENT_SYNC_WARNING, SyncWarningEvent {
-                        msg: warn.to_string()
-                    }).unwrap();
+                    event_emitter.node_warning(warn.to_string())
                 }
             }
         }

@@ -5,7 +5,10 @@ use tauri::AppHandle;
 use zeroize::Zeroize;
 
 use crate::{
-    btc::{self, neutrino::NeutrinoStarter},
+    btc::{
+        self,
+        neutrino::{EventEmitter, NeutrinoStarter},
+    },
     chain_trait::ChainTrait,
     config::{CONFIG, Chain, Config, constants},
     eth::{self, PriceFeed},
@@ -123,8 +126,9 @@ pub async fn unlock_wallet(
     let last_used_chain = wallet.last_used_chain;
     let btc_last_seen_heigh = wallet.btc.cfilter_scanner_height;
 
+    let event_emitter = EventEmitter::new(app);
     neutrino_starter
-        .request_node_start(app, wallet_name, btc_last_seen_heigh)
+        .request_node_start(event_emitter, wallet_name, btc_last_seen_heigh)
         .await?;
 
     sk.lock()
