@@ -70,22 +70,19 @@ const HARDENED: u32 = 0x80000000;
 
 impl Display for DerivePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_string())
-    }
-}
-
-impl DerivePath {
-    pub fn to_string(&self) -> String {
         let coin_type = match self.network {
             Network::Bitcoin => 0,
             _ => 1,
         };
-        format!(
-            "m/{}'/{coin_type}'/{}'/{}/{}",
-            self.purpose as u32, self.account, self.change as i32, self.index
+        write!(
+            f,
+            "m/{}'/{}'/{}'/{}/{}",
+            self.purpose as u32, coin_type, self.account, self.change as i32, self.index
         )
     }
+}
 
+impl DerivePath {
     pub fn to_path(&self) -> Result<DerivationPath, String> {
         let str = self.to_string();
         DerivationPath::from_str(&str).map_err(|e| format!("fail to derive bip86_path: {e}"))

@@ -1,30 +1,22 @@
-use std::{
-    collections::HashMap,
-    str::FromStr,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{str::FromStr, sync::Arc, time::Duration};
 
 use bip157::{
-    BlockHash, Builder, Client, Event, Header, HeaderCheckpoint, Network, Requester, TrustedPeer,
-    chain::{BlockHeaderChanges, ChainState, IndexedHeader},
+    BlockHash, Builder, Header, HeaderCheckpoint, Network, TrustedPeer,
+    chain::{ChainState, IndexedHeader},
 };
 use bitcoin::{CompactTarget, TxMerkleNode, block::Version};
 use tauri::async_runtime::JoinHandle;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, info, warn};
 
 use crate::{
-    btc::{
-        neutrino::{EventEmitter, HeightUpdateStatus},
-        utxo::UTxO,
+    btc::neutrino::{
+        EventEmitter, cf_scanner::CompactFilterScanner, node_listener::listen_neutrino_node,
     },
     config::CONFIG,
     db,
     repository::ChainRepository,
     session::{SK, SessionKeeper},
-    utils::Throttler,
 };
 
 #[derive(Clone)]
@@ -104,13 +96,13 @@ impl NeutrinoStarter {
         cancel: CancellationToken,
     ) -> Result<(), String> {
         let (network, trusted_peers) = NeutrinoStarter::select_network().await?;
-        info!("Starting neutrino for network {}", network);
+        tracing::info!("Starting neutrino for network {}", network);
 
         let block_header = self
             .repository
             .get_block_header(last_seen_height)
             .map_err(|e| format!("Failed to load block header: {}", e))?;
-        info!("Last seen height {:?}", block_header,);
+        tracing::info!("Last seen height {:?}", block_header,);
 
         let neutrino = Neutrino::connect(network, trusted_peers, block_header)
             .map_err(|e| format!("Failed to connect to regtest: {}", e))?;
@@ -119,10 +111,7 @@ impl NeutrinoStarter {
         let client = neutrino.client;
         let repository = Arc::new(self.repository.clone());
 
-        let cfilter_processor = CFilterScanner {
-            sk: self.sk.clone(),
-            requester: client.requester.clone(),
-        };
+        let cf_scanner = CompactFilterScanner::new(self.sk.clone(), client.requester.clone());
 
         let node_cancel = cancel.clone();
         let events_cancel = cancel.clone();
@@ -142,11 +131,11 @@ impl NeutrinoStarter {
 
         let event_rx_task = tauri::async_runtime::spawn(async move {
             tokio::select! {
-                _ = handle_chain_updates(
+                _ = listen_neutrino_node(
                     event_emitter,
                     client,
                     repository,
-                    cfilter_processor,
+                    cf_scanner,
                 ) => {}
                 _ = events_cancel.cancelled() => {
                     tracing::info!("Neutrino event loop canceled");
@@ -205,10 +194,10 @@ impl Neutrino {
                 })
             })
             .unwrap_or_else(|| ChainState::Checkpoint(HeaderCheckpoint::taproot_activation()));
-
-        info!(
+        tracing::info!(
             "starting neutrino on network {}, chain state {:?}",
-            network, chain_state
+            network,
+            chain_state
         );
         let (node, client) = Builder::new(network)
             .required_peers(CONFIG.bitcoin.min_peers)
@@ -217,175 +206,5 @@ impl Neutrino {
             .response_timeout(Duration::from_secs(10))
             .build();
         Ok(Self { node, client })
-    }
-}
-
-pub struct CFilterScanner {
-    sk: SK,
-    requester: Requester,
-}
-
-impl CFilterScanner {
-    async fn handle(&self, filter: bip157::IndexedFilter) {
-        let scripts_of_interes = {
-            let mut sk = self.sk.lock().await;
-            let wallet = match sk.take_session() {
-                Ok(s) => &s.wallet,
-                Err(_) => return,
-            };
-            wallet.btc.runtime.scripts_of_interes.clone()
-        };
-
-        let script_map: HashMap<_, _> = scripts_of_interes
-            .into_iter()
-            .map(|s| (s.script.clone(), s.derive_path))
-            .collect();
-
-        if !filter.contains_any(script_map.keys()) {
-            return;
-        }
-
-        let block_hash = filter.block_hash();
-        let indexed_block = match self.requester.get_block(block_hash).await {
-            Ok(b) => b,
-            Err(e) => {
-                error!("Neutrino requester: get block: {}", e);
-                return;
-            }
-        };
-        let block_height = indexed_block.height;
-        let mut utxos: Vec<UTxO> = vec![];
-
-        for tx in &indexed_block.block.txdata {
-            for (vout, output) in tx.output.iter().enumerate() {
-                if let Some(derive_path) = script_map.get(&output.script_pubkey) {
-                    utxos.push(UTxO {
-                        tx_id: tx.compute_wtxid(),
-                        output: output.clone(),
-                        vout,
-                        derive_path: derive_path.clone(),
-                        block: crate::btc::utxo::BlockHeader {
-                            hash: block_hash,
-                            height: block_height,
-                        },
-                    });
-                }
-            }
-        }
-
-        let mut sk = self.sk.lock().await;
-        let wallet = match sk.take_session() {
-            Ok(s) => &mut s.wallet,
-            Err(_) => return,
-        };
-        wallet.btc.insert_utxos(utxos);
-    }
-
-    pub async fn update_scanner_height(&self, height: u32) -> Result<(), String> {
-        let mut sk = self.sk.lock().await;
-        let wallet = match sk.take_session() {
-            Ok(s) => &mut s.wallet,
-            Err(e) => return Err(e),
-        };
-        wallet.btc.cfilter_scanner_height = height;
-        wallet
-            .persist()
-            .map_err(|e| format!("Bitcoin sync: fail to save wallet: {}", e))
-    }
-}
-
-/// Handle incoming neutrino events and update shared state
-pub async fn handle_chain_updates(
-    event_emitter: EventEmitter,
-    client: bip157::Client,
-    repository: Arc<ChainRepository>,
-    cfilter_processor: CFilterScanner,
-) {
-    let Client {
-        mut info_rx,
-        mut warn_rx,
-        mut event_rx,
-        requester,
-    } = client;
-    // let mut block_counter = 0;
-    let now = Instant::now();
-    let mut progress_throttler = Throttler::new(Duration::from_secs(1));
-    let mut height_throttler = Throttler::new(Duration::from_secs(1));
-    loop {
-        tokio::select! {
-            event = event_rx.recv() => {
-                if let Some(event) = event {
-                    match event {
-                    Event::FiltersSynced(sync_update) => {
-                        debug!("Bitcoin sync: cfilter synced: height {}", sync_update.tip.height);
-                        // Request information from the node
-                        match requester.broadcast_min_feerate().await {
-                            Ok(fee) => tracing::info!("Minimum transaction broadcast fee rate: {:#}", fee),
-                            Err(e) => error!("Failed to get broadcast min feerate: {}", e),
-                        }
-                        let sync_time = now.elapsed().as_secs_f32();
-                        tracing::info!("Total sync time: {sync_time} seconds");
-                        match requester.average_fee_rate(sync_update.tip().hash).await {
-                            Ok(avg_fee_rate) => tracing::info!("Last block average fee rate: {:#}", avg_fee_rate),
-                            Err(e) => error!("Failed to get average fee rate: {}", e),
-                        }
-
-                        event_emitter.height_updated(sync_update.tip.height, HeightUpdateStatus::Completed);
-                        if let Err(e) = cfilter_processor.update_scanner_height(sync_update.tip.height).await {
-                            error!(e);
-                        }
-                    }
-                    Event::ChainUpdate(changes) => {
-                        let new_height = match changes {
-                            BlockHeaderChanges::Connected(header) => {
-                                if let Err(err) = repository.insert_block_header(&header) &&
-                                    !err.to_string().contains("UNIQUE constraint failed") {
-                                        error!("Bitcoin sync: warning: failed to insert block header: {}", err);
-                                    }
-                                Some(header.height)
-                            }
-                            BlockHeaderChanges::Reorganized { accepted, .. } => {
-                                accepted.last().map(|h| h.height)
-                            }
-                            BlockHeaderChanges::ForkAdded(_) => None,
-                        };
-                        if let Some(height) = new_height && height_throttler.should_emit() {
-                            event_emitter.height_updated(height, HeightUpdateStatus::Progress);
-                        }
-                    }
-                    Event::Block(_block) => {
-                        debug!("Bitcoin sync: block {}", _block.height);
-                    }
-                    Event::IndexedFilter(filter) => {
-                        cfilter_processor.handle(filter).await;
-                    }
-                    }
-                }
-            }
-
-            info = info_rx.recv() => {
-                if let Some(info) = info {
-                    match info {
-                        bip157::Info::SuccessfulHandshake => {},
-                        bip157::Info::ConnectionsMet => {},
-                        bip157::Info::Progress(progress) => {
-                                let pct = progress.percentage_complete();
-                                if pct != 0.0  && progress_throttler.should_emit() {
-                                    debug!("Block filter download progress {}", pct);
-                                    event_emitter.cf_sync_progress(pct)
-                                }
-                        },
-                        bip157::Info::BlockReceived(_) => {},
-                        }
-                }
-            }
-
-            warn = warn_rx.recv() => {
-                if let Some(warn) = warn {
-                    warn!("Bitcoin sync: warning: {}", warn);
-                    event_emitter.node_warning(warn.to_string())
-                }
-            }
-        }
     }
 }
