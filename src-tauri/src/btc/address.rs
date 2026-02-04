@@ -70,29 +70,25 @@ const HARDENED: u32 = 0x80000000;
 
 impl Display for DerivePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let coin_type = match self.network {
-            Network::Bitcoin => 0,
-            _ => 1,
-        };
-        write!(
-            f,
-            "m/{}'/{}'/{}'/{}/{}",
-            self.purpose as u32, coin_type, self.account, self.change as u32, self.index
-        )
+        write!(f, "{}", self.to_string())
     }
 }
 
 impl DerivePath {
-    pub fn to_path(&self) -> Result<DerivationPath, String> {
+    pub fn to_string(&self) -> String {
         let coin_type = match self.network {
             Network::Bitcoin => 0,
             _ => 1,
         };
-        let path_str = format!(
+        format!(
             "m/{}'/{coin_type}'/{}'/{}/{}",
             self.purpose as u32, self.account, self.change as i32, self.index
-        );
-        DerivationPath::from_str(&path_str).map_err(|e| format!("fail to derive bip86_path: {e}"))
+        )
+    }
+
+    pub fn to_path(&self) -> Result<DerivationPath, String> {
+        let str = self.to_string();
+        DerivationPath::from_str(&str).map_err(|e| format!("fail to derive bip86_path: {e}"))
     }
 
     pub fn to_slice(&self) -> DerivePathSlice {
@@ -101,39 +97,28 @@ impl DerivePath {
             _ => 1,
         };
         [
-            self.purpose as u32 + HARDENED,
-            network + HARDENED,
-            self.account + HARDENED,
+            HARDENED + self.purpose as u32,
+            HARDENED + network,
+            HARDENED + self.account,
             self.change as u32,
             self.index,
         ]
     }
 
     pub fn from_slice(v: DerivePathSlice) -> Result<Self, String> {
-        // Purpose should be hardened
         let purpose = Purpose::try_from(
             v[0].checked_sub(HARDENED)
                 .ok_or("purpose must be hardened")?,
         )?;
-
-        // Network/coin_type should be hardened
         let network = match v[1].checked_sub(HARDENED) {
             Some(0) => Network::Bitcoin,
-            Some(1) => Network::Regtest,
-            _ => return Err("invalid network component in derivation path".into()),
+            _ => Network::Regtest,
         };
-
-        // Account should be hardened
         let account = v[2]
             .checked_sub(HARDENED)
             .ok_or("account must be hardened")?;
-
-        // Change is NOT hardened
         let change = Change::try_from(v[3])?;
-
-        // Index is NOT hardened
         let index = v[4];
-
         Ok(DerivePath {
             purpose,
             account,
