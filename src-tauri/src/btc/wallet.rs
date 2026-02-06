@@ -30,6 +30,7 @@ pub struct BitcoinWallet {
     pub derived_addresses: Vec<LabeledDerivationPath>,
     pub utxos: HashMap<ScriptBuf, UTxO>,
     pub cfilter_scanner_height: u32,
+    pub initial_sync_done: bool,
     pub runtime: RuntimeData,
 }
 
@@ -66,6 +67,7 @@ impl BitcoinWallet {
     pub fn default() -> BitcoinWallet {
         BitcoinWallet {
             cfilter_scanner_height: 0,
+            initial_sync_done: false,
             derived_addresses: Vec::new(),
             utxos: HashMap::new(),
             runtime: RuntimeData::default(),
@@ -246,6 +248,7 @@ impl Persistable for BitcoinWallet {
                     vout: utxo.vout,
                 })
                 .collect(),
+            initial_sync_done: self.initial_sync_done,
             cfilter_scanner_height: Some(self.cfilter_scanner_height),
         })
     }
@@ -286,6 +289,7 @@ impl Persistable for BitcoinWallet {
         Ok(Self {
             derived_addresses,
             utxos,
+            initial_sync_done: data.initial_sync_done,
             cfilter_scanner_height: data.cfilter_scanner_height.unwrap_or(0),
             runtime: RuntimeData::default(),
         })
@@ -354,6 +358,7 @@ pub mod persistence {
         pub childs: Vec<ChildAddress>,
         pub utxos: Vec<Utxo>,
         pub cfilter_scanner_height: Option<u32>,
+        pub initial_sync_done: bool,
     }
 }
 
@@ -370,6 +375,7 @@ mod tests {
         let wallet = BitcoinWallet {
             utxos: HashMap::new(),
             cfilter_scanner_height: 0,
+            initial_sync_done: false,
             runtime: RuntimeData::default(),
             derived_addresses: vec![
                 LabeledDerivationPath {

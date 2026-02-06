@@ -48,6 +48,8 @@ pub async fn listen_neutrino_node(
                         if let Err(e) = cfilter_processor.update_scanner_height(sync_update.tip.height).await {
                             tracing::error!(e);
                         }
+
+                        // TODO: send event to the bitcoin wallet that inital sync done
                     }
                     Event::ChainUpdate(changes) => {
                         let new_height = match changes {
