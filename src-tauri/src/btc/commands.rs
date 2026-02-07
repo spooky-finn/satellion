@@ -34,29 +34,24 @@ pub async fn btc_derive_address(
         network: CONFIG.bitcoin.network(),
         purpose: address::Purpose::Bip86,
     };
-    if !wallet
-        .btc
-        .is_deriviation_index_available(derive_path.clone())
-    {
+    if !wallet.btc.is_deriviation_path_free(derive_path.clone()) {
         return Err(format!("Deriviation index {} already occupied", index));
     }
 
     let prk = build_prk(wallet)?;
-    let child =
+    let (_, address) =
         wallet
             .btc
-            .derive_child(prk.expose(), CONFIG.bitcoin.network(), derive_path.clone())?;
+            .derive_child(prk.expose(), CONFIG.bitcoin.network(), &derive_path)?;
 
     wallet.mutate_btc(|chain| {
         chain.add_child(label, derive_path.clone());
-        chain.add_script_of_interes(DerivedScript {
-            script: child.1.script_pubkey(),
-            derive_path,
-        });
+        let script = DerivedScript::new(address.script_pubkey(), derive_path);
+        chain.add_script_of_interes(script);
         Ok(())
     })?;
 
-    Ok(child.1.to_string())
+    Ok(address.to_string())
 }
 
 #[specta]
@@ -94,7 +89,7 @@ pub async fn btc_list_derived_addresess(
                 .derive_child(
                     prk.expose(),
                     CONFIG.bitcoin.network(),
-                    addr.derive_path.clone(),
+                    &addr.derive_path.clone(),
                 )
                 .unwrap();
             DerivedAddress {

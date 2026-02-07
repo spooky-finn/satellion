@@ -1,15 +1,13 @@
 use shush_rs::SecretBox;
 
-use crate::{
-    btc, config::constants::Chain, eth, mnemonic, utils::now, wallet_keeper::WalletKeeper,
-};
+use crate::{btc, config::constants::Chain, eth, mnemonic, wallet_keeper::WalletKeeper};
 
 pub struct Wallet {
     pub name: String,
     pub mnemonic: SecretBox<String>,
     pub passphrase: SecretBox<String>,
     pub last_used_chain: Chain,
-    pub created_at: u64,
+    pub generated_at: Option<u64>,
     pub version: u8,
 
     pub btc: btc::BitcoinWallet,
@@ -23,6 +21,7 @@ impl Wallet {
         name: String,
         mnemonic: String,
         passphrase: SecretBox<String>,
+        generated_at: Option<u64>,
     ) -> Result<Self, String> {
         mnemonic::validate(&mnemonic)?;
         Ok(Wallet {
@@ -30,7 +29,7 @@ impl Wallet {
             mnemonic: SecretBox::new(Box::new(mnemonic)),
             passphrase,
             last_used_chain: Chain::Bitcoin,
-            created_at: now(),
+            generated_at,
             version: 1,
             btc: btc::BitcoinWallet::default(),
             eth: eth::EthereumWallet::default(),

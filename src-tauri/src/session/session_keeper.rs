@@ -91,8 +91,13 @@ mod tests {
         let session_exp_duration = TimeDelta::seconds(2);
         let mut sk = SessionKeeper::new();
         let name = "test_wallet";
-        let mut wallet = Wallet::new(name.to_string(), MNEMONIC.to_string(), make_secret_box())
-            .expect("Failed to create test wallet");
+        let mut wallet = Wallet::new(
+            name.to_string(),
+            MNEMONIC.to_string(),
+            make_secret_box(),
+            None,
+        )
+        .expect("Failed to create test wallet");
         wallet.btc.initial_sync_done = true;
 
         let session = Session::new(wallet, session_exp_duration);
@@ -119,6 +124,7 @@ mod tests {
             "sync_wallet".to_string(),
             MNEMONIC.to_string(),
             make_secret_box(),
+            None,
         )
         .expect("Failed to create test wallet");
         let session = Session::new(wallet, session_exp_duration);

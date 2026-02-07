@@ -26,20 +26,6 @@ pub struct RuntimeData {
     pub scripts_of_interes: HashSet<DerivedScript>,
 }
 
-pub struct BitcoinWallet {
-    pub derived_addresses: Vec<LabeledDerivationPath>,
-    pub utxos: HashMap<ScriptBuf, UTxO>,
-    pub cfilter_scanner_height: u32,
-    pub initial_sync_done: bool,
-    pub runtime: RuntimeData,
-}
-
-#[derive(serde::Serialize, specta::Type)]
-pub struct BitcoinUnlock {
-    pub address: String,
-    pub usd_price: String,
-}
-
 pub struct Prk {
     xpriv: Xpriv,
 }
@@ -57,10 +43,28 @@ impl SecureKey for Prk {
         &self.xpriv
     }
 }
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct DerivedScript {
     pub script: bip157::ScriptBuf,
     pub derive_path: DerivePath,
+}
+
+impl DerivedScript {
+    pub fn new(script: bip157::ScriptBuf, derive_path: DerivePath) -> Self {
+        Self {
+            script,
+            derive_path,
+        }
+    }
+}
+
+pub struct BitcoinWallet {
+    pub derived_addresses: Vec<LabeledDerivationPath>,
+    pub utxos: HashMap<ScriptBuf, UTxO>,
+    pub cfilter_scanner_height: u32,
+    pub initial_sync_done: bool,
+    pub runtime: RuntimeData,
 }
 
 impl BitcoinWallet {
@@ -103,22 +107,16 @@ impl BitcoinWallet {
         {
             // Derive script for main receive script pubkey
             let derive_path = self.main_derive_path();
-            let (_, address) = self.derive_child(xpriv, network, derive_path.clone())?;
-            scripts_of_interes.insert(DerivedScript {
-                script: address.script_pubkey(),
-                derive_path,
-            });
+            let (_, address) = self.derive_child(xpriv, network, &derive_path)?;
+            scripts_of_interes.insert(DerivedScript::new(address.script_pubkey(), derive_path));
         }
 
         for labled_derive_path in self.derived_addresses.iter() {
             let derive_path = labled_derive_path.derive_path.clone();
             let (_, address) = self
-                .derive_child(xpriv, network, derive_path.clone())
+                .derive_child(xpriv, network, &derive_path)
                 .map_err(|e| format!("derived bitcoin address corrupted {e}"))?;
-            scripts_of_interes.insert(DerivedScript {
-                derive_path,
-                script: address.script_pubkey(),
-            });
+            scripts_of_interes.insert(DerivedScript::new(address.script_pubkey(), derive_path));
         }
 
         Ok(scripts_of_interes)
@@ -128,7 +126,7 @@ impl BitcoinWallet {
         &self,
         xpriv: &Xpriv,
         network: Network,
-        derive_path: DerivePath,
+        derive_path: &DerivePath,
     ) -> Result<(Keypair, Address), String> {
         let secp = Secp256k1::new();
         // derive child private key
@@ -149,7 +147,7 @@ impl BitcoinWallet {
         Ok((keypair, address))
     }
 
-    pub fn is_deriviation_index_available(&self, derive_path: DerivePath) -> bool {
+    pub fn is_deriviation_path_free(&self, derive_path: DerivePath) -> bool {
         !self
             .derived_addresses
             .iter()
@@ -188,6 +186,12 @@ impl BitcoinWallet {
     }
 }
 
+#[derive(serde::Serialize, specta::Type)]
+pub struct BitcoinUnlock {
+    pub address: String,
+    pub usd_price: String,
+}
+
 impl ChainTrait for BitcoinWallet {
     type Prk = Prk;
     type UnlockResult = BitcoinUnlock;
@@ -207,7 +211,7 @@ impl ChainTrait for BitcoinWallet {
             .derive_child(
                 prk.expose(),
                 CONFIG.bitcoin.network(),
-                self.main_derive_path(),
+                &self.main_derive_path(),
             )
             .map_err(|e| e.to_string())?;
 
@@ -216,6 +220,72 @@ impl ChainTrait for BitcoinWallet {
             address: btc_main_address.to_string(),
             usd_price,
         })
+    }
+}
+
+impl AssetTracker<LabeledDerivationPath> for BitcoinWallet {
+    fn track(&mut self, address: LabeledDerivationPath) -> Result<(), String> {
+        // Check if an address with the same purpose and index already exists
+        if self
+            .derived_addresses
+            .iter()
+            .any(|a| a.derive_path == address.derive_path)
+        {
+            return Err(format!(
+                "Address with change {:?} and index {} already tracked",
+                address.derive_path.change, address.derive_path.index
+            ));
+        }
+        self.derived_addresses.push(address);
+        Ok(())
+    }
+
+    fn untrack(&mut self, address: LabeledDerivationPath) -> Result<(), String> {
+        let len_before = self.derived_addresses.len();
+        self.derived_addresses
+            .retain(|a| a.derive_path != address.derive_path);
+        if self.derived_addresses.len() == len_before {
+            return Err("Address not tracked".to_string());
+        }
+        Ok(())
+    }
+}
+
+pub mod persistence {
+    use serde::{Deserialize, Serialize};
+
+    use crate::btc::address::DerivePathSlice;
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    pub struct ChildAddress {
+        pub label: String,
+        pub devive_path: DerivePathSlice,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    pub struct Utxo {
+        /// Transaction hash (32 bytes)
+        pub txid: [u8; 32],
+        /// Output index within the transaction
+        pub vout: usize,
+        /// Value in satoshis
+        pub value: u64,
+        /// ScriptPubKey (raw hex)
+        pub script_pubkey: Vec<u8>,
+        /// BIP-84 path to derive priv key from xpriv key
+        pub deriviation_path: DerivePathSlice,
+        /// Block height where this UTXO was created
+        pub block_height: u32,
+        /// Block hash for additional integrity
+        pub block_hash: [u8; 32],
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    pub struct Wallet {
+        pub childs: Vec<ChildAddress>,
+        pub utxos: Vec<Utxo>,
+        pub cfilter_scanner_height: Option<u32>,
+        pub initial_sync_done: bool,
     }
 }
 
@@ -293,72 +363,6 @@ impl Persistable for BitcoinWallet {
             cfilter_scanner_height: data.cfilter_scanner_height.unwrap_or(0),
             runtime: RuntimeData::default(),
         })
-    }
-}
-
-impl AssetTracker<LabeledDerivationPath> for BitcoinWallet {
-    fn track(&mut self, address: LabeledDerivationPath) -> Result<(), String> {
-        // Check if an address with the same purpose and index already exists
-        if self
-            .derived_addresses
-            .iter()
-            .any(|a| a.derive_path == address.derive_path)
-        {
-            return Err(format!(
-                "Address with change {:?} and index {} already tracked",
-                address.derive_path.change, address.derive_path.index
-            ));
-        }
-        self.derived_addresses.push(address);
-        Ok(())
-    }
-
-    fn untrack(&mut self, address: LabeledDerivationPath) -> Result<(), String> {
-        let len_before = self.derived_addresses.len();
-        self.derived_addresses
-            .retain(|a| a.derive_path != address.derive_path);
-        if self.derived_addresses.len() == len_before {
-            return Err("Address not tracked".to_string());
-        }
-        Ok(())
-    }
-}
-
-pub mod persistence {
-    use serde::{Deserialize, Serialize};
-
-    use crate::btc::address::DerivePathSlice;
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct ChildAddress {
-        pub label: String,
-        pub devive_path: DerivePathSlice,
-    }
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct Utxo {
-        /// Transaction hash (32 bytes)
-        pub txid: [u8; 32],
-        /// Output index within the transaction
-        pub vout: usize,
-        /// Value in satoshis
-        pub value: u64,
-        /// ScriptPubKey (raw hex)
-        pub script_pubkey: Vec<u8>,
-        /// BIP-84 path to derive priv key from xpriv key
-        pub deriviation_path: DerivePathSlice,
-        /// Block height where this UTXO was created
-        pub block_height: u32,
-        /// Block hash for additional integrity
-        pub block_hash: [u8; 32],
-    }
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct Wallet {
-        pub childs: Vec<ChildAddress>,
-        pub utxos: Vec<Utxo>,
-        pub cfilter_scanner_height: Option<u32>,
-        pub initial_sync_done: bool,
     }
 }
 

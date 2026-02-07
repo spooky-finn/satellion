@@ -1,6 +1,14 @@
+use serde::Deserialize;
 use shush_rs::SecretBox;
+use specta::Type;
 
-use crate::{persistence, wallet::Wallet};
+use crate::{persistence, utils, wallet::Wallet};
+
+#[derive(Type, PartialEq, Deserialize)]
+pub enum CreationFlow {
+    Import,
+    Generation,
+}
 
 pub struct WalletKeeper {
     repository: persistence::Repository,
@@ -17,16 +25,27 @@ impl WalletKeeper {
         self.repository.ls()
     }
 
-    pub fn create(&self, mnemonic: &str, passphrase: &str, name: &str) -> Result<Wallet, String> {
+    pub fn create(
+        &self,
+        mnemonic: &str,
+        passphrase: &str,
+        name: &str,
+        flow: CreationFlow,
+    ) -> Result<Wallet, String> {
         let name = if name.is_empty() {
             self.gen_wallet_name()?
         } else {
             name.to_string()
         };
+        let generated_at = match flow {
+            CreationFlow::Import => None,
+            CreationFlow::Generation => Some(utils::now()),
+        };
         let wallet = Wallet::new(
             name,
             mnemonic.to_string(),
             SecretBox::new(Box::new(passphrase.to_string())),
+            generated_at,
         )?;
         self.repository.store(&wallet)?;
         Ok(wallet)

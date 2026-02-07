@@ -18,7 +18,7 @@ pub struct SerializedWallet {
     pub bitcoin_data: crate::btc::persistence::Wallet,
     pub ethereum_data: crate::eth::persistence::Wallet,
     pub last_used_chain: u16,
-    pub created_at: u64,
+    pub generated_at: Option<u64>,
     pub version: u8,
 }
 
@@ -33,7 +33,7 @@ impl SerializedWallet {
             btc: crate::btc::BitcoinWallet::deserialize(self.bitcoin_data.clone())?,
             eth: crate::eth::EthereumWallet::deserialize(self.ethereum_data.clone())?,
             last_used_chain: Chain::from(self.last_used_chain),
-            created_at: self.created_at,
+            generated_at: self.generated_at,
             version: self.version,
         })
     }
@@ -52,7 +52,7 @@ impl SerializedWallet {
                 .serialize()
                 .expect("Failed to serialize Ethereum wallet data"),
             last_used_chain: u16::from(wallet.last_used_chain),
-            created_at: wallet.created_at,
+            generated_at: wallet.generated_at,
             version: wallet.version,
         }
     }
@@ -189,7 +189,7 @@ mod tests {
         let persisted_wallet = SerializedWallet {
             name: name.clone(),
             mnemonic: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about".to_string(),
-            created_at: 100,
+            generated_at: None,
             version: 0,
             last_used_chain: 1,
             bitcoin_data: crate::btc::persistence::Wallet {
