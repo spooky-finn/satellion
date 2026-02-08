@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { type ChainStatus, commands } from '../../bindings'
-import { notifier } from '../../components/notifier'
+import { notifier } from '../../lib/notifier'
 
 export const BitcoinSync = () => {
 	const [syncStatus, setSyncStatus] = useState<ChainStatus | null>(null)

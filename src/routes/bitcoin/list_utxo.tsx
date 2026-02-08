@@ -1,18 +1,10 @@
-import {
-	Button,
-	Divider,
-	Modal,
-	ModalClose,
-	ModalDialog,
-	Stack,
-	Table,
-} from '@mui/joy'
+import { Button, Modal, ModalClose, ModalDialog, Stack, Table } from '@mui/joy'
 import { makeAutoObservable } from 'mobx'
 import { observer } from 'mobx-react-lite'
 import { useEffect, useState } from 'react'
 import { commands, type Utxo } from '../../bindings'
-import { CuttedString } from '../../components/cutted_str'
-import { notifier } from '../../components/notifier'
+import { CompactSrt } from '../../components/compact_str'
+import { notifier } from '../../lib/notifier'
 import { P, Progress, Row } from '../../shortcuts'
 import { Loader } from '../../stores/loader'
 import { root_store } from '../../stores/root'
@@ -47,6 +39,7 @@ class UtxoList {
 		return this.total_value_sat / 10 ** 8
 	}
 }
+
 export const ListUtxo = observer(() => {
 	const [store] = useState(() => new UtxoList())
 
@@ -75,9 +68,7 @@ export const ListUtxo = observer(() => {
 					layout="fullscreen"
 				>
 					<ModalClose />
-
-					<P>Unspent transaction outputs</P>
-					<Divider sx={{ my: 1 }} />
+					<P level="h3">Unspent transaction outputs</P>
 
 					{store.loader.loading && <Progress />}
 
@@ -91,7 +82,7 @@ export const ListUtxo = observer(() => {
 									{store.total_value_btc} btc
 								</P>
 
-								<Table variant="soft">
+								<Table variant="plain" stickyHeader>
 									<thead>
 										<tr>
 											<th align="left">
@@ -129,7 +120,7 @@ export const ListUtxo = observer(() => {
 														<P>{utxo.address_label}</P>
 													</td>
 													<td>
-														<CuttedString>{utxo.utxo_id.tx_id}</CuttedString>
+														<CompactSrt val={utxo.utxo_id.tx_id} />
 													</td>
 													<td align="right">
 														<P sx={{ fontFamily: 'monospace' }}>

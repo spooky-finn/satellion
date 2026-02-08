@@ -1,6 +1,6 @@
 import { makeAutoObservable, runInAction } from 'mobx'
 import { commands, type UIConfig } from '../bindings'
-import { notifier } from '../components/notifier'
+import { notifier } from '../lib/notifier'
 import { Unlock } from './unlock'
 import { Wallet } from './wallet'
 

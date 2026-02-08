@@ -1,0 +1,14 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+set -e
+
+echo "Running formatter..."
+pnpm fmt
+
+echo "Running JS/TS checks..."
+pnpm check
+
+echo "Running Rust checks..."
+cd src-tauri
+cargo check

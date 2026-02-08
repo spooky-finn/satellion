@@ -2,10 +2,10 @@ import LockIcon from '@mui/icons-material/Lock'
 import { Button, Tooltip } from '@mui/joy'
 import { Link, useNavigate } from 'react-router'
 import { type Chain, commands } from '../bindings'
+import { notifier } from '../lib/notifier'
 import { route } from '../routes'
 import { Row } from '../shortcuts'
 import { AppMenu } from './menu'
-import { notifier } from './notifier'
 import { ThemeSwitcher } from './theme_switcher'
 
 export const Navbar = ({ hideLedgers }: { hideLedgers?: boolean }) => {

@@ -10,8 +10,9 @@ import { makeAutoObservable } from 'mobx'
 import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
 import { commands } from '../../bindings'
-import { notifier } from '../../components/notifier'
+import { CompactSrt } from '../../components/compact_str'
 import { NumberInput } from '../../components/number_input'
+import { notifier } from '../../lib/notifier'
 import { P, Row } from '../../shortcuts'
 
 class DeriveChild {
@@ -74,7 +75,7 @@ export const DeriveChildAddress = observer(() => {
 			<Modal open={state.isOpen} onClose={() => state.setIsOpen(false)}>
 				<ModalDialog sx={{ pr: 6 }}>
 					<ModalClose />
-					<P>Derive child address to accept payment securely</P>
+					<P level="h3">Derive child address</P>
 					<Row alignItems={'center'}>
 						<P>Index</P>
 						<NumberInput
@@ -100,7 +101,7 @@ export const DeriveChildAddress = observer(() => {
 						Derive
 					</Button>
 					<Divider />
-					<P>{state.address}</P>
+					<CompactSrt val={state.address} />
 				</ModalDialog>
 			</Modal>
 		</Row>

@@ -1,6 +1,6 @@
 import { makeAutoObservable } from 'mobx'
 import { commands, type FeeMode, type PrepareTxReqRes } from '../../bindings'
-import { notifier } from '../../components/notifier'
+import { notifier } from '../../lib/notifier'
 
 export class TransferStore {
 	constructor() {

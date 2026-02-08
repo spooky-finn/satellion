@@ -1,6 +1,6 @@
 import { makeAutoObservable } from 'mobx'
 import { commands, type UnlockMsg } from '../bindings'
-import { notifier } from '../components/notifier'
+import { notifier } from '../lib/notifier'
 import { BitcoinChain } from '../routes/bitcoin/bitcoin.chain'
 import { EthereumWallet } from '../routes/ethereum/wallet.store'
 

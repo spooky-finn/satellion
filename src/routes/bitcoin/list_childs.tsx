@@ -1,13 +1,16 @@
-import { Button, Divider, Modal, ModalClose, ModalDialog } from '@mui/joy'
+import { Button, Modal, ModalClose, ModalDialog, Stack, Table } from '@mui/joy'
 import { makeAutoObservable } from 'mobx'
 import { observer } from 'mobx-react-lite'
 import { useEffect, useState } from 'react'
 import { commands, type DerivedAddress } from '../../bindings'
-import { CuttedString } from '../../components/cutted_str'
-import { notifier } from '../../components/notifier'
-import { P, Row } from '../../shortcuts'
+import { CompactSrt } from '../../components/compact_str'
+import { notifier } from '../../lib/notifier'
+import { P, Progress, Row } from '../../shortcuts'
+import { Loader } from '../../stores/loader'
 
 class ChildAddressList {
+	readonly loader = new Loader()
+
 	constructor() {
 		makeAutoObservable(this)
 	}
@@ -16,13 +19,16 @@ class ChildAddressList {
 	setIsOpen(o: boolean) {
 		this.isOpen = o
 	}
+
 	addresses: DerivedAddress[] = []
 
 	async fetch() {
+		this.loader.start()
 		const res = await commands.btcListDerivedAddresess()
+		this.loader.stop()
 		if (res.status === 'error') {
 			notifier.err(res.error)
-			throw new Error(res.error)
+			return
 		}
 		this.addresses = res.data
 	}
@@ -33,7 +39,7 @@ export const ListDerivedAddresses = observer(() => {
 
 	useEffect(() => {
 		if (store.isOpen) {
-			store.fetch().catch(() => {})
+			store.fetch()
 		}
 	}, [store.isOpen])
 
@@ -48,27 +54,52 @@ export const ListDerivedAddresses = observer(() => {
 				List childs
 			</Button>
 			<Modal open={store.isOpen} onClose={() => store.setIsOpen(false)}>
-				<ModalDialog sx={{ pr: 6, minWidth: 300 }}>
+				<ModalDialog
+					variant="soft"
+					sx={{ pr: 6, minWidth: 300 }}
+					size="lg"
+					layout="fullscreen"
+				>
 					<ModalClose />
-					<P>Derived child addresses</P>
-					<Divider sx={{ my: 1 }} />
-					{store.addresses.length === 0 ? (
-						<P>No addresses derived yet.</P>
-					) : (
-						store.addresses.map(addr => (
-							<Row
-								key={addr.address}
-								justifyContent="space-between"
-								sx={{ mb: 1 }}
-							>
-								<P>{addr.label}</P>
-								<P>{addr.deriv_path}</P>
-								<CuttedString sx={{ fontFamily: 'monospace' }}>
-									{addr.address}
-								</CuttedString>
-							</Row>
-						))
-					)}
+					<P level="h3">Derived child addresses</P>
+					{store.loader.loading && <Progress />}
+
+					<Stack sx={{ overflow: 'auto', mt: 1 }}>
+						{store.addresses.length === 0 ? (
+							<P>No addresses derived yet.</P>
+						) : (
+							<Table variant="plain" stickyHeader>
+								<thead>
+									<tr>
+										<th align="left">
+											<P>Label</P>
+										</th>
+										<th align="left">
+											<P>Derivation path</P>
+										</th>
+										<th align="left">
+											<P>Address</P>
+										</th>
+									</tr>
+								</thead>
+								<tbody>
+									{store.addresses.map(addr => (
+										<tr key={addr.address}>
+											<td>
+												<P>{addr.label}</P>
+											</td>
+											<td>
+												<P fontFamily="monospace">{addr.deriv_path}</P>
+											</td>
+											<td>
+												<CompactSrt val={addr.address} />
+											</td>
+										</tr>
+									))}
+								</tbody>
+							</Table>
+						)}
+					</Stack>
 				</ModalDialog>
 			</Modal>
 		</Row>

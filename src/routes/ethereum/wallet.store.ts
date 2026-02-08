@@ -1,6 +1,6 @@
 import { makeAutoObservable } from 'mobx'
 import { type Balance, type ChainInfo, commands } from '../../bindings'
-import { notifier } from '../../components/notifier'
+import { notifier } from '../../lib/notifier'
 import { Loader } from '../../stores/loader'
 import { TransferStore } from './transfer.store'
 

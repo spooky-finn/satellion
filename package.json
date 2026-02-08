@@ -5,10 +5,12 @@
 	"type": "module",
 	"packageManager": "pnpm@10.22.0",
 	"scripts": {
+		"prepare": "husky",
 		"dev": "vite",
-		"typecheck": "tsc --noEmit",
+		"check": "tsc --noEmit",
 		"build": "tsc && vite build",
-		"biome": "pnpm exec biome check --write",
+		"fix": "pnpm exec biome check --write",
+		"fmt": "pnpm exec biome format --write",
 		"preview": "vite preview",
 		"tauri": "tauri"
 	},
@@ -34,7 +36,8 @@
 		"@types/react-dom": "^19.2.3",
 		"@vitejs/plugin-react": "^4.7.0",
 		"typescript": "~5.8.3",
-		"vite": "^7.2.7"
+		"vite": "^7.2.7",
+		"husky": "^9.1.7"
 	},
 	"pnpm": {
 		"overrides": {
