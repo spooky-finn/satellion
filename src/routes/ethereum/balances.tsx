@@ -4,7 +4,6 @@ import CachedIcon from '@mui/icons-material/Cached'
 import {
 	Button,
 	Card,
-	Grid,
 	IconButton,
 	Input,
 	Modal,
@@ -22,11 +21,10 @@ import { root_store } from '../../stores/root'
 
 export const BalanceCard = observer(() => (
 	<Card variant="soft" size="sm">
-		<Row alignItems={'start'} justifyContent={'space-between'}>
-			<Stack>
-				<Balances />
-			</Stack>
-			<Row alignItems={'center'} justifyContent={'end'} gap={1}>
+		<Row alignItems="flex-start" justifyContent="space-between">
+			<Balances />
+
+			<Row alignItems="center" gap={1}>
 				{root_store.ui_config?.eth_anvil && <AnvilSetBalanceButton />}
 				<SpecifyTokenToTrack />
 				<IconButton
@@ -40,62 +38,82 @@ export const BalanceCard = observer(() => (
 	</Card>
 ))
 
-const Token = (props: { t: TokenBalance; handleUntrack: () => void }) => {
-	const { symbol, balance } = props.t
-	return (
-		<>
-			<Grid xs={1}>
-				<P color="neutral">{symbol}</P>
-			</Grid>
-			<Grid xs={10} px={1}>
-				<P>{balance}</P>
-			</Grid>
-			{symbol !== 'ETH' && (
-				<Grid xs={1}>
-					<Tooltip title="Do not track">
-						<IconButton size="sm" onClick={props.handleUntrack}>
-							<Remove />
-						</IconButton>
-					</Tooltip>
-				</Grid>
-			)}
-		</>
-	)
-}
-
 const Balances = observer(() => {
 	const { eth } = root_store.wallet
 	const tokens = eth.balance.data?.tokens
+
 	if (eth.balance.loading) return <Progress />
 	if (!tokens?.length) return <P color="neutral">Tokens not found</P>
 
-	const handleTokenUntrack = async (token_address: string) => {
-		await commands.ethUntrackToken(token_address)
-		eth.removeTokenFromBalance(token_address)
+	const handleUntrack = async (address: string) => {
+		await commands.ethUntrackToken(address)
+		eth.removeTokenFromBalance(address)
 	}
 
 	return (
-		<Grid container>
+		<Stack spacing={0.5} sx={{ minWidth: 0 }}>
 			{tokens.map(t => (
 				<Token
-					key={t.symbol}
+					key={t.address}
 					t={t}
-					handleUntrack={() => handleTokenUntrack(t.address)}
+					onUntrack={() => handleUntrack(t.address)}
 				/>
 			))}
-		</Grid>
+		</Stack>
 	)
 })
 
+const Token = ({
+	t,
+	onUntrack,
+}: {
+	t: TokenBalance
+	onUntrack: () => void
+}) => {
+	const { symbol, balance } = t
+
+	return (
+		<Row
+			alignItems="center"
+			justifyContent="space-between"
+			sx={{
+				minWidth: 0,
+				py: 0.25,
+			}}
+		>
+			<P sx={{ fontWeight: 500, minWidth: 48 }}>{symbol}</P>
+
+			<Tooltip title={balance} size="sm">
+				<P
+					sx={{
+						flex: 1,
+						textAlign: 'left',
+						fontFamily: 'monospace',
+						overflow: 'hidden',
+						textOverflow: 'ellipsis',
+						whiteSpace: 'nowrap',
+						px: 1,
+					}}
+				>
+					{formatBalance(balance)}
+				</P>
+			</Tooltip>
+
+			{symbol !== 'ETH' && (
+				<Tooltip title="Do not track" size="sm">
+					<IconButton size="sm" onClick={onUntrack}>
+						<Remove />
+					</IconButton>
+				</Tooltip>
+			)}
+		</Row>
+	)
+}
+
 const AnvilSetBalanceButton = observer(() => {
 	const handleSetAnvilBalance = async () => {
-		if (!root_store.wallet.eth.address) {
-			notifier.err('Wallet address not available')
-			return
-		}
-		const res = await commands.ethAnvilSetInitialBalances(
-			root_store.wallet.eth.address,
-		)
+		const address = root_store.wallet.eth.address
+		const res = await commands.ethAnvilSetInitialBalances(address)
 		if (res.status === 'error') {
 			notifier.err(res.error)
 		} else {
@@ -103,6 +121,7 @@ const AnvilSetBalanceButton = observer(() => {
 			root_store.wallet.eth.getBalance()
 		}
 	}
+
 	return (
 		<Tooltip title="Set initial Anvil balances (10 ETH + 9,999,999 USDT)">
 			<IconButton
@@ -122,15 +141,18 @@ const SpecifyTokenToTrack = observer(() => {
 
 	const handleAddressInput = async (e: ChangeEvent<HTMLInputElement>) => {
 		const address = e.target.value
-		if (address.length >= 40) {
-			const res = await commands.ethTrackToken(address)
-			if (res.status === 'error') {
-				setOpen(false)
-				notifier.err(res.error)
-				throw new Error(res.error)
-			}
-			setData(res.data)
+		if (address.length < 40) {
+			return
 		}
+
+		const res = await commands.ethTrackToken(address)
+		if (res.status === 'error') {
+			setOpen(false)
+			notifier.err(res.error)
+			return
+		}
+
+		setData(res.data)
 	}
 
 	return (
@@ -142,20 +164,21 @@ const SpecifyTokenToTrack = observer(() => {
 					setOpen(true)
 					setData(null)
 				}}
-				sx={{ width: 'max-content', fontWeight: 400 }}
+				sx={{ fontWeight: 400 }}
 				color="neutral"
 			>
-				Track another token
+				Track token
 			</Button>
+
 			<Modal open={open} onClose={() => setOpen(false)}>
 				<ModalDialog sx={{ pr: 6 }}>
 					<ModalClose />
 					{data ? (
-						<P>{data.symbol} now is trackable</P>
+						<P>{data.symbol} is now tracked</P>
 					) : (
 						<Input
 							autoFocus
-							placeholder="Token Contract Address"
+							placeholder="Token contract address"
 							onChange={handleAddressInput}
 						/>
 					)}
@@ -164,3 +187,10 @@ const SpecifyTokenToTrack = observer(() => {
 		</>
 	)
 })
+
+function formatBalance(value: string, maxDecimals = 6) {
+	if (!value.includes('.')) return value
+	const [int, frac] = value.split('.')
+	const trimmed = frac.slice(0, maxDecimals)
+	return trimmed.length ? `${int}.${trimmed}` : int
+}
