@@ -1,35 +1,64 @@
 use std::collections::HashMap;
+use tokio::sync::mpsc;
 
 use bip157::Requester;
 
-use crate::{btc::utxo::UTxO, session::SK};
+use crate::btc::{DerivedScript, address::DerivePath, sync, utxo::Utxo};
 
 pub struct CompactFilterScanner {
-    sk: SK,
     requester: Requester,
+    cfilter_rx: FiltersRx,
+    scripts_rx: ScriptsRx,
+    scripts_of_interest: HashMap<bip157::ScriptBuf, DerivePath>,
+    sync_event_tx: SyncEventTx,
 }
 
+type ScriptsRx = mpsc::UnboundedReceiver<DerivedScript>;
+type FiltersRx = mpsc::UnboundedReceiver<bip157::IndexedFilter>;
+type SyncEventTx = mpsc::UnboundedSender<sync::Event>;
+
 impl CompactFilterScanner {
-    pub fn new(sk: SK, requester: Requester) -> Self {
-        Self { sk, requester }
+    pub fn new(
+        requester: Requester,
+        scripts_rx: ScriptsRx,
+        filter_rx: FiltersRx,
+        sync_event_tx: SyncEventTx,
+    ) -> Self {
+        Self {
+            requester,
+            scripts_rx,
+            cfilter_rx: filter_rx,
+            sync_event_tx,
+            scripts_of_interest: HashMap::default(),
+        }
     }
 
-    pub async fn handle(&self, filter: bip157::IndexedFilter) {
-        let scripts_of_interes = {
-            let mut sk = self.sk.lock().await;
-            let wallet = match sk.take_session() {
-                Ok(s) => &s.wallet,
-                Err(_) => return,
-            };
-            wallet.btc.runtime.scripts_of_interes.clone()
-        };
+    pub async fn run(&mut self) {
+        loop {
+            tokio::select! {
+                // Receive new compact block filter
+                Some(filter) = self.cfilter_rx.recv() => {
+                    self.handle(filter).await;
+                }
 
-        let script_map: HashMap<_, _> = scripts_of_interes
-            .into_iter()
-            .map(|s| (s.script.clone(), s.derive_path))
-            .collect();
+                // Receive new scripts
+                Some(DerivedScript { script, derive_path } ) = self.scripts_rx.recv() => {
+                    self.scripts_of_interest.insert(script, derive_path);
+                }
 
-        if !filter.contains_any(script_map.keys()) {
+                else => break,
+            }
+        }
+    }
+
+    async fn handle(&self, filter: bip157::IndexedFilter) {
+        if self.scripts_of_interest.is_empty() {
+            tracing::error!("Neutrino filter scanner: no scripts of interest");
+            return;
+        }
+
+        // No interested transactions in this block, skip it
+        if !filter.contains_any(self.scripts_of_interest.keys()) {
             return;
         }
 
@@ -42,12 +71,12 @@ impl CompactFilterScanner {
             }
         };
         let block_height = indexed_block.height;
-        let mut utxos: Vec<UTxO> = vec![];
+        let mut utxos: Vec<Utxo> = vec![];
 
         for tx in &indexed_block.block.txdata {
             for (vout, output) in tx.output.iter().enumerate() {
-                if let Some(derive_path) = script_map.get(&output.script_pubkey) {
-                    utxos.push(UTxO {
+                if let Some(derive_path) = self.scripts_of_interest.get(&output.script_pubkey) {
+                    utxos.push(Utxo {
                         tx_id: tx.compute_wtxid(),
                         output: output.clone(),
                         vout,
@@ -61,23 +90,10 @@ impl CompactFilterScanner {
             }
         }
 
-        let mut sk = self.sk.lock().await;
-        let wallet = match sk.take_session() {
-            Ok(s) => &mut s.wallet,
-            Err(_) => return,
-        };
-        wallet.btc.insert_utxos(utxos);
-    }
-
-    pub async fn update_scanner_height(&self, height: u32) -> Result<(), String> {
-        let mut sk = self.sk.lock().await;
-        let wallet = match sk.take_session() {
-            Ok(s) => &mut s.wallet,
-            Err(e) => return Err(e),
-        };
-        wallet.btc.cfilter_scanner_height = height;
-        wallet
-            .persist()
-            .map_err(|e| format!("Bitcoin sync: fail to save wallet: {}", e))
+        if !utxos.is_empty()
+            && let Err(e) = self.sync_event_tx.send(sync::Event::NewUtxos(utxos))
+        {
+            tracing::error!("Fail to send NewUtxos event: {}", e);
+        }
     }
 }

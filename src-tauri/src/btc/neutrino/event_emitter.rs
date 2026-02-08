@@ -1,11 +1,13 @@
 use serde::Serialize;
 use specta::Type;
 use tauri::{AppHandle, Emitter};
+use tauri_specta::{Events, collect_events};
 use tracing::error;
 
 pub const EVENT_HEIGHT_UPDATE: &str = "btc_sync";
 pub const EVENT_SYNC_PROGRESS: &str = "btc_sync_progress";
 pub const EVENT_SYNC_WARNING: &str = "btc_sync_warning";
+pub const EVENT_SYNC_NEW_UTXO: &str = "btc_sync_new_utxo";
 
 #[derive(Debug, Clone, Serialize, Type)]
 pub enum HeightUpdateStatus {
@@ -16,21 +18,37 @@ pub enum HeightUpdateStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Type, tauri_specta::Event)]
-pub struct SyncHeightUpdateEvent {
+struct SyncHeightUpdateEvent {
     status: HeightUpdateStatus,
     height: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Type, tauri_specta::Event)]
-pub struct SyncProgressEvent {
+struct SyncProgressEvent {
     progress: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Type, tauri_specta::Event)]
-pub struct SyncWarningEvent {
+struct SyncWarningEvent {
     msg: String,
 }
 
+#[derive(Debug, Clone, Serialize, Type, tauri_specta::Event)]
+struct SyncNewUtxoEvent {
+    value: String,
+}
+
+pub fn list_events() -> Events {
+    collect_events![
+        SyncHeightUpdateEvent,
+        SyncProgressEvent,
+        SyncWarningEvent,
+        SyncNewUtxoEvent
+    ]
+}
+
+/** Event emitter for UI */
+#[derive(Clone)]
 pub struct EventEmitter {
     app: AppHandle,
 }
@@ -58,6 +76,12 @@ impl EventEmitter {
     pub fn node_warning(&self, msg: String) {
         self.app
             .emit(EVENT_SYNC_WARNING, SyncWarningEvent { msg })
+            .unwrap();
+    }
+
+    pub fn new_utxo(&self, value: String) {
+        self.app
+            .emit(EVENT_SYNC_NEW_UTXO, SyncNewUtxoEvent { value })
             .unwrap();
     }
 }

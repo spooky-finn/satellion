@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use tokio::sync::mpsc;
 
 use bip39::Language;
 use bip157::{BlockHash, ScriptBuf};
@@ -13,7 +14,7 @@ use bitcoin::{
 use crate::{
     btc::{
         address::{Change, DerivePath, LabeledDerivationPath, Purpose},
-        utxo::UTxO,
+        utxo::Utxo,
     },
     chain_trait::{AssetTracker, ChainTrait, Persistable, SecureKey},
     config::CONFIG,
@@ -22,8 +23,7 @@ use crate::{
 
 #[derive(Default)]
 pub struct RuntimeData {
-    // runtime storage for storing scripts to check in compact block filters
-    pub scripts_of_interes: HashSet<DerivedScript>,
+    pub sync: sync::Sync,
 }
 
 pub struct Prk {
@@ -61,7 +61,7 @@ impl DerivedScript {
 
 pub struct BitcoinWallet {
     pub derived_addresses: Vec<LabeledDerivationPath>,
-    pub utxos: HashMap<ScriptBuf, UTxO>,
+    pub utxos: HashMap<ScriptBuf, Utxo>,
     pub cfilter_scanner_height: u32,
     pub initial_sync_done: bool,
     pub runtime: RuntimeData,
@@ -175,14 +175,21 @@ impl BitcoinWallet {
             .filter(|a| a.derive_path.change == Change::External)
     }
 
-    pub fn insert_utxos(&mut self, utxos: Vec<UTxO>) {
+    pub fn insert_utxos(&mut self, utxos: Vec<Utxo>) {
         for utxo in utxos {
             self.utxos.insert(utxo.output.script_pubkey.clone(), utxo);
         }
     }
 
     pub fn add_script_of_interes(&mut self, script: DerivedScript) {
-        self.runtime.scripts_of_interes.insert(script);
+        self.runtime
+            .sync
+            .channels
+            .scripts_tx
+            .send(script)
+            .unwrap_or_else(|e| {
+                tracing::error!("Failed to send script of interest to channel: {}", e);
+            });
     }
 }
 
@@ -248,6 +255,53 @@ impl AssetTracker<LabeledDerivationPath> for BitcoinWallet {
             return Err("Address not tracked".to_string());
         }
         Ok(())
+    }
+}
+
+pub mod sync {
+    use super::*;
+
+    #[derive(Default)]
+    pub struct Sync {
+        pub channels: sync::Channels,
+        pub result: Option<sync::Result>,
+    }
+
+    pub struct Result {
+        pub update: bip157::SyncUpdate,
+        #[allow(dead_code)]
+        pub broadcast_min_fee_rate: bip157::FeeRate,
+        #[allow(dead_code)]
+        pub avg_fee_rate: bip157::FeeRate,
+    }
+
+    pub enum Event {
+        FiltersSynced(Result),
+        BlockHeader(bip157::chain::IndexedHeader),
+        NewUtxos(Vec<Utxo>),
+    }
+
+    #[derive(Debug)]
+    pub struct Channels {
+        /** For sending transaction scripts to the combact block filter scanner */
+        pub scripts_tx: mpsc::UnboundedSender<DerivedScript>,
+        pub scripts_rx: Option<mpsc::UnboundedReceiver<DerivedScript>>,
+
+        pub sync_event_tx: mpsc::UnboundedSender<Event>,
+        pub sync_event_rx: Option<mpsc::UnboundedReceiver<Event>>,
+    }
+
+    impl Default for Channels {
+        fn default() -> Self {
+            let (scripts_tx, scripts_rx) = mpsc::unbounded_channel();
+            let (sync_event_tx, sync_event_rx) = mpsc::unbounded_channel();
+            Self {
+                scripts_tx,
+                scripts_rx: Some(scripts_rx),
+                sync_event_tx,
+                sync_event_rx: Some(sync_event_rx),
+            }
+        }
     }
 }
 
@@ -335,12 +389,12 @@ impl Persistable for BitcoinWallet {
                 })
             })
             .collect::<Result<Vec<LabeledDerivationPath>, String>>()?;
-        let utxos: HashMap<ScriptBuf, UTxO> = data
+        let utxos: HashMap<ScriptBuf, Utxo> = data
             .utxos
             .iter()
             .map(|utxo| {
                 let derive_path = DerivePath::from_slice(utxo.deriviation_path)?;
-                let utxo = UTxO {
+                let utxo = Utxo {
                     tx_id: Hash::from_byte_array(utxo.txid),
                     block: crate::btc::utxo::BlockHeader {
                         hash: BlockHash::from_byte_array(utxo.block_hash),

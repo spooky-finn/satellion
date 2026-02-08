@@ -1,17 +1,21 @@
 use std::{str::FromStr, sync::Arc, time::Duration};
+use tokio::sync::{Mutex, mpsc};
+use tokio_util::sync::CancellationToken;
 
 use bip157::{
     BlockHash, Builder, Header, HeaderCheckpoint, Network, TrustedPeer,
     chain::{ChainState, IndexedHeader},
 };
 use bitcoin::{CompactTarget, TxMerkleNode, block::Version};
-use tokio::sync::Mutex;
-use tokio_util::sync::CancellationToken;
 
 use crate::{
-    btc::neutrino::{
-        CompactFilterScanner, EventEmitter, LifecycleState, NodeLifecycle,
-        node_listener::listen_neutrino_node,
+    btc::{
+        neutrino::{
+            BoxFutureUnit, CompactFilterScanner, EventEmitter, LifecycleState, NodeLifecycle,
+            SyncOrchestrator,
+            node_listener::{ListenArgs, listen_node},
+        },
+        sync,
     },
     config::CONFIG,
     db,
@@ -88,19 +92,68 @@ impl NeutrinoStarter {
 
         let neutrino = Neutrino::connect(network, trusted_peers, block_header)
             .map_err(|e| format!("Failed to connect: {}", e))?;
+        let sync_orchestrator = SyncOrchestrator::new(
+            self.sk.clone(),
+            self.repository.clone(),
+            event_emitter.clone(),
+        );
 
-        let repository = Arc::new(self.repository.clone());
-        let cf_scanner =
-            CompactFilterScanner::new(self.sk.clone(), neutrino.client.requester.clone());
+        let (filters_tx, filters_rx) = mpsc::unbounded_channel::<bip157::IndexedFilter>();
+
+        let (mut cf_scanner, listen_args) = {
+            let mut session_keeper = self.sk.lock().await;
+            let session = session_keeper.take_session()?;
+
+            let sync::Channels {
+                scripts_rx,
+                sync_event_tx,
+                ..
+            } = &mut session.wallet.btc.runtime.sync.channels;
+
+            let cf_scanner = CompactFilterScanner::new(
+                neutrino.client.requester.clone(),
+                scripts_rx.take().ok_or("scripts_rx has been acquired")?,
+                filters_rx,
+                sync_event_tx.clone(),
+            );
+
+            let listen_args = ListenArgs {
+                event_emitter,
+                client: neutrino.client,
+                filters_tx,
+                sync_event_tx: sync_event_tx.clone(),
+            };
+
+            (cf_scanner, listen_args)
+        };
 
         let lifecycle = NodeLifecycle::spawn(
-            Self::run_node_task(neutrino.node),
-            listen_neutrino_node(event_emitter, neutrino.client, repository, cf_scanner),
+            vec![
+                (
+                    Box::pin(Self::run_node_task(neutrino.node)) as BoxFutureUnit,
+                    "Neutrino node",
+                ),
+                (
+                    Box::pin(listen_node(listen_args)) as BoxFutureUnit,
+                    "Neutrino client",
+                ),
+                (
+                    Box::pin(async move { cf_scanner.run().await }) as BoxFutureUnit,
+                    "Compact block filter scanner",
+                ),
+                (
+                    Box::pin(async move {
+                        if let Err(e) = sync_orchestrator.run().await {
+                            tracing::error!("Sync orchestrator failure: {}", e);
+                        }
+                    }) as BoxFutureUnit,
+                    "Neutrino sync orchestrator",
+                ),
+            ],
             cancel.clone(),
         );
 
-        lifecycle.wait_for_cancellation(cancel).await;
-
+        lifecycle.join_all().await;
         Ok(())
     }
 
@@ -166,7 +219,7 @@ impl Neutrino {
             .required_peers(CONFIG.bitcoin.min_peers)
             .chain_state(chain_state)
             .add_peers(trusted_peers)
-            .response_timeout(Duration::from_secs(10))
+            .response_timeout(Duration::from_secs(30))
             .build();
 
         Ok(Self { node, client })

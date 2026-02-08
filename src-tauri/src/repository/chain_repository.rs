@@ -16,7 +16,7 @@ impl ChainRepository {
         }
     }
 
-    pub fn insert_block_header(&self, block_header: &IndexedHeader) -> Result<usize, Error> {
+    pub fn save_block_header(&self, block_header: &IndexedHeader) -> Result<usize, Error> {
         let mut conn = self.base.get_conn()?;
         diesel::insert_into(bitcoin_block_headers::table)
             .values(&BlockHeader {
@@ -29,6 +29,13 @@ impl ChainRepository {
                 nonce: block_header.header.nonce as i32,
             })
             .execute(&mut conn)
+            .or_else(|err| {
+                if err.to_string().contains("UNIQUE constraint failed") {
+                    Ok(0)
+                } else {
+                    Err(err)
+                }
+            })
     }
 
     pub fn last_block(&self) -> Result<BlockHeader, Error> {

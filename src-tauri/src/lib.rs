@@ -18,15 +18,12 @@ use std::sync::Arc;
 
 use specta_typescript::Typescript;
 use tauri::Manager;
-use tauri_specta::collect_events;
 use tokio::sync::Mutex;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
 use crate::{
-    btc::neutrino::{NeutrinoStarter, SyncHeightUpdateEvent, SyncProgressEvent, SyncWarningEvent},
-    repository::ChainRepository,
-    wallet_keeper::WalletKeeper,
+    btc::neutrino::NeutrinoStarter, repository::ChainRepository, wallet_keeper::WalletKeeper,
 };
 
 const ENABLE_DEVTOOLS: bool = true;
@@ -79,11 +76,7 @@ pub fn run() {
             eth::commands::eth_anvil_set_initial_balances,
         ])
         .constant("MIN_PASSPHRASE_LEN", config::MIN_PASSPHRASE_LEN)
-        .events(collect_events![
-            SyncHeightUpdateEvent,
-            SyncProgressEvent,
-            SyncWarningEvent
-        ]);
+        .events(btc::neutrino::list_events());
 
     #[cfg(debug_assertions)]
     builder

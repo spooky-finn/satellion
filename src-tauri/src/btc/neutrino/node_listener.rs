@@ -1,30 +1,38 @@
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
+use tokio::sync::mpsc;
 
-use bip157::{Client, Event, chain::BlockHeaderChanges};
+use bip157::{Client, Event, FeeRate, IndexedFilter, chain::BlockHeaderChanges};
 
-use super::{CompactFilterScanner, EventEmitter, HeightUpdateStatus};
-use crate::{repository::ChainRepository, utils::Throttler};
+use super::{EventEmitter, HeightUpdateStatus};
+use crate::{btc::sync, utils::Throttler};
+
+pub struct ListenArgs {
+    pub event_emitter: EventEmitter,
+    pub client: Client,
+    pub filters_tx: mpsc::UnboundedSender<IndexedFilter>,
+    pub sync_event_tx: mpsc::UnboundedSender<sync::Event>,
+}
 
 /// Handle incoming neutrino events from node on separate thread
-pub async fn listen_neutrino_node(
-    event_emitter: EventEmitter,
-    client: bip157::Client,
-    repository: Arc<ChainRepository>,
-    cfilter_processor: CompactFilterScanner,
-) {
+pub async fn listen_node(args: ListenArgs) {
+    let ListenArgs {
+        event_emitter,
+        client,
+        sync_event_tx,
+        filters_tx,
+    } = args;
+
     let Client {
         mut info_rx,
         mut warn_rx,
         mut event_rx,
         requester,
     } = client;
-    // let mut block_counter = 0;
-    let now = Instant::now();
+
+    let sync_start_time = Instant::now();
     let mut progress_throttler = Throttler::new(Duration::from_secs(1));
     let mut height_throttler = Throttler::new(Duration::from_secs(1));
+
     loop {
         tokio::select! {
             event = event_rx.recv() => {
@@ -33,31 +41,36 @@ pub async fn listen_neutrino_node(
                     Event::FiltersSynced(sync_update) => {
                         tracing::debug!("Bitcoin sync: cfilter synced: height {}", sync_update.tip.height);
                         // Request information from the node
-                        match requester.broadcast_min_feerate().await {
-                            Ok(fee) => tracing::info!("Minimum transaction broadcast fee rate: {:#}", fee),
-                            Err(e) => tracing::error!("Failed to get broadcast min feerate: {}", e),
-                        }
-                        let sync_time = now.elapsed().as_secs_f32();
+                        let broadcast_min_fee_rate = requester.broadcast_min_feerate().await.unwrap_or_else(|e| {
+                            tracing::error!("Failed to get broadcast min feerate: {}", e);
+                            FeeRate::from_sat_per_kwu(0)
+                        });
+                        let avg_fee_rate = requester.average_fee_rate(sync_update.tip().hash).await.unwrap_or_else(|e| {
+                            tracing::error!("Failed to get average fee rate: {}", e);
+                            FeeRate::from_sat_per_kwu(0)
+                        });
+
+                        let sync_time = sync_start_time.elapsed().as_secs_f32();
                         tracing::info!("Total sync time: {sync_time} seconds");
-                        match requester.average_fee_rate(sync_update.tip().hash).await {
-                            Ok(avg_fee_rate) => tracing::info!("Last block average fee rate: {:#}", avg_fee_rate),
-                            Err(e) => tracing::error!("Failed to get average fee rate: {}", e),
-                        }
 
+                        let payload = sync::Result {
+                            update: sync_update.clone(),
+                            broadcast_min_fee_rate,
+                            avg_fee_rate,
+                        };
+                        let event = sync::Event::FiltersSynced(payload);
+                        sync_event_tx.send(event).unwrap_or_else(|e| {
+                            tracing::error!("Failed to send sync event: {}", e);
+                        });
                         event_emitter.height_updated(sync_update.tip.height, HeightUpdateStatus::Completed);
-                        if let Err(e) = cfilter_processor.update_scanner_height(sync_update.tip.height).await {
-                            tracing::error!(e);
-                        }
-
-                        // TODO: send event to the bitcoin wallet that inital sync done
                     }
                     Event::ChainUpdate(changes) => {
                         let new_height = match changes {
                             BlockHeaderChanges::Connected(header) => {
-                                if let Err(err) = repository.insert_block_header(&header) &&
-                                    !err.to_string().contains("UNIQUE constraint failed") {
-                                        tracing::error!("Bitcoin sync: warning: failed to insert block header: {}", err);
-                                    }
+                                sync_event_tx.send(sync::Event::BlockHeader(header)).unwrap_or_else(|e| {
+                                    tracing::error!("Failed to send block header event: {}", e);
+                                });
+
                                 Some(header.height)
                             }
                             BlockHeaderChanges::Reorganized { accepted, .. } => {
@@ -73,7 +86,9 @@ pub async fn listen_neutrino_node(
                         tracing::debug!("Bitcoin sync: block {}", _block.height);
                     }
                     Event::IndexedFilter(filter) => {
-                        cfilter_processor.handle(filter).await;
+                        if let Err(e) = filters_tx.send(filter) {
+                            tracing::error!("Failed to send filter to processor: {}", e);
+                        }
                     }
                     }
                 }
