@@ -4,6 +4,7 @@ use bip157::Network;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct BitcoinConfig {
     pub regtest: bool,
     regtest_peer_socket: String,

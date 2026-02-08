@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{btc::config::BitcoinConfig, eth::config::EthereumConfig};
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Config {
     pub ethereum: EthereumConfig,
     pub bitcoin: BitcoinConfig,
@@ -22,12 +23,21 @@ impl Config {
 
     pub fn load() -> Result<Self, Box<dyn std::error::Error>> {
         let config_path = Self::config_file_path();
+
         if !config_path.exists() {
             let default_config = Self::create_config()?;
+            tracing::warn!(
+                "Config file not found at {}, creating default config",
+                config_path.display()
+            );
             return Ok(default_config);
         }
+
         let raw_config = fs::read_to_string(&config_path)?;
-        let json_config: Config = serde_json::from_str(&raw_config)?;
+        let json_config: Config = serde_json::from_str(&raw_config).unwrap_or_else(|e| {
+            tracing::error!("fail to deserialize config {}", e);
+            return Self::default();
+        });
         Ok(json_config)
     }
 
