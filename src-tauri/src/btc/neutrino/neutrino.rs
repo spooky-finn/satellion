@@ -23,6 +23,8 @@ use crate::{
     session::{SK, SessionKeeper},
 };
 
+static NODE_RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
+
 #[derive(Clone)]
 pub struct NeutrinoStarter {
     sk: Arc<Mutex<SessionKeeper>>,
@@ -81,16 +83,14 @@ impl NeutrinoStarter {
         last_seen_height: u32,
         cancel: CancellationToken,
     ) -> Result<(), String> {
-        let (network, trusted_peers) = Self::select_network().await?;
-        tracing::info!("Starting neutrino for network {}", network);
-
         let block_header = self
             .repository
             .get_block_header(last_seen_height)
             .map_err(|e| format!("Failed to load block header: {}", e))?;
         tracing::info!("Last seen height {:?}", block_header);
 
-        let neutrino = Neutrino::connect(network, trusted_peers, block_header)
+        let neutrino = Neutrino::connect(block_header)
+            .await
             .map_err(|e| format!("Failed to connect: {}", e))?;
         let sync_orchestrator = SyncOrchestrator::new(
             self.sk.clone(),
@@ -162,18 +162,6 @@ impl NeutrinoStarter {
             tracing::error!("Kyoto node err: {}", e);
         }
     }
-
-    async fn select_network() -> Result<(Network, Vec<TrustedPeer>), String> {
-        if CONFIG.bitcoin.regtest {
-            let socket = CONFIG.bitcoin.regtest_peer_socket();
-            let peer = TrustedPeer::from_socket_addr(socket);
-            return Ok((bip157::Network::Regtest, vec![peer]));
-        }
-
-        let seeds = bip157::lookup_host("seed.bitcoin.sipa.be").await;
-        let peers: Vec<TrustedPeer> = seeds.into_iter().map(TrustedPeer::from_ip).collect();
-        Ok((bip157::Network::Bitcoin, peers))
-    }
 }
 
 pub struct Neutrino {
@@ -182,11 +170,10 @@ pub struct Neutrino {
 }
 
 impl Neutrino {
-    pub fn connect(
-        network: Network,
-        trusted_peers: Vec<TrustedPeer>,
-        block_header: Option<db::BlockHeader>,
-    ) -> Result<Self, String> {
+    pub async fn connect(block_header: Option<db::BlockHeader>) -> Result<Self, String> {
+        let (network, trusted_peers) = Self::select_network().await?;
+        tracing::info!("Starting neutrino for network {}", network);
+
         let indexed_header = block_header.map(|h| IndexedHeader {
             height: h.height as u32,
             header: Header {
@@ -215,13 +202,31 @@ impl Neutrino {
             chain_state
         );
 
-        let (node, client) = Builder::new(network)
-            .required_peers(CONFIG.bitcoin.min_peers)
-            .chain_state(chain_state)
+        let builder = Builder::new(network).required_peers(CONFIG.bitcoin.min_peers);
+
+        let builder = if network == Network::Bitcoin {
+            builder.chain_state(chain_state)
+        } else {
+            builder
+        };
+
+        let (node, client) = builder
             .add_peers(trusted_peers)
-            .response_timeout(Duration::from_secs(30))
+            .response_timeout(NODE_RESPONSE_TIMEOUT)
             .build();
 
         Ok(Self { node, client })
+    }
+
+    async fn select_network() -> Result<(Network, Vec<TrustedPeer>), String> {
+        if CONFIG.bitcoin.regtest {
+            let socket = CONFIG.bitcoin.regtest_peer_socket();
+            let peer = TrustedPeer::from_socket_addr(socket);
+            return Ok((bip157::Network::Regtest, vec![peer]));
+        }
+
+        let seeds = bip157::lookup_host("seed.bitcoin.sipa.be").await;
+        let peers: Vec<TrustedPeer> = seeds.into_iter().map(TrustedPeer::from_ip).collect();
+        Ok((bip157::Network::Bitcoin, peers))
     }
 }

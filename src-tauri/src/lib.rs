@@ -19,22 +19,28 @@ use std::sync::Arc;
 use specta_typescript::Typescript;
 use tauri::Manager;
 use tokio::sync::Mutex;
-use tracing::Level;
-use tracing_subscriber::FmtSubscriber;
+use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use crate::{
     btc::neutrino::NeutrinoStarter, repository::ChainRepository, wallet_keeper::WalletKeeper,
 };
 
-const ENABLE_DEVTOOLS: bool = true;
+fn enable_devtools() -> bool {
+    std::env::var("DEVTOOLS")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let subscriber = FmtSubscriber::builder()
         .without_time()
         .compact()
-        .with_max_level(Level::DEBUG)
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
         .finish();
+
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     db::initialize();
@@ -99,7 +105,7 @@ pub fn run() {
         .manage(session_keeper)
         .setup(move |app| {
             #[cfg(debug_assertions)]
-            if ENABLE_DEVTOOLS {
+            if enable_devtools() {
                 let window = app.get_webview_window("main").unwrap();
                 window.open_devtools();
                 window.close_devtools();

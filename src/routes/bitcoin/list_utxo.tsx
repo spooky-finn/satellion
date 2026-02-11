@@ -85,19 +85,19 @@ export const ListUtxo = observer(() => {
 								<Table variant="plain" stickyHeader>
 									<thead>
 										<tr>
-											<th align="left">
+											<th>
 												<P>Derivation path</P>
 											</th>
-											<th align="left">
+											<th>
 												<P>Label</P>
 											</th>
-											<th align="left">
+											<th>
 												<P>Transaction ID</P>
 											</th>
-											<th align="right">
+											<th>
 												<P>Amount</P>
 											</th>
-											<th align="right">
+											<th>
 												<P>Value</P>
 											</th>
 										</tr>
@@ -122,12 +122,12 @@ export const ListUtxo = observer(() => {
 													<td>
 														<CompactSrt val={utxo.utxo_id.tx_id} />
 													</td>
-													<td align="right">
+													<td>
 														<P sx={{ fontFamily: 'monospace' }}>
 															{utxo.value} sat
 														</P>
 													</td>
-													<td align="right">
+													<td>
 														<P sx={{ fontFamily: 'monospace' }}>
 															${value.toFixed(0)}
 														</P>

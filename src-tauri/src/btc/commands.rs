@@ -112,7 +112,7 @@ pub struct UtxoId {
 pub struct Utxo {
     utxo_id: UtxoId,
     value: String,
-    deriv_path: DerivePathSlice,
+    deriv_path: String,
     address_label: Option<String>,
 }
 
@@ -146,7 +146,7 @@ pub async fn btc_list_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<Utxo>, Strin
                     tx_id: utxo.tx_id.to_string(),
                     vout: utxo.vout.to_string(),
                 },
-                deriv_path: utxo.derive_path.to_slice(),
+                deriv_path: utxo.derive_path.to_string(),
                 address_label: label,
             }
         })

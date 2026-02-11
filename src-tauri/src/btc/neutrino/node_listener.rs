@@ -1,5 +1,5 @@
 use std::time::{Duration, Instant};
-use tokio::sync::mpsc;
+use tokio::{sync::mpsc, task};
 
 use bip157::{Client, Event, FeeRate, IndexedFilter, chain::BlockHeaderChanges};
 
@@ -45,10 +45,26 @@ pub async fn listen_node(args: ListenArgs) {
                             tracing::error!("Failed to get broadcast min feerate: {}", e);
                             FeeRate::from_sat_per_kwu(0)
                         });
-                        let avg_fee_rate = requester.average_fee_rate(sync_update.tip().hash).await.unwrap_or_else(|e| {
-                            tracing::error!("Failed to get average fee rate: {}", e);
-                            FeeRate::from_sat_per_kwu(0)
-                        });
+
+                        let avg_fee_rate = {
+                            let tip_hash = sync_update.tip().hash;
+                            let requester_clone = requester.clone();
+                            let handle = task::spawn(async move {
+                                requester_clone.average_fee_rate(tip_hash).await
+                            });
+
+                            match handle.await {
+                                Ok(Ok(rate)) => rate,
+                                Ok(Err(e)) => {
+                                    tracing::error!("Failed to get average fee rate: {}", e);
+                                    FeeRate::from_sat_per_kwu(0)
+                                }
+                                Err(e) => {
+                                    tracing::error!("Task panicked or was cancelled: {:?}", e);
+                                    FeeRate::from_sat_per_kwu(0)
+                                }
+                            }
+                        };
 
                         let sync_time = sync_start_time.elapsed().as_secs_f32();
                         tracing::info!("Total sync time: {sync_time} seconds");
