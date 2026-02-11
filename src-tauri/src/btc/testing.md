@@ -34,3 +34,12 @@ bitcoin-cli \
 ```bash
 bitcoin-cli -regtest sendtoaddress <ADDR> 1.0
 ```
+
+
+## 5. Send and generate block
+
+```bash
+BTC_ADDRESS=<ADDR>
+bitcoin-cli -regtest sendtoaddress $BTC_ADDRESS 1.0
+bitcoin-cli -regtest -rpcport=18443 generatetoaddress 10 $BTC_ADDRESS
+```

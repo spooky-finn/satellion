@@ -1219,9 +1219,9 @@ dependencies = [
 
 [[package]]
 name = "bip157"
-version = "0.3.3"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d10c525b8dc2a9c0aae5d2de384336696023e5201c6bcc22c47ec0fb9d9947cb"
+checksum = "88df5c18baaea9be4219679afbd4fc26491606f89f6ecdaffcdcabd67635b07b"
 dependencies = [
  "bip324",
  "bitcoin",
@@ -1287,9 +1287,9 @@ dependencies = [
 
 [[package]]
 name = "bitcoin-address-book"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16d55a2ccdaa0271ea60355a01fc82e37f33a340df80599d344f9d6e97d46e48"
+checksum = "060c05780195789a7b89bbfe7f57a1a8cd6ae0bb3daa9b96eeca4fbe0ba8014f"
 dependencies = [
  "bitcoin",
 ]

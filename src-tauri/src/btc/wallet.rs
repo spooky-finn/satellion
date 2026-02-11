@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use tokio::sync::mpsc;
 
 use bip39::Language;
-use bip157::{BlockHash, ScriptBuf};
+use bip157::BlockHash;
 pub use bitcoin::network::Network;
 use bitcoin::{
     Address,
@@ -61,7 +61,7 @@ impl DerivedScript {
 
 pub struct BitcoinWallet {
     pub derived_addresses: Vec<LabeledDerivationPath>,
-    pub utxos: HashMap<ScriptBuf, Utxo>,
+    pub utxos: HashMap<String, Utxo>,
     pub cfilter_scanner_height: u32,
     pub initial_sync_done: bool,
     pub runtime: RuntimeData,
@@ -177,7 +177,7 @@ impl BitcoinWallet {
 
     pub fn insert_utxos(&mut self, utxos: Vec<Utxo>) {
         for utxo in utxos {
-            self.utxos.insert(utxo.output.script_pubkey.clone(), utxo);
+            self.utxos.insert(utxo.id(), utxo);
         }
     }
 
@@ -267,6 +267,7 @@ pub mod sync {
         pub result: Option<sync::Result>,
     }
 
+    #[derive(Clone)]
     pub struct Result {
         pub update: bip157::SyncUpdate,
         #[allow(dead_code)]
@@ -389,7 +390,7 @@ impl Persistable for BitcoinWallet {
                 })
             })
             .collect::<Result<Vec<LabeledDerivationPath>, String>>()?;
-        let utxos: HashMap<ScriptBuf, Utxo> = data
+        let utxos: HashMap<String, Utxo> = data
             .utxos
             .iter()
             .map(|utxo| {
@@ -407,7 +408,7 @@ impl Persistable for BitcoinWallet {
                         value: bitcoin::Amount::from_sat(utxo.value),
                     },
                 };
-                Ok((utxo.output.script_pubkey.clone(), utxo))
+                Ok((utxo.id(), utxo))
             })
             .collect::<Result<_, String>>()?;
         Ok(Self {

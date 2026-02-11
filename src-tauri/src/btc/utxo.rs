@@ -18,3 +18,9 @@ pub struct Utxo {
     pub derive_path: DerivePath,
     pub block: BlockHeader,
 }
+
+impl Utxo {
+    pub fn id(&self) -> String {
+        format!("{}{}", self.tx_id.to_string(), self.vout)
+    }
+}
