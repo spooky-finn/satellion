@@ -118,7 +118,7 @@ pub async fn unlock_wallet(
     )?;
 
     let last_used_chain = wallet.last_used_chain;
-    let btc_last_seen_heigh = wallet.btc.cfilter_scanner_height;
+    let btc_last_seen_heigh = wallet.btc.cfilter_scanner_height - 1;
 
     let event_emitter = EventEmitter::new(app);
     neutrino_starter

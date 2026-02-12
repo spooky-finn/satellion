@@ -181,6 +181,13 @@ impl BitcoinWallet {
         }
     }
 
+    pub fn total_balance(&self) -> u64 {
+        self.utxos
+            .iter()
+            .map(|utxo| utxo.1.output.value.to_sat())
+            .sum()
+    }
+
     pub fn add_script_of_interes(&mut self, script: DerivedScript) {
         self.runtime
             .sync
@@ -197,6 +204,7 @@ impl BitcoinWallet {
 pub struct BitcoinUnlock {
     pub address: String,
     pub usd_price: String,
+    pub total_balance: String,
 }
 
 impl ChainTrait for BitcoinWallet {
@@ -226,6 +234,7 @@ impl ChainTrait for BitcoinWallet {
         Ok(BitcoinUnlock {
             address: btc_main_address.to_string(),
             usd_price,
+            total_balance: self.total_balance().to_string(),
         })
     }
 }
@@ -277,7 +286,7 @@ pub mod sync {
     }
 
     pub enum Event {
-        FiltersSynced(Result),
+        ChainSynced(Result),
         BlockHeader(bip157::chain::IndexedHeader),
         NewUtxos(Vec<Utxo>),
     }

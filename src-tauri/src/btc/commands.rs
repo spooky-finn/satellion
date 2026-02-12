@@ -116,6 +116,8 @@ pub struct Utxo {
     address_label: Option<String>,
 }
 
+const UTXO_DISPLAY_LIMIT: usize = 500;
+
 #[specta]
 #[tauri::command]
 pub async fn btc_list_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<Utxo>, String> {
@@ -159,5 +161,5 @@ pub async fn btc_list_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<Utxo>, Strin
             .cmp(&a.value.parse::<u64>().unwrap_or(0))
     });
 
-    Ok(utxos)
+    Ok(utxos.into_iter().take(UTXO_DISPLAY_LIMIT).collect())
 }

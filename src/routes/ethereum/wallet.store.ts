@@ -1,5 +1,10 @@
 import { makeAutoObservable } from 'mobx'
-import { type Balance, type ChainInfo, commands } from '../../bindings'
+import {
+	type Balance,
+	type ChainInfo,
+	commands,
+	type UnlockMsg,
+} from '../../bindings'
 import { notifier } from '../../lib/notifier'
 import { Loader } from '../../stores/loader'
 import { TransferStore } from './transfer.store'
@@ -10,6 +15,13 @@ export class EthereumWallet {
 
 	constructor() {
 		makeAutoObservable(this)
+	}
+
+	init(unlock: UnlockMsg['ethereum']) {
+		this.address = unlock.address
+		this.usd_price = Number(unlock.usd_price).toFixed(0)
+		this.getChainInfo()
+		this.getBalance()
 	}
 
 	address!: string

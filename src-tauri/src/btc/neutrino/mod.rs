@@ -1,3 +1,4 @@
+mod block_downloader;
 mod cf_scanner;
 mod event_emitter;
 mod lifecycle;

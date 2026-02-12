@@ -15,14 +15,8 @@ export class Wallet {
 
 	init(name: string, unlock: UnlockMsg) {
 		this.name = name
-		this.eth.address = unlock.ethereum.address
-		this.eth.usd_price = Number(unlock.ethereum.usd_price).toFixed(0)
-
-		this.btc.address = unlock.bitcoin.address
-		this.btc.usd_price = Number(unlock.bitcoin.usd_price).toFixed(0)
-
-		this.eth.getChainInfo()
-		this.eth.getBalance()
+		this.eth.init(unlock.ethereum)
+		this.btc.init(unlock.bitcoin)
 	}
 
 	async forget(name: string) {

@@ -28,15 +28,16 @@ export const CompactSrt = ({ val: address, n = 6, ...props }: Props) => {
 			</P>
 			<IconButton
 				size="sm"
+				sx={{ p: 0.2, minWidth: '20px', minHeight: '20px' }}
 				onClick={() => {
 					navigator.clipboard.writeText(address)
 					setCopied(true)
 					setTimeout(() => setCopied(false), 2000)
 				}}
-				variant={'plain'}
+				variant="plain"
 				color={copid ? 'primary' : 'neutral'}
 			>
-				<ContentCopyIcon />
+				<ContentCopyIcon fontSize={'xs'} />
 			</IconButton>
 		</Row>
 	)

@@ -81,7 +81,7 @@ const UnlockWallet = () => {
 			{unlock.target_wallet &&
 				(unlock.loader.loading ? (
 					<>
-						<Progress color="primary" />
+						<Progress />
 						<P level="body-sm">Inspecting blockchain ... </P>
 					</>
 				) : (

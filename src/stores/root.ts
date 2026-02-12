@@ -15,7 +15,7 @@ class RootStore {
 
 	async init() {
 		const res = await commands.getConfig()
-		if (res.status != 'ok') {
+		if (res.status !== 'ok') {
 			notifier.err(res.error)
 			return
 		}

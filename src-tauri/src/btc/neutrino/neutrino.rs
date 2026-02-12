@@ -1,5 +1,5 @@
 use std::{str::FromStr, sync::Arc, time::Duration};
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{Mutex, RwLock};
 use tokio_util::sync::CancellationToken;
 
 use bip157::{
@@ -13,7 +13,8 @@ use crate::{
         neutrino::{
             BoxFutureUnit, CompactFilterScanner, EventEmitter, LifecycleState, NodeLifecycle,
             SyncOrchestrator,
-            node_listener::{ListenArgs, listen_node},
+            block_downloader::BlockDownloader,
+            node_listener::{NeutrinoClientArgs, run_neutrino_client},
         },
         sync,
     },
@@ -51,7 +52,6 @@ impl NeutrinoStarter {
 
         // Case 1: same wallet -> node already running
         if state.is_running_for(&wallet_name) {
-            tracing::debug!("Neutrino already running for wallet {}", wallet_name);
             return Ok(());
         }
 
@@ -73,7 +73,6 @@ impl NeutrinoStarter {
         });
 
         state.start_for_wallet(wallet_name, task, cancel_token);
-
         Ok(())
     }
 
@@ -87,7 +86,6 @@ impl NeutrinoStarter {
             .repository
             .get_block_header(last_seen_height)
             .map_err(|e| format!("Failed to load block header: {}", e))?;
-        tracing::info!("Last seen height {:?}", block_header);
 
         let neutrino = Neutrino::connect(block_header)
             .await
@@ -98,9 +96,7 @@ impl NeutrinoStarter {
             event_emitter.clone(),
         );
 
-        let (filters_tx, filters_rx) = mpsc::unbounded_channel::<bip157::IndexedFilter>();
-
-        let (mut cf_scanner, listen_args) = {
+        let (mut scripts_rx, sync_event_tx) = {
             let mut session_keeper = self.sk.lock().await;
             let session = session_keeper.take_session()?;
 
@@ -110,36 +106,41 @@ impl NeutrinoStarter {
                 ..
             } = &mut session.wallet.btc.runtime.sync.channels;
 
-            let cf_scanner = CompactFilterScanner::new(
-                neutrino.client.requester.clone(),
-                scripts_rx.take().ok_or("scripts_rx has been acquired")?,
-                filters_rx,
-                sync_event_tx.clone(),
-            );
+            let scripts_rx = scripts_rx.take().ok_or("scripts_rx has been acquired")?;
+            (scripts_rx, sync_event_tx.clone())
+        };
 
-            let listen_args = ListenArgs {
-                event_emitter,
-                client: neutrino.client,
-                filters_tx,
-                sync_event_tx: sync_event_tx.clone(),
-            };
-
-            (cf_scanner, listen_args)
+        let requester = neutrino.client.requester.clone();
+        let block_downloader = BlockDownloader::new(requester);
+        let cf_scanner = Arc::new(RwLock::new(CompactFilterScanner::new(block_downloader)));
+        let neutrino_client_args = NeutrinoClientArgs {
+            event_emitter,
+            sync_event_tx: sync_event_tx.clone(),
+            cf_scanner: cf_scanner.clone(),
         };
 
         let lifecycle = NodeLifecycle::spawn(
             vec![
                 (
-                    Box::pin(Self::run_node_task(neutrino.node)) as BoxFutureUnit,
-                    "Neutrino node",
+                    Box::pin(async move {
+                        if let Err(e) = neutrino.node.run().await {
+                            tracing::error!("Kyoto node err: {}", e);
+                        }
+                    }) as BoxFutureUnit,
+                    "neutrino_node",
                 ),
                 (
-                    Box::pin(listen_node(listen_args)) as BoxFutureUnit,
-                    "Neutrino client",
+                    Box::pin(run_neutrino_client(neutrino.client, neutrino_client_args))
+                        as BoxFutureUnit,
+                    "neutrino_client",
                 ),
                 (
-                    Box::pin(async move { cf_scanner.run().await }) as BoxFutureUnit,
-                    "Compact block filter scanner",
+                    Box::pin(async move {
+                        while let Some(script) = scripts_rx.recv().await {
+                            cf_scanner.write().await.add_script(script);
+                        }
+                    }) as BoxFutureUnit,
+                    "scripts_rx",
                 ),
                 (
                     Box::pin(async move {
@@ -147,7 +148,7 @@ impl NeutrinoStarter {
                             tracing::error!("Sync orchestrator failure: {}", e);
                         }
                     }) as BoxFutureUnit,
-                    "Neutrino sync orchestrator",
+                    "sync_orchestrator",
                 ),
             ],
             cancel.clone(),
@@ -155,12 +156,6 @@ impl NeutrinoStarter {
 
         lifecycle.join_all().await;
         Ok(())
-    }
-
-    async fn run_node_task(node: bip157::Node) {
-        if let Err(e) = node.run().await {
-            tracing::error!("Kyoto node err: {}", e);
-        }
     }
 }
 
@@ -172,8 +167,6 @@ pub struct Neutrino {
 impl Neutrino {
     pub async fn connect(block_header: Option<db::BlockHeader>) -> Result<Self, String> {
         let (network, trusted_peers) = Self::select_network().await?;
-        tracing::info!("Starting neutrino for network {}", network);
-
         let indexed_header = block_header.map(|h| IndexedHeader {
             height: h.height as u32,
             header: Header {
@@ -186,15 +179,22 @@ impl Neutrino {
             },
         });
 
-        let chain_state = indexed_header
+        let chain_state: Option<ChainState> = indexed_header
             .map(|ih| {
-                // Todo: investigate how to migrate to snapshot state initialization
                 ChainState::Checkpoint(HeaderCheckpoint {
                     height: ih.height,
                     hash: ih.block_hash(),
                 })
             })
-            .unwrap_or_else(|| ChainState::Checkpoint(HeaderCheckpoint::taproot_activation()));
+            .or_else(|| {
+                if network == Network::Bitcoin {
+                    Some(ChainState::Checkpoint(
+                        HeaderCheckpoint::taproot_activation(),
+                    ))
+                } else {
+                    None
+                }
+            });
 
         tracing::info!(
             "starting neutrino on network {}, chain state {:?}",
@@ -202,19 +202,16 @@ impl Neutrino {
             chain_state
         );
 
-        let builder = Builder::new(network).required_peers(CONFIG.bitcoin.min_peers);
-
-        let builder = if network == Network::Bitcoin {
-            builder.chain_state(chain_state)
-        } else {
-            builder
-        };
+        let mut builder = Builder::new(network);
+        if let Some(s) = chain_state {
+            builder = builder.chain_state(s);
+        }
 
         let (node, client) = builder
+            .required_peers(CONFIG.bitcoin.min_peers)
             .add_peers(trusted_peers)
             .response_timeout(NODE_RESPONSE_TIMEOUT)
             .build();
-
         Ok(Self { node, client })
     }
 

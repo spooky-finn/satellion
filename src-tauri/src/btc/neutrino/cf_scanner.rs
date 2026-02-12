@@ -1,78 +1,52 @@
 use std::collections::HashMap;
-use tokio::sync::mpsc;
 
-use bip157::Requester;
+use bip157::IndexedBlock;
 
-use crate::btc::{DerivedScript, address::DerivePath, sync, utxo::Utxo};
+use crate::btc::{
+    DerivedScript, address::DerivePath, neutrino::block_downloader::BlockDownloader, utxo::Utxo,
+};
 
 pub struct CompactFilterScanner {
-    requester: Requester,
-    cfilter_rx: FiltersRx,
-    scripts_rx: ScriptsRx,
     scripts_of_interest: HashMap<bip157::ScriptBuf, DerivePath>,
-    sync_event_tx: SyncEventTx,
+    block_downloader: BlockDownloader,
 }
 
-type ScriptsRx = mpsc::UnboundedReceiver<DerivedScript>;
-type FiltersRx = mpsc::UnboundedReceiver<bip157::IndexedFilter>;
-type SyncEventTx = mpsc::UnboundedSender<sync::Event>;
-
 impl CompactFilterScanner {
-    pub fn new(
-        requester: Requester,
-        scripts_rx: ScriptsRx,
-        filter_rx: FiltersRx,
-        sync_event_tx: SyncEventTx,
-    ) -> Self {
+    pub fn new(block_downloader: BlockDownloader) -> Self {
         Self {
-            requester,
-            scripts_rx,
-            cfilter_rx: filter_rx,
-            sync_event_tx,
             scripts_of_interest: HashMap::default(),
+            block_downloader,
         }
     }
 
-    pub async fn run(&mut self) {
-        loop {
-            tokio::select! {
-                // Receive new compact block filter
-                Some(filter) = self.cfilter_rx.recv() => {
-                    self.handle(filter).await;
-                }
+    pub fn block_downloader_mut(&mut self) -> &mut BlockDownloader {
+        &mut self.block_downloader
+    }
 
-                // Receive new scripts
-                Some(DerivedScript { script, derive_path } ) = self.scripts_rx.recv() => {
-                    self.scripts_of_interest.insert(script, derive_path);
-                }
+    pub fn add_script(&mut self, s: DerivedScript) {
+        self.scripts_of_interest.insert(s.script, s.derive_path);
+    }
 
-                else => break,
+    /// Handle a compact filter - check if it matches and queue block download
+    pub async fn handle_filter(&self, filter: bip157::IndexedFilter) {
+        assert!(
+            self.scripts_of_interest.len() >= 1,
+            "No scripts to check in the filter"
+        );
+
+        // Check if this filter matches any of our scripts
+        if filter.contains_any(self.scripts_of_interest.keys()) {
+            let block_hash = filter.block_hash();
+            if let Err(e) = self.block_downloader.queue_block(block_hash).await {
+                tracing::error!("Failed to queue block: {}", e);
             }
         }
     }
 
-    async fn handle(&self, filter: bip157::IndexedFilter) {
-        if self.scripts_of_interest.is_empty() {
-            tracing::error!("Neutrino filter scanner: no scripts of interest");
-            return;
-        }
-
-        // No interested transactions in this block, skip it
-        if !filter.contains_any(self.scripts_of_interest.keys()) {
-            return;
-        }
-
-        let block_hash = filter.block_hash();
-        let indexed_block = match self.requester.get_block(block_hash).await {
-            Ok(b) => b,
-            Err(e) => {
-                tracing::error!("Neutrino requester: get block: {}", e);
-                return;
-            }
-        };
+    pub fn extract_utxos_from_block(&self, indexed_block: &IndexedBlock) -> Vec<Utxo> {
         let block_height = indexed_block.height;
+        let block_hash = indexed_block.block.block_hash();
         let mut utxos: Vec<Utxo> = vec![];
-
         for tx in &indexed_block.block.txdata {
             for (vout, output) in tx.output.iter().enumerate() {
                 if let Some(derive_path) = self.scripts_of_interest.get(&output.script_pubkey) {
@@ -89,11 +63,6 @@ impl CompactFilterScanner {
                 }
             }
         }
-
-        if !utxos.is_empty()
-            && let Err(e) = self.sync_event_tx.send(sync::Event::NewUtxos(utxos))
-        {
-            tracing::error!("Fail to send NewUtxos event: {}", e);
-        }
+        utxos
     }
 }

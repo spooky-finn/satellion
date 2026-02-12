@@ -2,8 +2,8 @@ import { HomeRounded } from '@mui/icons-material'
 import {
 	Button,
 	type ButtonProps,
-	CircularProgress,
-	type CircularProgressProps,
+	LinearProgress,
+	type LinearProgressProps,
 	Stack,
 	type StackProps,
 	Typography,
@@ -19,8 +19,8 @@ export const LinkButton = (props: ButtonProps & { to: string }) => {
 	const navigate = useNavigate()
 	return <Button size="sm" {...props} onClick={() => navigate(props.to)} />
 }
-export const Progress = (props: CircularProgressProps) => (
-	<CircularProgress size="sm" color="neutral" {...props} />
+export const Progress = (props: LinearProgressProps) => (
+	<LinearProgress size="sm" color="primary" {...props} />
 )
 
 export const NavigateUnlock = (props: ButtonProps) => {

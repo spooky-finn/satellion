@@ -1,7 +1,7 @@
 use crate::{
     btc::{neutrino::EventEmitter, wallet::sync},
     repository::ChainRepository,
-    session::SK,
+    session::{SK, Session},
 };
 
 #[derive(Clone)]
@@ -47,7 +47,7 @@ impl SyncOrchestrator {
 
     async fn handle_sync_event(&self, event: sync::Event) -> Result<(), String> {
         match event {
-            sync::Event::FiltersSynced(event) => {
+            sync::Event::ChainSynced(event) => {
                 tracing::info!("Filters synced, height: {}", event.update.tip.height);
 
                 let mut session_keeper = self.sk.lock().await;
@@ -66,18 +66,14 @@ impl SyncOrchestrator {
                 }
             }
             sync::Event::NewUtxos(utxos) => {
-                tracing::info!("Found {} new UTXOs", utxos.len());
-                utxos.iter().for_each(|each| {
-                    self.event_emitter.new_utxo(each.output.value.to_string());
-                });
-
                 let mut session_keeper = self.sk.lock().await;
-                let session = session_keeper.take_session()?;
+                let Session { wallet, .. } = session_keeper.take_session()?;
 
-                session.wallet.mutate_btc(|btc| {
-                    btc.insert_utxos(utxos);
-                    Ok(())
-                })?;
+                utxos.iter().for_each(|each| {
+                    self.event_emitter
+                        .new_utxo(each.output.value.to_sat(), wallet.btc.total_balance());
+                });
+                wallet.btc.insert_utxos(utxos);
             }
         }
         Ok(())

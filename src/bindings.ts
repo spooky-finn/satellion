@@ -189,7 +189,7 @@ export const MIN_PASSPHRASE_LEN = 4 as const;
 /** user-defined types **/
 
 export type Balance = { wei: string; tokens: TokenBalance[] }
-export type BitcoinUnlock = { address: string; usd_price: string }
+export type BitcoinUnlock = { address: string; usd_price: string; total_balance: string }
 export type Chain = "Bitcoin" | "Ethereum"
 export type ChainInfo = { block_number: string; block_hash: string; base_fee_per_gas: string | null }
 export type ChainStatus = { height: number }
@@ -201,7 +201,7 @@ export type HeightUpdateStatus = "in progress" | "completed"
 export type PrepareTxReqReq = { token_address: string; amount: string; recipient: string; fee_mode: FeeMode }
 export type PrepareTxReqRes = { estimated_gas: string; max_fee_per_gas: string; fee_ceiling: string; fee_in_usd: number }
 export type SyncHeightUpdateEvent = { status: HeightUpdateStatus; height: number }
-export type SyncNewUtxoEvent = { value: string }
+export type SyncNewUtxoEvent = { value: string; total: string }
 export type SyncProgressEvent = { progress: number }
 export type SyncWarningEvent = { msg: string }
 export type TokenBalance = { symbol: string; balance: string; decimals: number; address: string }

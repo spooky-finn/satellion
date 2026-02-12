@@ -14,8 +14,10 @@ import { CompactSrt } from '../../components/compact_str'
 import { NumberInput } from '../../components/number_input'
 import { notifier } from '../../lib/notifier'
 import { P, Row } from '../../shortcuts'
+import { Loader } from '../../stores/loader'
 
 class DeriveChild {
+	readonly loader = new Loader()
 	constructor() {
 		makeAutoObservable(this)
 	}
@@ -27,14 +29,11 @@ class DeriveChild {
 	setLabel(l: string) {
 		this.label = l
 	}
-	index?: number
-	setIndex(i?: number) {
+	index: number | null = null
+	setIndex(i: number | null) {
 		this.index = i
 	}
-	address?: string
-	setAddress(a: string) {
-		this.address = a
-	}
+	address: string | null = null
 
 	async getAvaiableIndex() {
 		const res = await commands.btcUnoccupiedDeriviationIndex()
@@ -48,12 +47,16 @@ class DeriveChild {
 	async derive() {
 		if (!this.label) throw Error('label is not set')
 		if (!this.index) throw Error('index is not set')
+
+		this.address = null
+		this.loader.start()
 		const res = await commands.btcDeriveAddress(this.label, this.index)
+		this.loader.stop()
 		if (res.status === 'error') {
 			notifier.err(res.error)
 			throw Error(res.error)
 		}
-		this.setAddress(res.data)
+		this.address = res.data
 	}
 }
 
@@ -81,8 +84,8 @@ export const DeriveChildAddress = observer(() => {
 						<NumberInput
 							size="sm"
 							sx={{ maxWidth: 70 }}
-							value={state.index}
-							onChange={v => state.setIndex(v)}
+							value={state.index ?? undefined}
+							onChange={v => state.setIndex(v ?? null)}
 						/>
 					</Row>
 					<Input
@@ -93,6 +96,7 @@ export const DeriveChildAddress = observer(() => {
 						onChange={e => state.setLabel(e.target.value)}
 					/>
 					<Button
+						loading={state.loader.loading}
 						sx={{ width: 'fit-content' }}
 						disabled={!state.label || !state.index}
 						size="sm"
@@ -101,7 +105,7 @@ export const DeriveChildAddress = observer(() => {
 						Derive
 					</Button>
 					<Divider />
-					<CompactSrt val={state.address} />
+					{state.address && <CompactSrt val={state.address} />}
 				</ModalDialog>
 			</Modal>
 		</Row>

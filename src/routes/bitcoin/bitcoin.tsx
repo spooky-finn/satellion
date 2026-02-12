@@ -9,6 +9,7 @@ import { root_store } from '../../stores/root'
 import { DeriveChildAddress } from './derive_child'
 import { ListDerivedAddresses } from './list_childs'
 import { ListUtxo } from './list_utxo'
+import { display_sat, fmt_usd, sat2usd } from './utils/amount_formatters'
 
 const explorer_url = 'https://mempool.space/address/'
 
@@ -56,14 +57,18 @@ const Bitcoin = () => {
 						Blockchain sync {btc.status} - height {btc.height},{' '}
 						{btc.progress.toFixed(0)}%
 					</P>
-					{btc.warning && (
-						<P level="body-xs" color="warning">
-							{btc.warning}
-						</P>
-					)}
-					<P>Price ${root_store.wallet.btc.usd_price}</P>
 				</>
 			)}
+			{btc.warning && (
+				<P level="body-xs" color="warning">
+					{btc.warning}
+				</P>
+			)}
+			<P>
+				Balance {display_sat(btc.total_balance_sat)} ~{' '}
+				<P level="body-xs">{sat2usd(btc.total_balance_sat, btc.usd_price)}</P>
+			</P>
+			<P>Price {fmt_usd(root_store.wallet.btc.usd_price)}</P>
 		</Stack>
 	)
 }

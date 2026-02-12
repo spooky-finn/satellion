@@ -8,6 +8,7 @@ import { notifier } from '../../lib/notifier'
 import { P, Progress, Row } from '../../shortcuts'
 import { Loader } from '../../stores/loader'
 import { root_store } from '../../stores/root'
+import { display_sat, sat2usd } from './utils/amount_formatters'
 
 class UtxoList {
 	readonly loader = new Loader()
@@ -33,10 +34,7 @@ class UtxoList {
 	}
 
 	get total_value_sat() {
-		return this.utxos.reduce((acc, utxo) => acc + Number(utxo.value), 0)
-	}
-	get total_value_btc() {
-		return this.total_value_sat / 10 ** 8
+		return this.utxos.reduce((acc, utxo) => acc + BigInt(utxo.value), 0n)
 	}
 }
 
@@ -77,10 +75,7 @@ export const ListUtxo = observer(() => {
 							<P>No utxos yet.</P>
 						) : (
 							<>
-								<P>
-									Total evaluation {store.total_value_sat} sat ={' '}
-									{store.total_value_btc} btc
-								</P>
+								<P>Total {display_sat(store.total_value_sat)}</P>
 
 								<Table variant="plain" stickyHeader>
 									<thead>
@@ -106,11 +101,6 @@ export const ListUtxo = observer(() => {
 									<tbody>
 										{store.utxos.map(utxo => {
 											const key = utxo.utxo_id.tx_id + utxo.utxo_id.vout
-											const value =
-												(parseFloat(root_store.wallet.btc.usd_price ?? '0') /
-													10 ** 8) *
-												parseInt(utxo.value, 10)
-
 											return (
 												<tr key={key}>
 													<td>
@@ -124,12 +114,15 @@ export const ListUtxo = observer(() => {
 													</td>
 													<td>
 														<P sx={{ fontFamily: 'monospace' }}>
-															{utxo.value} sat
+															{display_sat(utxo.value)}
 														</P>
 													</td>
 													<td>
 														<P sx={{ fontFamily: 'monospace' }}>
-															${value.toFixed(0)}
+															{sat2usd(
+																utxo.value,
+																root_store.wallet.btc.usd_price,
+															)}
 														</P>
 													</td>
 												</tr>

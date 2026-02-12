@@ -36,6 +36,7 @@ struct SyncWarningEvent {
 #[derive(Debug, Clone, Serialize, Type, tauri_specta::Event)]
 struct SyncNewUtxoEvent {
     value: String,
+    total: String,
 }
 
 pub fn list_events() -> Events {
@@ -79,9 +80,15 @@ impl EventEmitter {
             .unwrap();
     }
 
-    pub fn new_utxo(&self, value: String) {
+    pub fn new_utxo(&self, value: u64, total: u64) {
         self.app
-            .emit(EVENT_SYNC_NEW_UTXO, SyncNewUtxoEvent { value })
+            .emit(
+                EVENT_SYNC_NEW_UTXO,
+                SyncNewUtxoEvent {
+                    value: value.to_string(),
+                    total: total.to_string(),
+                },
+            )
             .unwrap();
     }
 }
