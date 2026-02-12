@@ -4,45 +4,45 @@ const ErrMsgTime = 10_000
 const OkMsgTime = 3_000
 
 type Notification = {
-	id: string
-	msg: string
-	level: 'err' | 'info'
+  id: string
+  msg: string
+  level: 'err' | 'info'
 }
 
 class NotifierStore {
-	notifications: Notification[] = []
+  notifications: Notification[] = []
 
-	constructor() {
-		makeAutoObservable(this)
-	}
+  constructor() {
+    makeAutoObservable(this)
+  }
 
-	private notify(level: Notification['level'], msg: string, timeout: number) {
-		const id = crypto.randomUUID()
+  private notify(level: Notification['level'], msg: string, timeout: number) {
+    const id = crypto.randomUUID()
 
-		// Add notification immediately
-		runInAction(() => {
-			this.notifications.push({ msg, level, id })
-		})
+    // Add notification immediately
+    runInAction(() => {
+      this.notifications.push({ msg, level, id })
+    })
 
-		// Remove notification after timeout
-		setTimeout(() => {
-			runInAction(() => {
-				this.notifications = this.notifications.filter(each => each.id !== id)
-			})
-		}, timeout)
-	}
+    // Remove notification after timeout
+    setTimeout(() => {
+      runInAction(() => {
+        this.notifications = this.notifications.filter(each => each.id !== id)
+      })
+    }, timeout)
+  }
 
-	list() {
-		return this.notifications.toReversed()
-	}
+  list() {
+    return this.notifications.toReversed()
+  }
 
-	ok(msg: string, timeout?: number) {
-		this.notify('info', msg, timeout || OkMsgTime)
-	}
+  ok(msg: string, timeout?: number) {
+    this.notify('info', msg, timeout || OkMsgTime)
+  }
 
-	err(msg: string, timeout?: number) {
-		this.notify('err', msg, timeout || ErrMsgTime)
-	}
+  err(msg: string, timeout?: number) {
+    this.notify('err', msg, timeout || ErrMsgTime)
+  }
 }
 
 export const notifier = new NotifierStore()

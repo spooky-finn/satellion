@@ -14,63 +14,63 @@ import { display_sat, fmt_usd, sat2usd } from './utils/amount_formatters'
 const explorer_url = 'https://mempool.space/address/'
 
 const Bitcoin = () => {
-	const navigate = useNavigate()
-	const { btc } = root_store.wallet
-	const addr = btc.address
+  const navigate = useNavigate()
+  const { btc } = root_store.wallet
+  const addr = btc.address
 
-	useEffect(() => {
-		if (!addr) navigate(route.unlock_wallet)
-	}, [addr, navigate])
+  useEffect(() => {
+    if (!addr) navigate(route.unlock_wallet)
+  }, [addr, navigate])
 
-	return (
-		<Stack gap={1}>
-			<Navbar />
-			<P level="h3" color="primary">
-				Bitcoin
-			</P>
-			{addr && (
-				<Card size="sm" variant="soft">
-					<Stack>
-						<P fontWeight="bold">{addr}</P>
-						<P level="body-xs">Main Address</P>
-					</Stack>
-					<P level="body-xs">
-						Do not share this address with untrusted parties who may send
-						tainted or illicit coins.
-						<br />
-						Receiving funds from suspicious sources can link your wallet to
-						illegal activity.
-						<br />
-						For secure acceptance of funds, consider generating dedicated child
-						address per transaction.
-					</P>
-					<Row>
-						<DeriveChildAddress />
-						<ListDerivedAddresses />
-						<ListUtxo />
-					</Row>
-				</Card>
-			)}
-			{btc.height && (
-				<>
-					<P>
-						Blockchain sync {btc.status} - height {btc.height},{' '}
-						{btc.progress.toFixed(0)}%
-					</P>
-				</>
-			)}
-			{btc.warning && (
-				<P level="body-xs" color="warning">
-					{btc.warning}
-				</P>
-			)}
-			<P>
-				Balance {display_sat(btc.total_balance_sat)} ~{' '}
-				<P level="body-xs">{sat2usd(btc.total_balance_sat, btc.usd_price)}</P>
-			</P>
-			<P>Price {fmt_usd(root_store.wallet.btc.usd_price)}</P>
-		</Stack>
-	)
+  return (
+    <Stack gap={1}>
+      <Navbar />
+      <P level="h3" color="primary">
+        Bitcoin
+      </P>
+      {addr && (
+        <Card size="sm" variant="soft">
+          <Stack>
+            <P fontWeight="bold">{addr}</P>
+            <P level="body-xs">Main Address</P>
+          </Stack>
+          <P level="body-xs">
+            Do not share this address with untrusted parties who may send
+            tainted or illicit coins.
+            <br />
+            Receiving funds from suspicious sources can link your wallet to
+            illegal activity.
+            <br />
+            For secure acceptance of funds, consider generating dedicated child
+            address per transaction.
+          </P>
+          <Row>
+            <DeriveChildAddress />
+            <ListDerivedAddresses />
+            <ListUtxo />
+          </Row>
+        </Card>
+      )}
+      {btc.height && (
+        <>
+          <P>
+            Blockchain sync {btc.status} - height {btc.height},{' '}
+            {btc.progress.toFixed(0)}%
+          </P>
+        </>
+      )}
+      {btc.warning && (
+        <P level="body-xs" color="warning">
+          {btc.warning}
+        </P>
+      )}
+      <P>
+        Balance {display_sat(btc.total_balance_sat)} ~{' '}
+        <P level="body-xs">{sat2usd(btc.total_balance_sat, btc.usd_price)}</P>
+      </P>
+      <P>Price {fmt_usd(root_store.wallet.btc.usd_price)}</P>
+    </Stack>
+  )
 }
 
 export default observer(Bitcoin)

@@ -6,14 +6,14 @@ import { VerifyMnemonic } from './mnemonic_verify'
 import { CreatePassphrase } from './passphrase_create'
 
 export const GenerateMnemonicFlow = observer(() => {
-	const [flow] = useState(() => new FlowState())
+  const [flow] = useState(() => new FlowState())
 
-	switch (flow.stage) {
-		case 'select_mnemonic':
-			return <GenerateMnemonic flow={flow} />
-		case 'verify_mnemonic':
-			return <VerifyMnemonic flow={flow} />
-		case 'set_passphrase':
-			return <CreatePassphrase />
-	}
+  switch (flow.stage) {
+    case 'select_mnemonic':
+      return <GenerateMnemonic flow={flow} />
+    case 'verify_mnemonic':
+      return <VerifyMnemonic flow={flow} />
+    case 'set_passphrase':
+      return <CreatePassphrase />
+  }
 })
