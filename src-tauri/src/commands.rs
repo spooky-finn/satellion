@@ -77,7 +77,7 @@ pub async fn list_wallets(
 #[tauri::command]
 pub async fn chain_switch_event(chain: Chain, sk: tauri::State<'_, SK>) -> Result<(), String> {
     let mut sk = sk.lock().await;
-    let Session { wallet, .. } = sk.take_session()?;
+    let Session { wallet, .. } = sk.borrow()?;
     wallet.last_used_chain = chain;
     wallet.persist()?;
     Ok(())
@@ -127,7 +127,7 @@ pub async fn unlock_wallet(
 
     sk.lock()
         .await
-        .start(Session::new(wallet, Config::session_exp_duration()));
+        .set(Session::new(wallet, Config::session_exp_duration()));
 
     Ok(UnlockMsg {
         ethereum,
@@ -143,7 +143,7 @@ pub async fn forget_wallet(
     wallet_keeper: tauri::State<'_, WalletKeeper>,
     sk: tauri::State<'_, SK>,
 ) -> Result<(), String> {
-    sk.lock().await.end();
+    sk.lock().await.terminate();
     wallet_keeper
         .delete(&wallet_name)
         .map_err(|e| e.to_string())?;

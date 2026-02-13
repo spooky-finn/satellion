@@ -2,12 +2,12 @@ use serde::Serialize;
 use specta::Type;
 use tauri::{AppHandle, Emitter};
 use tauri_specta::{Events, collect_events};
-use tracing::error;
 
 pub const EVENT_HEIGHT_UPDATE: &str = "btc_sync";
 pub const EVENT_SYNC_PROGRESS: &str = "btc_sync_progress";
 pub const EVENT_SYNC_WARNING: &str = "btc_sync_warning";
 pub const EVENT_SYNC_NEW_UTXO: &str = "btc_sync_new_utxo";
+pub const EVENT_SESSION_EXPIRED: &str = "session_expired";
 
 #[derive(Debug, Clone, Serialize, Type)]
 pub enum HeightUpdateStatus {
@@ -60,35 +60,41 @@ impl EventEmitter {
     }
 
     pub fn height_updated(&self, height: u32, status: HeightUpdateStatus) {
-        self.app
-            .emit(
-                EVENT_HEIGHT_UPDATE,
-                SyncHeightUpdateEvent { height, status },
-            )
-            .unwrap_or_else(|e| error!("fail to emit event {}", e));
+        self.emit(
+            EVENT_HEIGHT_UPDATE,
+            SyncHeightUpdateEvent { height, status },
+        );
     }
 
     pub fn cf_sync_progress(&self, pct: f32) {
-        self.app
-            .emit(EVENT_SYNC_PROGRESS, SyncProgressEvent { progress: pct })
-            .unwrap_or_else(|e| error!("fail to emit event {}", e))
+        self.emit(EVENT_SYNC_PROGRESS, SyncProgressEvent { progress: pct });
     }
 
     pub fn node_warning(&self, msg: String) {
-        self.app
-            .emit(EVENT_SYNC_WARNING, SyncWarningEvent { msg })
-            .unwrap();
+        self.emit(EVENT_SYNC_WARNING, SyncWarningEvent { msg });
     }
 
     pub fn new_utxo(&self, value: u64, total: u64) {
-        self.app
-            .emit(
-                EVENT_SYNC_NEW_UTXO,
-                SyncNewUtxoEvent {
-                    value: value.to_string(),
-                    total: total.to_string(),
-                },
-            )
-            .unwrap();
+        self.emit(
+            EVENT_SYNC_NEW_UTXO,
+            SyncNewUtxoEvent {
+                value: value.to_string(),
+                total: total.to_string(),
+            },
+        );
+    }
+
+    pub fn session_expired(&self) {
+        self.emit(EVENT_SESSION_EXPIRED, ());
+    }
+
+    fn emit<S: Serialize + Clone>(&self, event: &str, payload: S) {
+        if let Err(e) = self.app.emit(event, payload) {
+            tracing::error!(
+                event = event,
+                error = %e,
+                "failed to emit tauri event"
+            );
+        }
     }
 }

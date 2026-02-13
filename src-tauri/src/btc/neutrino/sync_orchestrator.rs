@@ -23,7 +23,7 @@ impl SyncOrchestrator {
     pub async fn run(&self) -> Result<(), String> {
         let mut sync_event_rx = {
             let mut session_keeper = self.sk.lock().await;
-            let session = session_keeper.take_session()?;
+            let session = session_keeper.borrow()?;
             session
                 .wallet
                 .btc
@@ -51,7 +51,7 @@ impl SyncOrchestrator {
                 tracing::info!("Filters synced, height: {}", event.update.tip.height);
 
                 let mut session_keeper = self.sk.lock().await;
-                let session = session_keeper.take_session()?;
+                let session = session_keeper.borrow()?;
                 session.wallet.mutate_btc(|btc| {
                     btc.cfilter_scanner_height = event.update.tip.height;
                     btc.initial_sync_done = true;
@@ -67,7 +67,7 @@ impl SyncOrchestrator {
             }
             sync::Event::NewUtxos(utxos) => {
                 let mut session_keeper = self.sk.lock().await;
-                let Session { wallet, .. } = session_keeper.take_session()?;
+                let Session { wallet, .. } = session_keeper.borrow()?;
 
                 utxos.iter().for_each(|each| {
                     self.event_emitter

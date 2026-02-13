@@ -79,7 +79,7 @@ pub async fn eth_get_balance(
     sk: tauri::State<'_, SK>,
 ) -> Result<Balance, String> {
     let mut sk = sk.lock().await;
-    let Session { wallet, .. } = sk.take_session()?;
+    let Session { wallet, .. } = sk.borrow()?;
 
     let provider = provider.inner();
     let address = parse_addres(&address)?;
@@ -150,7 +150,7 @@ pub async fn eth_prepare_send_tx(
         token_address,
     } = req;
     let mut sk = sk.lock().await;
-    let session = sk.take_session()?;
+    let session = sk.borrow()?;
     let prk = build_prk(session)?;
     let sender = prk.expose().address();
     let recipient = parse_addres(&recipient)?;
@@ -209,7 +209,7 @@ pub async fn eth_sign_and_send_tx(
     sk: tauri::State<'_, SK>,
 ) -> Result<String, String> {
     let mut sk = sk.lock().await;
-    let session = sk.take_session()?;
+    let session = sk.borrow()?;
     let mut builder = builder.try_lock().map_err(|e| e.to_string())?;
     let prk = build_prk(session)?;
     let hash = builder.sign_and_send_tx(prk.expose()).await?;
@@ -238,7 +238,7 @@ pub async fn eth_track_token(
     sk: tauri::State<'_, SK>,
 ) -> Result<TokenType, String> {
     let mut sk = sk.lock().await;
-    let Session { wallet, .. } = sk.take_session()?;
+    let Session { wallet, .. } = sk.borrow()?;
 
     let address = parse_addres(&address)?;
     let token_info = erc20_retriever
@@ -269,7 +269,7 @@ pub async fn eth_untrack_token(
     sk: tauri::State<'_, SK>,
 ) -> Result<(), String> {
     let mut sk = sk.lock().await;
-    let Session { wallet, .. } = sk.take_session()?;
+    let Session { wallet, .. } = sk.borrow()?;
 
     let address = parse_addres(&token_address)?;
     let token = wallet

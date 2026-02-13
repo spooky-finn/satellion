@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::{DateTime, TimeDelta, Utc};
 
-use crate::wallet::Wallet;
+use crate::{btc::neutrino::EventEmitter, wallet::Wallet};
 
 pub struct Session {
     pub wallet: Wallet,
@@ -19,12 +19,16 @@ impl Session {
         }
     }
 
+    /// Skip auto-lock if Bitcoin initial sync is not completed.
+    /// During the sync, new UTXOs may be discovered that need to be persisted and encrypted.
+    /// Leaving them unencrypted could compromise privacy and confidentiality
+    /// if the computer is accessed by someone else (e.g., a third party or government).
+    pub fn autolock_disabled(&self) -> bool {
+        self.wallet.btc.initial_sync_done == false
+    }
+
     pub fn is_expired(&self) -> bool {
-        // Skip auto-lock if Bitcoin initial sync is not completed.
-        // During the sync, new UTXOs may be discovered that need to be persisted and encrypted.
-        // Leaving them unencrypted could compromise privacy and confidentiality
-        // if the computer is accessed by someone else (e.g., a third party or government).
-        if !self.wallet.btc.initial_sync_done {
+        if self.autolock_disabled() {
             return false;
         }
 
@@ -38,17 +42,25 @@ pub type SK = Arc<tokio::sync::Mutex<SessionKeeper>>;
 #[derive(Default)]
 pub struct SessionKeeper {
     session: Option<Session>,
+    event_emitter: Option<EventEmitter>,
 }
 
 impl SessionKeeper {
-    pub fn new() -> Self {
-        Self { session: None }
+    pub fn new(event_emitter: Option<EventEmitter>) -> Self {
+        Self {
+            session: None,
+            event_emitter,
+        }
     }
 
-    pub fn take_session(&mut self) -> Result<&mut Session, String> {
+    pub fn borrow(&mut self) -> Result<&mut Session, String> {
         if let Some(session) = &self.session {
             if session.is_expired() {
                 self.session = None;
+
+                if let Some(event_emitter) = &self.event_emitter {
+                    let _ = event_emitter.session_expired();
+                }
                 return Err("Session has expired".to_string());
             }
 
@@ -57,16 +69,31 @@ impl SessionKeeper {
                 .as_mut()
                 .expect("fail to borrow session: probably expired"))
         } else {
+            if let Some(event_emitter) = &self.event_emitter {
+                let _ = event_emitter.session_expired();
+            }
             Err("Session has expired".to_string())
         }
     }
 
-    pub fn start(&mut self, session: Session) {
+    pub fn set(&mut self, session: Session) {
         self.session = Some(session);
     }
 
-    pub fn end(&mut self) {
+    pub fn soft_terminate(&mut self) {
+        if let Some(s) = &self.session {
+            if !s.autolock_disabled() {
+                self.terminate();
+            }
+        }
+    }
+
+    pub fn terminate(&mut self) {
         self.session = None;
+    }
+
+    pub fn has_session(&self) -> bool {
+        self.session.is_some()
     }
 }
 
@@ -89,7 +116,7 @@ mod tests {
         let _guard = SECRETBOX_TEST_LOCK.lock().unwrap();
 
         let session_exp_duration = TimeDelta::seconds(2);
-        let mut sk = SessionKeeper::new();
+        let mut sk = SessionKeeper::new(None);
         let name = "test_wallet";
         let mut wallet = Wallet::new(
             name.to_string(),
@@ -101,17 +128,17 @@ mod tests {
         wallet.btc.initial_sync_done = true;
 
         let session = Session::new(wallet, session_exp_duration);
-        sk.start(session);
+        sk.set(session);
 
-        assert!(sk.take_session().is_ok());
-        assert!(sk.take_session().unwrap().is_expired() == false);
-        assert!(sk.take_session().unwrap().wallet.name == name);
-
-        thread::sleep(Duration::from_secs(1));
-        assert!(sk.take_session().unwrap().is_expired() == false);
+        assert!(sk.borrow().is_ok());
+        assert!(sk.borrow().unwrap().is_expired() == false);
+        assert!(sk.borrow().unwrap().wallet.name == name);
 
         thread::sleep(Duration::from_secs(1));
-        assert!(sk.take_session().is_err());
+        assert!(sk.borrow().unwrap().is_expired() == false);
+
+        thread::sleep(Duration::from_secs(1));
+        assert!(sk.borrow().is_err());
     }
 
     #[test]
@@ -119,7 +146,7 @@ mod tests {
         let _guard = SECRETBOX_TEST_LOCK.lock().unwrap();
 
         let session_exp_duration = TimeDelta::seconds(1);
-        let mut sk = SessionKeeper::new();
+        let mut sk = SessionKeeper::new(None);
         let wallet = Wallet::new(
             "sync_wallet".to_string(),
             MNEMONIC.to_string(),
@@ -128,11 +155,11 @@ mod tests {
         )
         .expect("Failed to create test wallet");
         let session = Session::new(wallet, session_exp_duration);
-        sk.start(session);
+        sk.set(session);
 
         // Even after the duration has passed, session should NOT expire
         thread::sleep(Duration::from_secs(2));
-        let session_ref = sk.take_session().expect("Session should exist");
+        let session_ref = sk.borrow().expect("Session should exist");
         assert!(
             !session_ref.is_expired(),
             "Session should not expire during initial sync"
@@ -142,7 +169,7 @@ mod tests {
         // After this, expiration should work normally
         thread::sleep(Duration::from_secs(1));
         assert!(
-            sk.take_session().is_err(),
+            sk.borrow().is_err(),
             "Session should expire after initial sync is completed"
         );
     }

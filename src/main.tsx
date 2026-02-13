@@ -1,8 +1,9 @@
 import { CssVarsProvider } from '@mui/joy'
 import { extendTheme } from '@mui/joy/styles'
+import { listen } from '@tauri-apps/api/event'
 import React, { useLayoutEffect } from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter, Route, Routes } from 'react-router'
+import { BrowserRouter, Route, Routes, useNavigate } from 'react-router'
 import { NotifierOverlay } from './lib/notifier/notification_overlay'
 import { route } from './routes'
 import Bitcoin from './routes/bitcoin/bitcoin'
@@ -25,10 +26,17 @@ const theme = extendTheme({
 })
 
 const App = () => {
+  const navigate = useNavigate()
+
   useLayoutEffect(() => {
+    listen('session_expired', () => {
+      navigate(route.unlock_wallet)
+    })
+
     document.body.style.backgroundColor =
       'var(--mode-toggle-palette-background-surface)'
   })
+
   return (
     <Routes>
       <Route path={route.unlock_wallet} element={<UnlockWallet />} />

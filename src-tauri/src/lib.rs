@@ -22,28 +22,15 @@ use tokio::sync::Mutex;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use crate::{
-    btc::neutrino::NeutrinoStarter, repository::ChainRepository, session::SK,
+    btc::neutrino::{EventEmitter, NeutrinoStarter},
+    repository::ChainRepository,
+    session::SessionKeeper,
     wallet_keeper::WalletKeeper,
 };
 
-fn enable_devtools() -> bool {
-    std::env::var("DEVTOOLS")
-        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-        .unwrap_or(false)
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let subscriber = FmtSubscriber::builder()
-        .without_time()
-        .compact()
-        .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
-        )
-        .finish();
-
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
-
+    init_tracing();
     db::initialize();
 
     let db = db::connect();
@@ -56,8 +43,6 @@ pub fn run() {
     let price_feed = eth::PriceFeed::new(eth_provider.clone());
 
     let chain_repository = ChainRepository::new(db.clone());
-    let session_keeper = Arc::new(tokio::sync::Mutex::new(session::SessionKeeper::new()));
-    let neutrino_starter = NeutrinoStarter::new(chain_repository.clone(), session_keeper.clone());
 
     let builder = tauri_specta::Builder::<tauri::Wry>::new()
         .commands(tauri_specta::collect_commands![
@@ -100,26 +85,19 @@ pub fn run() {
         .manage(eth_provider.clone())
         .manage(erc20_retriever)
         .manage(price_feed)
-        .manage(neutrino_starter)
-        .manage(chain_repository)
+        .manage(chain_repository.clone())
         .manage(Mutex::new(tx_builder))
-        .manage(session_keeper)
         .setup(move |app| {
+            let event_emitter = EventEmitter::new(app.handle().clone());
+            let sk = Arc::new(Mutex::new(SessionKeeper::new(Some(event_emitter.clone()))));
+            let neutrino_starter = NeutrinoStarter::new(chain_repository.clone(), sk.clone());
+
+            app.manage(sk.clone());
+            app.manage(neutrino_starter);
+
             system::session_monitor::init(&app.handle());
             let app_handle = app.handle();
-            let sk = app.state::<SK>().inner().clone();
-
-            app_handle.listen(
-                system::session_monitor::SYS_SESSION_LOCKED_EVENT,
-                move |_| {
-                    let sk = sk.clone();
-                    tauri::async_runtime::spawn(async move {
-                        let mut guard = sk.lock().await;
-                        guard.end();
-                        println!("Session terminated due to OS lock");
-                    });
-                },
-            );
+            setup_session_listeners(app_handle, sk, event_emitter.into());
 
             #[cfg(debug_assertions)]
             if enable_devtools() {
@@ -132,4 +110,63 @@ pub fn run() {
         .invoke_handler(builder.invoke_handler())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+fn enable_devtools() -> bool {
+    std::env::var("DEVTOOLS")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+}
+
+fn init_tracing() {
+    let subscriber = FmtSubscriber::builder()
+        .without_time()
+        .compact()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+}
+
+fn setup_session_listeners(
+    app_handle: &tauri::AppHandle,
+    sk: Arc<Mutex<SessionKeeper>>,
+    event_emitter: Arc<EventEmitter>,
+) {
+    // Listener for session lock
+    {
+        let sk = sk.clone();
+        app_handle.listen(
+            system::session_monitor::SYS_SESSION_LOCKED_EVENT,
+            move |_| {
+                let sk = sk.clone();
+                tauri::async_runtime::spawn(async move {
+                    let mut sk = sk.lock().await;
+                    sk.soft_terminate();
+                });
+            },
+        );
+    }
+
+    // Listener for session unlock
+    {
+        let sk = sk.clone();
+        let em = event_emitter.clone();
+        app_handle.listen(
+            system::session_monitor::SYS_SESSION_UNLOCKED_EVENT,
+            move |_| {
+                let sk = sk.clone();
+                let emmiter = em.clone();
+                tauri::async_runtime::spawn(async move {
+                    let sk = sk.lock().await;
+                    // If no session exist just emit event to redirect UI
+                    if !sk.has_session() {
+                        emmiter.session_expired();
+                    }
+                });
+            },
+        );
+    }
 }

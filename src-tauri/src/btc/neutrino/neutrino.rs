@@ -98,7 +98,7 @@ impl NeutrinoStarter {
 
         let (mut scripts_rx, sync_event_tx) = {
             let mut session_keeper = self.sk.lock().await;
-            let session = session_keeper.take_session()?;
+            let session = session_keeper.borrow()?;
 
             let sync::Channels {
                 scripts_rx,
