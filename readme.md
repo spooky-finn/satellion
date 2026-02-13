@@ -31,3 +31,9 @@ Roadmaps, discussions, and funding are public. Builds are reproducible and relea
 ### Bitcoin-Native, Nothing Else
 
 Hierarchical Deterministic wallets (BIP32/39) with modern address standards only - Taproot. No legacy formats, no altcoins, no distractions.
+
+
+## MacOS buypass Apple notarization check 
+```bash
+xattr -dr com.apple.quarantine /Applications/Satellion.app
+```

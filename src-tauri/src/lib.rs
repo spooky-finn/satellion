@@ -10,19 +10,20 @@ mod persistence;
 mod repository;
 mod schema;
 mod session;
+mod system;
 mod utils;
 mod wallet;
 mod wallet_keeper;
-
 use std::sync::Arc;
 
 use specta_typescript::Typescript;
-use tauri::Manager;
+use tauri::{Listener, Manager};
 use tokio::sync::Mutex;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use crate::{
-    btc::neutrino::NeutrinoStarter, repository::ChainRepository, wallet_keeper::WalletKeeper,
+    btc::neutrino::NeutrinoStarter, repository::ChainRepository, session::SK,
+    wallet_keeper::WalletKeeper,
 };
 
 fn enable_devtools() -> bool {
@@ -104,6 +105,22 @@ pub fn run() {
         .manage(Mutex::new(tx_builder))
         .manage(session_keeper)
         .setup(move |app| {
+            system::session_monitor::init(&app.handle());
+            let app_handle = app.handle();
+            let sk = app.state::<SK>().inner().clone();
+
+            app_handle.listen(
+                system::session_monitor::SYS_SESSION_LOCKED_EVENT,
+                move |_| {
+                    let sk = sk.clone();
+                    tauri::async_runtime::spawn(async move {
+                        let mut guard = sk.lock().await;
+                        guard.end();
+                        println!("Session terminated due to OS lock");
+                    });
+                },
+            );
+
             #[cfg(debug_assertions)]
             if enable_devtools() {
                 let window = app.get_webview_window("main").unwrap();

@@ -59,4 +59,9 @@ shush-rs = "0.1.11"
 # Tracing
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.0", features = ["fmt", "env-filter"] }
-
+# MacOs sys
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6.3"
+objc2-foundation = "0.3.2"
+objc2-app-kit = "0.3.2"
+block2 = "0.6.2"
