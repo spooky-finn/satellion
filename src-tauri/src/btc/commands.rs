@@ -9,7 +9,7 @@ use crate::{
     },
     chain_trait::SecureKey,
     config::CONFIG,
-    session::{SK, Session},
+    session::SK,
     wallet::Wallet,
 };
 
@@ -26,7 +26,7 @@ pub async fn btc_derive_address(
     sk: tauri::State<'_, SK>,
 ) -> Result<String, String> {
     let mut sk = sk.lock().await;
-    let Session { wallet, .. } = sk.borrow()?;
+    let wallet = sk.wallet()?;
     let derive_path = address::DerivePath {
         change: address::Change::External,
         index,
@@ -59,8 +59,7 @@ pub async fn btc_derive_address(
 pub async fn btc_unoccupied_deriviation_index(sk: tauri::State<'_, SK>) -> Result<u32, String> {
     let mut sk = sk.lock().await;
     Ok(sk
-        .borrow()?
-        .wallet
+        .wallet()?
         .btc
         .unoccupied_deriviation_index(address::Change::External))
 }
@@ -78,7 +77,7 @@ pub async fn btc_list_derived_addresess(
     sk: tauri::State<'_, SK>,
 ) -> Result<Vec<DerivedAddress>, String> {
     let mut sk = sk.lock().await;
-    let Session { wallet, .. } = sk.borrow()?;
+    let wallet = sk.wallet()?;
     let prk = build_prk(wallet)?;
     Ok(wallet
         .btc
@@ -122,7 +121,7 @@ const UTXO_DISPLAY_LIMIT: usize = 500;
 #[tauri::command]
 pub async fn btc_list_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<Utxo>, String> {
     let mut sk = sk.lock().await;
-    let Session { wallet, .. } = sk.borrow()?;
+    let wallet = sk.wallet()?;
 
     let derivepath_label_map: std::collections::HashMap<DerivePathSlice, String> = wallet
         .btc

@@ -1,5 +1,4 @@
-mod block_downloader;
-mod cf_scanner;
+mod block_sync_worker;
 mod event_emitter;
 mod lifecycle;
 mod neutrino;
@@ -10,5 +9,4 @@ pub use event_emitter::*;
 pub use neutrino::*;
 pub use sync_orchestrator::*;
 
-pub(crate) use cf_scanner::*;
 pub(crate) use lifecycle::*;

@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf};
+use std::{fs, path::PathBuf, time::Duration};
 
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -21,6 +21,10 @@ impl Config {
         config
     }
 
+    pub fn session_inactivity_timeout(&self) -> Duration {
+        Duration::from_mins(10)
+    }
+
     pub fn load() -> Result<Self, Box<dyn std::error::Error>> {
         let config_path = Self::config_file_path();
 
@@ -36,7 +40,7 @@ impl Config {
         let raw_config = fs::read_to_string(&config_path)?;
         let json_config: Config = serde_json::from_str(&raw_config).unwrap_or_else(|e| {
             tracing::error!("fail to deserialize config {}", e);
-            return Self::default();
+            Self::default()
         });
         Ok(json_config)
     }
@@ -83,10 +87,6 @@ impl Config {
 
     pub fn ensure_wallets_dir() {
         fs::create_dir_all(Self::wallets_dir()).expect("Failed to create wallets directory");
-    }
-
-    pub fn session_exp_duration() -> chrono::TimeDelta {
-        chrono::TimeDelta::minutes(10)
     }
 
     pub fn xprk_passphrase<'a>(&self, passphrase: &'a str) -> &'a str {

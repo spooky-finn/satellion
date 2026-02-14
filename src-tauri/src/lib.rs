@@ -14,12 +14,13 @@ mod system;
 mod utils;
 mod wallet;
 mod wallet_keeper;
-use std::sync::Arc;
+use core::fmt;
+use std::{sync::Arc, time::Duration};
 
 use specta_typescript::Typescript;
 use tauri::{Listener, Manager};
 use tokio::sync::Mutex;
-use tracing_subscriber::{EnvFilter, FmtSubscriber};
+use tracing_subscriber::{EnvFilter, FmtSubscriber, fmt::time::FormatTime};
 
 use crate::{
     btc::neutrino::{EventEmitter, NeutrinoStarter},
@@ -54,6 +55,7 @@ pub fn run() {
             commands::forget_wallet,
             commands::get_config,
             commands::chain_switch_event,
+            commands::price_feed,
             btc::commands::btc_derive_address,
             btc::commands::btc_unoccupied_deriviation_index,
             btc::commands::btc_list_derived_addresess,
@@ -89,13 +91,13 @@ pub fn run() {
         .manage(Mutex::new(tx_builder))
         .setup(move |app| {
             let event_emitter = EventEmitter::new(app.handle().clone());
-            let sk = Arc::new(Mutex::new(SessionKeeper::new(Some(event_emitter.clone()))));
+            let sk = SessionKeeper::new(Some(event_emitter.clone()), Some(Duration::from_mins(1)));
             let neutrino_starter = NeutrinoStarter::new(chain_repository.clone(), sk.clone());
 
             app.manage(sk.clone());
             app.manage(neutrino_starter);
 
-            system::session_monitor::init(&app.handle());
+            system::session_monitor::init(app.handle());
             let app_handle = app.handle();
             setup_session_listeners(app_handle, sk, event_emitter.into());
 
@@ -119,8 +121,17 @@ fn enable_devtools() -> bool {
 }
 
 fn init_tracing() {
+    struct LocalTimeOnly;
+
+    impl FormatTime for LocalTimeOnly {
+        fn format_time(&self, w: &mut tracing_subscriber::fmt::format::Writer<'_>) -> fmt::Result {
+            let now = chrono::Local::now();
+            write!(w, "{}", now.format("%H:%M:%S"))
+        }
+    }
+
     let subscriber = FmtSubscriber::builder()
-        .without_time()
+        .with_timer(LocalTimeOnly)
         .compact()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),

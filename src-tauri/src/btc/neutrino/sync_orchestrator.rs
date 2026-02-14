@@ -1,48 +1,56 @@
+use tokio::sync::mpsc;
+
 use crate::{
     btc::{neutrino::EventEmitter, wallet::sync},
     repository::ChainRepository,
-    session::{SK, Session},
+    session::SK,
 };
 
-#[derive(Clone)]
+#[derive(Debug)]
+pub struct Channels {
+    pub sync_event_tx: mpsc::UnboundedSender<sync::Event>,
+    pub sync_event_rx: mpsc::UnboundedReceiver<sync::Event>,
+}
+
+impl Default for Channels {
+    fn default() -> Self {
+        let (sync_event_tx, sync_event_rx) = mpsc::unbounded_channel();
+        Self {
+            sync_event_tx,
+            sync_event_rx,
+        }
+    }
+}
+
 pub struct SyncOrchestrator {
     sk: SK,
     chain_repository: ChainRepository,
     event_emitter: EventEmitter,
+    channels: Channels,
 }
 
 impl SyncOrchestrator {
     pub fn new(sk: SK, chain_repository: ChainRepository, event_emitter: EventEmitter) -> Self {
         Self {
+            channels: Channels::default(),
             sk,
             chain_repository,
             event_emitter,
         }
     }
 
-    pub async fn run(&self) -> Result<(), String> {
-        let mut sync_event_rx = {
-            let mut session_keeper = self.sk.lock().await;
-            let session = session_keeper.borrow()?;
-            session
-                .wallet
-                .btc
-                .runtime
-                .sync
-                .channels
-                .sync_event_rx
-                .take()
-                .ok_or("sync_event_rx has been moved")?
-        };
-
-        while let Some(event) = sync_event_rx.recv().await {
+    pub async fn run(&mut self) -> Result<(), String> {
+        while let Some(event) = self.channels.sync_event_rx.recv().await {
             if let Err(e) = self.handle_sync_event(event).await {
                 tracing::error!("Error handling sync event: {}", e);
             }
         }
-
-        tracing::info!("All channels closed, sync orchestrator stopping");
+        tracing::info!("sync_event_rx closed, sync orchestrator stopping");
         Ok(())
+    }
+
+    pub fn transmitter(&self) -> mpsc::UnboundedSender<sync::Event> {
+        self.channels.sync_event_tx.clone()
     }
 
     async fn handle_sync_event(&self, event: sync::Event) -> Result<(), String> {
@@ -50,9 +58,8 @@ impl SyncOrchestrator {
             sync::Event::ChainSynced(event) => {
                 tracing::info!("Filters synced, height: {}", event.update.tip.height);
 
-                let mut session_keeper = self.sk.lock().await;
-                let session = session_keeper.borrow()?;
-                session.wallet.mutate_btc(|btc| {
+                let mut sk = self.sk.lock().await;
+                sk.wallet()?.mutate_btc(|btc| {
                     btc.cfilter_scanner_height = event.update.tip.height;
                     btc.initial_sync_done = true;
                     btc.runtime.sync.result = Some(event);
@@ -66,8 +73,8 @@ impl SyncOrchestrator {
                 }
             }
             sync::Event::NewUtxos(utxos) => {
-                let mut session_keeper = self.sk.lock().await;
-                let Session { wallet, .. } = session_keeper.borrow()?;
+                let mut sk = self.sk.lock().await;
+                let wallet = sk.wallet()?;
 
                 utxos.iter().for_each(|each| {
                     self.event_emitter

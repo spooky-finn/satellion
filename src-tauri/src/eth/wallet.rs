@@ -7,8 +7,7 @@ use crate::{
     chain_trait::{AssetTracker, ChainTrait, Persistable, SecureKey},
     config::CONFIG,
     eth::{
-        PriceFeed,
-        constants::{self, ETH_USD_PRICE_FEED},
+        constants::{self},
         token::Token,
     },
 };
@@ -20,7 +19,6 @@ pub struct EthereumWallet {
 #[derive(serde::Serialize, specta::Type)]
 pub struct EthereumUnlock {
     pub address: String,
-    pub usd_price: String,
 }
 pub struct Prk {
     signer: PrivateKeySigner,
@@ -35,17 +33,15 @@ impl SecureKey for Prk {
 
 impl ChainTrait for EthereumWallet {
     type Prk = Prk;
-    type UnlockContext = PriceFeed;
+    type UnlockContext = ();
     type UnlockResult = EthereumUnlock;
 
     async fn unlock(
         &mut self,
-        ctx: Self::UnlockContext,
+        _: Self::UnlockContext,
         prk: &Self::Prk,
     ) -> Result<Self::UnlockResult, String> {
-        let usd_price = ctx.get_price(ETH_USD_PRICE_FEED).await?;
         Ok(EthereumUnlock {
-            usd_price,
             address: prk.expose().address().to_string(),
         })
     }

@@ -69,6 +69,14 @@ async chainSwitchEvent(chain: Chain) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async priceFeed() : Promise<Result<PriceFeedMsg, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("price_feed") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async btcDeriveAddress(label: string, index: number) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("btc_derive_address", { label, index }) };
@@ -189,17 +197,18 @@ export const MIN_PASSPHRASE_LEN = 4 as const;
 /** user-defined types **/
 
 export type Balance = { wei: string; tokens: TokenBalance[] }
-export type BitcoinUnlock = { address: string; usd_price: string; total_balance: string }
+export type BitcoinUnlock = { address: string; total_balance: string }
 export type Chain = "Bitcoin" | "Ethereum"
 export type ChainInfo = { block_number: string; block_hash: string; base_fee_per_gas: string | null }
 export type ChainStatus = { height: number }
 export type CreationFlow = "Import" | "Generation"
 export type DerivedAddress = { label: string; address: string; deriv_path: string }
-export type EthereumUnlock = { address: string; usd_price: string }
+export type EthereumUnlock = { address: string }
 export type FeeMode = "Minimal" | "Standard" | "Increased"
 export type HeightUpdateStatus = "in progress" | "completed"
 export type PrepareTxReqReq = { token_address: string; amount: string; recipient: string; fee_mode: FeeMode }
 export type PrepareTxReqRes = { estimated_gas: string; max_fee_per_gas: string; fee_ceiling: string; fee_in_usd: number }
+export type PriceFeedMsg = { btc_usd: number; eth_usd: number }
 export type SyncHeightUpdateEvent = { status: HeightUpdateStatus; height: number }
 export type SyncNewUtxoEvent = { value: string; total: string }
 export type SyncProgressEvent = { progress: number }

@@ -21,6 +21,6 @@ pub struct Utxo {
 
 impl Utxo {
     pub fn id(&self) -> String {
-        format!("{}{}", self.tx_id.to_string(), self.vout)
+        format!("{}{}", self.tx_id, self.vout)
     }
 }

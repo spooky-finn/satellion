@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use tokio::sync::mpsc;
 
 use bip39::Language;
 use bip157::BlockHash;
@@ -10,6 +9,7 @@ use bitcoin::{
     hashes::Hash,
     key::{Keypair, Secp256k1},
 };
+use tokio::sync::mpsc;
 
 use crate::{
     btc::{
@@ -18,7 +18,6 @@ use crate::{
     },
     chain_trait::{AssetTracker, ChainTrait, Persistable, SecureKey},
     config::CONFIG,
-    eth::{PriceFeed, constants::BTC_USD_PRICE_FEED},
 };
 
 #[derive(Default)]
@@ -191,8 +190,9 @@ impl BitcoinWallet {
     pub fn add_script_of_interes(&mut self, script: DerivedScript) {
         self.runtime
             .sync
-            .channels
-            .scripts_tx
+            .script_tx
+            .as_ref()
+            .expect("script_tx should be set after unlock")
             .send(script)
             .unwrap_or_else(|e| {
                 tracing::error!("Failed to send script of interest to channel: {}", e);
@@ -203,23 +203,28 @@ impl BitcoinWallet {
 #[derive(serde::Serialize, specta::Type)]
 pub struct BitcoinUnlock {
     pub address: String,
-    pub usd_price: String,
     pub total_balance: String,
+}
+
+pub struct UnlockCtx {
+    pub script_tx: mpsc::UnboundedSender<DerivedScript>,
 }
 
 impl ChainTrait for BitcoinWallet {
     type Prk = Prk;
     type UnlockResult = BitcoinUnlock;
-    type UnlockContext = PriceFeed;
+    type UnlockContext = UnlockCtx;
 
     async fn unlock(
         &mut self,
         ctx: Self::UnlockContext,
         prk: &Self::Prk,
     ) -> Result<Self::UnlockResult, String> {
+        self.runtime.sync.script_tx = Some(ctx.script_tx.clone());
+
         let scripts = self.derive_scripts_of_interes(prk.expose())?;
         for script in scripts {
-            self.add_script_of_interes(script);
+            ctx.script_tx.send(script).expect("fail to send script");
         }
 
         let (_, btc_main_address) = self
@@ -230,10 +235,8 @@ impl ChainTrait for BitcoinWallet {
             )
             .map_err(|e| e.to_string())?;
 
-        let usd_price = ctx.get_price(BTC_USD_PRICE_FEED).await?;
         Ok(BitcoinUnlock {
             address: btc_main_address.to_string(),
-            usd_price,
             total_balance: self.total_balance().to_string(),
         })
     }
@@ -272,7 +275,7 @@ pub mod sync {
 
     #[derive(Default)]
     pub struct Sync {
-        pub channels: sync::Channels,
+        pub script_tx: Option<mpsc::UnboundedSender<DerivedScript>>,
         pub result: Option<sync::Result>,
     }
 
@@ -289,29 +292,6 @@ pub mod sync {
         ChainSynced(Result),
         BlockHeader(bip157::chain::IndexedHeader),
         NewUtxos(Vec<Utxo>),
-    }
-
-    #[derive(Debug)]
-    pub struct Channels {
-        /** For sending transaction scripts to the combact block filter scanner */
-        pub scripts_tx: mpsc::UnboundedSender<DerivedScript>,
-        pub scripts_rx: Option<mpsc::UnboundedReceiver<DerivedScript>>,
-
-        pub sync_event_tx: mpsc::UnboundedSender<Event>,
-        pub sync_event_rx: Option<mpsc::UnboundedReceiver<Event>>,
-    }
-
-    impl Default for Channels {
-        fn default() -> Self {
-            let (scripts_tx, scripts_rx) = mpsc::unbounded_channel();
-            let (sync_event_tx, sync_event_rx) = mpsc::unbounded_channel();
-            Self {
-                scripts_tx,
-                scripts_rx: Some(scripts_rx),
-                sync_event_tx,
-                sync_event_rx: Some(sync_event_rx),
-            }
-        }
     }
 }
 

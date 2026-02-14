@@ -19,15 +19,13 @@ export class EthereumWallet {
 
   init(unlock: UnlockMsg['ethereum']) {
     this.address = unlock.address
-    this.usd_price = Number(unlock.usd_price).toFixed(0)
     this.getChainInfo()
     this.getBalance()
   }
 
   address!: string
   chainInfo!: ChainInfo
-
-  usd_price!: string | null
+  usd_price = 0
 
   setChainInfo(c: ChainInfo) {
     this.chainInfo = c

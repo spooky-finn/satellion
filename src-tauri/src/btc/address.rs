@@ -1,7 +1,17 @@
-use std::{fmt::Display, str::FromStr};
+use std::{
+    collections::{HashMap, hash_map::Keys},
+    fmt::Display,
+    str::FromStr,
+};
 
+use bip157::ScriptBuf;
 use bitcoin::bip32::DerivationPath;
 pub use bitcoin::network::Network;
+
+use crate::btc::{
+    DerivedScript,
+    utxo::{BlockHeader, Utxo},
+};
 
 /// m / purpose' / coin_type' / account' / change / address_index
 pub type DerivePathSlice = [u32; 5];
@@ -123,6 +133,53 @@ impl DerivePath {
             change,
             index,
         })
+    }
+}
+
+pub struct ScriptHolder {
+    map: HashMap<bip157::ScriptBuf, DerivePath>,
+}
+
+impl ScriptHolder {
+    pub fn new() -> Self {
+        Self {
+            map: HashMap::default(),
+        }
+    }
+
+    pub fn add(&mut self, s: DerivedScript) {
+        self.map.insert(s.script, s.derive_path);
+    }
+
+    pub fn len(&self) -> usize {
+        self.map.len()
+    }
+
+    pub fn scripts(&self) -> Keys<'_, ScriptBuf, DerivePath> {
+        self.map.keys()
+    }
+
+    pub fn extract_utxos(&self, indexed_block: &bip157::IndexedBlock) -> Vec<Utxo> {
+        let mut utxos: Vec<Utxo> = vec![];
+        let block = BlockHeader {
+            hash: indexed_block.block.block_hash(),
+            height: indexed_block.height,
+        };
+
+        for tx in &indexed_block.block.txdata {
+            for (vout, output) in tx.output.iter().enumerate() {
+                if let Some(derive_path) = self.map.get(&output.script_pubkey) {
+                    utxos.push(Utxo {
+                        tx_id: tx.compute_wtxid(),
+                        vout,
+                        output: output.clone(),
+                        derive_path: derive_path.clone(),
+                        block: block.clone(),
+                    });
+                }
+            }
+        }
+        utxos
     }
 }
 

@@ -1,53 +1,38 @@
 use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::Arc,
     time::{Duration, Instant},
 };
 use tokio::sync::{RwLock, mpsc};
 
-use bip157::{Client, Event, FeeRate, chain::BlockHeaderChanges};
+use bip157::{Client, Event, IndexedFilter, chain::BlockHeaderChanges};
 
 use super::{EventEmitter, HeightUpdateStatus};
 use crate::{
-    btc::{neutrino::CompactFilterScanner, sync},
+    btc::{address::ScriptHolder, neutrino::block_sync_worker::BlockRequestEvent, sync},
     utils::Throttler,
 };
-
-pub type CfScanner = Arc<RwLock<CompactFilterScanner>>;
 
 pub struct NeutrinoClientArgs {
     pub event_emitter: EventEmitter,
     pub sync_event_tx: mpsc::UnboundedSender<sync::Event>,
-    pub cf_scanner: CfScanner,
+    pub block_req_tx: mpsc::UnboundedSender<BlockRequestEvent>,
+    pub script_holder: Arc<RwLock<ScriptHolder>>,
 }
 
 struct NodeEventHandler {
-    event_emitter: EventEmitter,
-    sync_event_tx: mpsc::UnboundedSender<sync::Event>,
-    cf_scanner: CfScanner,
+    args: NeutrinoClientArgs,
     sync_start_time: Instant,
     progress_throttler: Throttler,
     height_throttler: Throttler,
-    block_download_started: Arc<AtomicBool>,
 }
 
 impl NodeEventHandler {
-    fn new(listen_args: NeutrinoClientArgs) -> Self {
-        let NeutrinoClientArgs {
-            event_emitter,
-            sync_event_tx,
-            cf_scanner,
-        } = listen_args;
+    fn new(args: NeutrinoClientArgs) -> Self {
         Self {
-            event_emitter,
-            sync_event_tx,
-            cf_scanner,
+            args,
             sync_start_time: Instant::now(),
             progress_throttler: Throttler::new(Duration::from_secs(1)),
             height_throttler: Throttler::new(Duration::from_secs(1)),
-            block_download_started: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -60,10 +45,31 @@ impl NodeEventHandler {
                 self.handle_chain_update(changes);
             }
             Event::IndexedFilter(filter) => {
-                self.cf_scanner.read().await.handle_filter(filter).await;
+                self.handle_filter(filter).await;
             }
             // Block events are handled by the block downloader
             Event::Block(_) => {}
+        }
+    }
+
+    async fn handle_filter(&self, filter: IndexedFilter) {
+        // Handle a compact filter - check if it matches and queue block download
+        let script_holder = self.args.script_holder.read().await;
+        assert!(
+            script_holder.len() >= 1,
+            "No scripts to check in the filter"
+        );
+
+        // Check if this filter matches any of our scripts
+        if filter.contains_any(script_holder.scripts()) {
+            let block_hash = filter.block_hash();
+            if let Err(e) = self
+                .args
+                .block_req_tx
+                .send(BlockRequestEvent::Middle(block_hash))
+            {
+                tracing::error!("fail to send to block_req_tx: {}", e);
+            }
         }
     }
 
@@ -78,103 +84,22 @@ impl NodeEventHandler {
         );
 
         {
-            self.cf_scanner
-                .write()
-                .await
-                .block_downloader_mut()
-                .queue_block(sync_update.tip.hash)
-                .await
+            self.args
+                .block_req_tx
+                .send(BlockRequestEvent::Final(sync_update.tip.hash, sync_update))
                 .expect("fail to add last block");
         }
-
-        if self
-            .block_download_started
-            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-            .is_ok()
-        {
-            self.start_block_downloading(sync_update).await;
-        }
-    }
-
-    async fn start_block_downloading(&self, sync_update: bip157::SyncUpdate) {
-        tracing::info!("Starting block download pipeline");
-        let num_workers = 1; // adjust for mainnet or regtest
-        // Channel for downloaded blocks
-        let (result_tx, mut result_rx) = mpsc::unbounded_channel();
-
-        // Spawn the block downloader
-        let downloader_handle = {
-            let mut scanner = self.cf_scanner.write().await;
-            scanner.block_downloader_mut().spawn(num_workers, result_tx)
-        };
-
-        tracing::info!("Block downloader started");
-
-        // Spawn block processor
-        let cf_scanner = self.cf_scanner.clone();
-        let sync_tx = self.sync_event_tx.clone();
-        let stop_height = sync_update.clone().tip.height;
-        let event_emiter_clone = self.event_emitter.clone();
-        let sync_event_tx_clone = self.sync_event_tx.clone();
-        let processor_handle = tokio::spawn(async move {
-            tracing::info!("Block processor started");
-            let mut blocks_processed = 0;
-
-            while let Some(block) = result_rx.recv().await {
-                let utxos = cf_scanner.read().await.extract_utxos_from_block(&block);
-                let utxos_len = utxos.len();
-                if let Err(e) = sync_tx.send(sync::Event::NewUtxos(utxos)) {
-                    tracing::error!("Failed to send sync event: {}", e);
-                }
-
-                blocks_processed += 1;
-                if blocks_processed % 10 == 0 {
-                    tracing::info!("Processed {} blocks", blocks_processed);
-                }
-
-                tracing::info!("received block {}, utxos {}", block.height, utxos_len);
-                if block.height == sync_update.tip.height {
-                    break;
-                }
-            }
-
-            tracing::info!(
-                "Block processor shutting down (processed {} blocks)",
-                blocks_processed
-            );
-
-            let payload = sync::Result {
-                update: sync_update,
-                broadcast_min_fee_rate: FeeRate::from_sat_per_kwu(0),
-                avg_fee_rate: FeeRate::from_sat_per_kwu(0),
-            };
-            if let Err(e) = sync_event_tx_clone.send(sync::Event::ChainSynced(payload)) {
-                tracing::error!("Failed to send FiltersSynced event: {}", e);
-                return;
-            }
-            event_emiter_clone.height_updated(stop_height, HeightUpdateStatus::Completed);
-            event_emiter_clone.cf_sync_progress(100.0);
-        });
-
-        // Monitor tasks
-        tokio::spawn(async move {
-            if let Err(e) = downloader_handle.await {
-                tracing::error!("Block downloader panicked: {:?}", e);
-            }
-            if let Err(e) = processor_handle.await {
-                tracing::error!("Block processor panicked: {:?}", e);
-            }
-            tracing::info!("Block download pipeline terminated");
-        });
-
-        // wait until sync completes
     }
 
     fn handle_chain_update(&mut self, changes: BlockHeaderChanges) {
         let new_height = match changes {
             BlockHeaderChanges::Connected(header) => {
-                if let Err(e) = self.sync_event_tx.send(sync::Event::BlockHeader(header)) {
-                    tracing::error!("Failed to send BlockHeader event: {}", e);
+                if let Err(e) = self
+                    .args
+                    .sync_event_tx
+                    .send(sync::Event::BlockHeader(header))
+                {
+                    tracing::error!("Failed to send sync event: {}", e);
                 }
                 Some(header.height)
             }
@@ -182,11 +107,12 @@ impl NodeEventHandler {
             BlockHeaderChanges::ForkAdded(_) => None,
         };
 
-        if let Some(h) = new_height {
-            if self.height_throttler.should_emit() {
-                self.event_emitter
-                    .height_updated(h, HeightUpdateStatus::Progress);
-            }
+        if let Some(h) = new_height
+            && self.height_throttler.should_emit()
+        {
+            self.args
+                .event_emitter
+                .height_updated(h, HeightUpdateStatus::Progress);
         }
     }
 
@@ -196,7 +122,7 @@ impl NodeEventHandler {
                 let pct = progress.percentage_complete();
                 if pct != 0.0 && self.progress_throttler.should_emit() {
                     tracing::debug!("Block filter download progress: {:.1}%", pct);
-                    self.event_emitter.cf_sync_progress(pct);
+                    self.args.event_emitter.cf_sync_progress(pct);
                 }
             }
             bip157::Info::SuccessfulHandshake => {
@@ -213,7 +139,7 @@ impl NodeEventHandler {
 
     fn handle_warning(&self, warn: bip157::Warning) {
         tracing::warn!("Bitcoin sync: warning: {}", warn);
-        self.event_emitter.node_warning(warn.to_string());
+        self.args.event_emitter.node_warning(warn.to_string());
     }
 }
 

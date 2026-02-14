@@ -10,7 +10,6 @@ import type {
 import { notifier } from '../../lib/notifier'
 
 export class BitcoinChain {
-  private readonly decimals: bigint = 100_000_000n
   constructor() {
     makeAutoObservable(this)
 
@@ -32,16 +31,11 @@ export class BitcoinChain {
 
   init(unlock: UnlockMsg['bitcoin']) {
     this.address = unlock.address
-    this._usd_price = Number(unlock.usd_price)
     this.total_balance_sat = unlock.total_balance
   }
 
   address!: string
-  private _usd_price!: number
-
-  get usd_price(): string {
-    return this._usd_price?.toFixed(0) ?? '0'
-  }
+  usd_price = 0
 
   warning?: string
   setWarning(w?: string) {

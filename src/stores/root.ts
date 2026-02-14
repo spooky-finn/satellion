@@ -13,7 +13,7 @@ class RootStore {
     makeAutoObservable(this)
   }
 
-  async init() {
+  async request_config() {
     const res = await commands.getConfig()
     if (res.status !== 'ok') {
       notifier.err(res.error)
@@ -21,6 +21,18 @@ class RootStore {
     }
     runInAction(() => {
       this.ui_config = res.data
+    })
+  }
+
+  async request_prices() {
+    const res = await commands.priceFeed()
+    if (res.status !== 'ok') {
+      notifier.err(res.error)
+      return
+    }
+    runInAction(() => {
+      this.wallet.btc.usd_price = res.data.btc_usd
+      this.wallet.eth.usd_price = res.data.eth_usd
     })
   }
 }

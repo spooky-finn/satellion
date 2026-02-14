@@ -2,16 +2,20 @@ use serde::Serialize;
 use shush_rs::ExposeSecret;
 use specta::{Type, specta};
 use tauri::AppHandle;
+use tokio::sync::mpsc;
 use zeroize::Zeroize;
 
 use crate::{
     btc::{
-        self,
-        neutrino::{EventEmitter, NeutrinoStarter},
+        self, UnlockCtx,
+        neutrino::{EventEmitter, NeutrinoStarter, NodeStartArgs},
     },
     chain_trait::ChainTrait,
-    config::{CONFIG, Chain, Config, constants},
-    eth::{self, PriceFeed},
+    config::{CONFIG, Chain, constants},
+    eth::{
+        self, PriceFeed,
+        constants::{BTC_USD_PRICE_FEED, ETH_USD_PRICE_FEED},
+    },
     mnemonic,
     repository::ChainRepository,
     session::{SK, Session},
@@ -77,7 +81,7 @@ pub async fn list_wallets(
 #[tauri::command]
 pub async fn chain_switch_event(chain: Chain, sk: tauri::State<'_, SK>) -> Result<(), String> {
     let mut sk = sk.lock().await;
-    let Session { wallet, .. } = sk.borrow()?;
+    let wallet = sk.wallet()?;
     wallet.last_used_chain = chain;
     wallet.persist()?;
     Ok(())
@@ -90,6 +94,30 @@ pub struct UnlockMsg {
     last_used_chain: Chain,
 }
 
+#[derive(Type, Serialize)]
+pub struct PriceFeedMsg {
+    btc_usd: u32,
+    eth_usd: u32,
+}
+
+#[specta]
+#[tauri::command]
+pub async fn price_feed(price_feed: tauri::State<'_, PriceFeed>) -> Result<PriceFeedMsg, String> {
+    let btc_usd = price_feed.get_price(BTC_USD_PRICE_FEED).await?;
+    let eth_usd = price_feed.get_price(ETH_USD_PRICE_FEED).await?;
+
+    let clean_price = |raw: String| -> Result<u32, String> {
+        raw.parse::<f64>()
+            .map(|f| f.round() as u32)
+            .map_err(|_| format!("Failed to parse price: {}", raw))
+    };
+
+    Ok(PriceFeedMsg {
+        btc_usd: clean_price(btc_usd)?,
+        eth_usd: clean_price(eth_usd)?,
+    })
+}
+
 #[specta]
 #[tauri::command]
 pub async fn unlock_wallet(
@@ -99,8 +127,8 @@ pub async fn unlock_wallet(
     wallet_keeper: tauri::State<'_, WalletKeeper>,
     sk: tauri::State<'_, SK>,
     neutrino_starter: tauri::State<'_, NeutrinoStarter>,
-    price_feed: tauri::State<'_, PriceFeed>,
 ) -> Result<UnlockMsg, String> {
+    let (script_tx, script_rx) = mpsc::unbounded_channel();
     let mut wallet = wallet_keeper.load(&wallet_name, &passphrase)?;
 
     // Derive private keys for chains
@@ -113,21 +141,27 @@ pub async fn unlock_wallet(
 
     // Unlock both wallets in parallel using the ChainWallet trait
     let (ethereum, bitcoin) = tokio::try_join!(
-        wallet.eth.unlock(price_feed.inner().clone(), &eth_prk),
-        wallet.btc.unlock(price_feed.inner().clone(), &btc_prk)
+        wallet.eth.unlock((), &eth_prk),
+        wallet.btc.unlock(UnlockCtx { script_tx }, &btc_prk)
     )?;
 
     let last_used_chain = wallet.last_used_chain;
-    let btc_last_seen_heigh = wallet.btc.cfilter_scanner_height - 1;
 
     let event_emitter = EventEmitter::new(app);
     neutrino_starter
-        .request_node_start(event_emitter, wallet_name, btc_last_seen_heigh)
+        .request_node_start(
+            NodeStartArgs {
+                event_emitter,
+                last_seen_height: wallet.btc.cfilter_scanner_height - 1,
+                script_rx,
+            },
+            wallet_name,
+        )
         .await?;
 
     sk.lock()
         .await
-        .set(Session::new(wallet, Config::session_exp_duration()));
+        .set(Session::new(wallet).with_inactivity_timeout(CONFIG.session_inactivity_timeout()));
 
     Ok(UnlockMsg {
         ethereum,
