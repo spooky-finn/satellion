@@ -75,13 +75,13 @@ impl SyncOrchestrator {
             sync::Event::NewUtxos(utxos) => {
                 let mut sk = self.sk.lock().await;
                 let wallet = sk.wallet()?;
+wallet.btc.insert_utxos(utxos.clone());
 
                 utxos.iter().for_each(|each| {
                     self.event_emitter
                         .new_utxo(each.output.value.to_sat(), wallet.btc.total_balance());
                 });
-                wallet.btc.insert_utxos(utxos);
-            }
+                            }
         }
         Ok(())
     }

@@ -69,7 +69,7 @@ pub struct BitcoinWallet {
 impl BitcoinWallet {
     pub fn default() -> BitcoinWallet {
         BitcoinWallet {
-            cfilter_scanner_height: 0,
+            cfilter_scanner_height: 1,
             initial_sync_done: false,
             derived_addresses: Vec::new(),
             utxos: HashMap::new(),
@@ -288,6 +288,7 @@ pub mod sync {
         pub avg_fee_rate: bip157::FeeRate,
     }
 
+    #[derive(Clone)]
     pub enum Event {
         ChainSynced(Result),
         BlockHeader(bip157::chain::IndexedHeader),

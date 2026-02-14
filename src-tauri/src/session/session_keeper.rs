@@ -84,7 +84,6 @@ impl SessionKeeper {
     pub fn soft_terminate(&mut self) -> bool {
         if let Some(s) = &self.session
             && s.autolock_enabled()
-            && s.is_expired()
         {
             self.terminate();
             return true;

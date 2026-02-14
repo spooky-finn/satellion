@@ -8,6 +8,7 @@ import type {
   UnlockMsg,
 } from '../../bindings'
 import { notifier } from '../../lib/notifier'
+import { sat2btc } from './utils/amount_formatters'
 
 export class BitcoinChain {
   constructor() {
@@ -24,8 +25,8 @@ export class BitcoinChain {
       this.setWarning(event.payload.msg)
     })
     listen('btc_sync_new_utxo', (event: Event<SyncNewUtxoEvent>) => {
-      this.total_balance_sat = event.payload.total
-      notifier.ok(`Found new utxo ${event.payload.value}`)
+      this.set_total_balance_sat(event.payload.total)
+      notifier.ok(`Found new utxo ${sat2btc(event.payload.value)}`)
     })
   }
 
@@ -59,4 +60,7 @@ export class BitcoinChain {
   }
 
   total_balance_sat: string = '0'
+  set_total_balance_sat(s: string) {
+    this.total_balance_sat = s
+  }
 }
