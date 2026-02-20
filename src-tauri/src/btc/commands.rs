@@ -39,10 +39,7 @@ pub async fn btc_derive_address(
     }
 
     let prk = build_prk(wallet)?;
-    let (_, address) =
-        wallet
-            .btc
-            .derive_child(prk.expose(), CONFIG.bitcoin.network(), &derive_path)?;
+    let (_, address) = wallet.btc.derive_child(prk.expose(), &derive_path)?;
 
     wallet.mutate_btc(|chain| {
         chain.add_child(label, derive_path.clone());
@@ -85,11 +82,7 @@ pub async fn btc_list_derived_addresess(
         .map(|addr| {
             let (_, address) = wallet
                 .btc
-                .derive_child(
-                    prk.expose(),
-                    CONFIG.bitcoin.network(),
-                    &addr.derive_path.clone(),
-                )
+                .derive_child(prk.expose(), &addr.derive_path.clone())
                 .unwrap();
             DerivedAddress {
                 deriv_path: addr.derive_path.to_string(),

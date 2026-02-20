@@ -1,48 +1,32 @@
-use std::{str::FromStr, sync::Arc, time::Duration};
-use tokio::sync::{Mutex, RwLock, mpsc};
+use std::{net, str::FromStr, sync::Arc, thread, time::Duration};
+
+use nakamoto::{
+    client::{Client, Config, Event, Loading, chan, traits::Handle},
+    common::block::Height,
+    net::poll::Waker,
+};
+use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
-use bip157::{
-    BlockHash, Builder, Header, HeaderCheckpoint, Network, TrustedPeer,
-    chain::{ChainState, IndexedHeader},
-};
-use bitcoin::{CompactTarget, TxMerkleNode, block::Version};
-
 use crate::{
-    btc::{
-        DerivedScript,
-        address::ScriptHolder,
-        neutrino::{
-            BoxFutureUnit, EventEmitter, LifecycleState, NodeLifecycle, SyncOrchestrator,
-            block_sync_worker::{BlockRequestChannel, BlockSyncWorker},
-            node_listener::{NeutrinoClientArgs, run_neutrino_client},
-        },
-    },
+    btc::{config::Network, neutrino::LifecycleState},
     config::CONFIG,
-    db,
-    repository::ChainRepository,
     session::{SK, SessionKeeper},
 };
-
-static NODE_RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Clone)]
 pub struct NeutrinoStarter {
     sk: Arc<Mutex<SessionKeeper>>,
-    repository: ChainRepository,
     state: Arc<Mutex<LifecycleState>>,
 }
 
 pub struct NodeStartArgs {
-    pub event_emitter: EventEmitter,
-    pub script_rx: mpsc::UnboundedReceiver<DerivedScript>,
-    pub last_seen_height: u32,
+    pub birth_height: Height,
 }
 
 impl NeutrinoStarter {
-    pub fn new(repository: ChainRepository, sk: SK) -> Self {
+    pub fn new(sk: SK) -> Self {
         Self {
-            repository,
             sk,
             state: Arc::new(Mutex::new(LifecycleState::new())),
         }
@@ -64,12 +48,12 @@ impl NeutrinoStarter {
         state.stop_current();
 
         let cancel_token = CancellationToken::new();
-        let child_token = cancel_token.child_token();
+        // let child_token = cancel_token.child_token();
 
         let this = self.clone();
 
         let task = tauri::async_runtime::spawn(async move {
-            if let Err(e) = this.run_node(args, child_token).await {
+            if let Err(e) = this.run_node(args).await {
                 tracing::error!("Neutrino exited: {}", e);
             }
         });
@@ -78,157 +62,109 @@ impl NeutrinoStarter {
         Ok(())
     }
 
-    async fn run_node(&self, args: NodeStartArgs, cancel: CancellationToken) -> Result<(), String> {
-        let NodeStartArgs {
-            event_emitter,
-            script_rx: mut scripts_rx,
-            last_seen_height,
-        } = args;
+    async fn run_node(&self, args: NodeStartArgs) -> Result<(), String> {
+        let scripts = {
+            let mut sk = self.sk.lock().await;
+            let wallet = sk.wallet()?;
+            let prk = wallet.btc_prk()?;
+            wallet.btc.derive_scripts_of_interes(&prk)?
+        };
 
-        let block_header = self
-            .repository
-            .get_block_header(last_seen_height)
-            .map_err(|e| format!("Failed to load block header: {}", e))?;
+        let scripts: Vec<nakamoto::common::bitcoin::Script> = scripts
+            .iter()
+            .map(|e| {
+                // Make convertion from lib vith different versions
+                nakamoto::common::bitcoin::Script::from_str(&e.script.to_hex_string())
+                    .expect("failt to parse script")
+            })
+            .collect();
 
-        let neutrino = Neutrino::connect(block_header)
+        Neutrino::connect(args.birth_height, CONFIG.bitcoin.network(), scripts)
             .await
             .map_err(|e| format!("Failed to connect: {}", e))?;
 
-        let mut sync_orchestrator = SyncOrchestrator::new(
-            self.sk.clone(),
-            self.repository.clone(),
-            event_emitter.clone(),
-        );
-
-        let requester = neutrino.client.requester.clone();
-        let script_holder = Arc::new(RwLock::new(ScriptHolder::new()));
-        let block_downloader = BlockSyncWorker::new(
-            requester,
-            sync_orchestrator.transmitter(),
-            script_holder.clone(),
-            event_emitter.clone(),
-        );
-
-        let block_req_channel = BlockRequestChannel::default();
-        let neutrino_client_args = NeutrinoClientArgs {
-            event_emitter,
-            sync_event_tx: sync_orchestrator.transmitter(),
-            block_req_tx: block_req_channel.tx.clone(),
-            script_holder: script_holder.clone(),
-        };
-
-        let block_req_rx = block_req_channel.rx;
-
-        let lifecycle = NodeLifecycle::spawn(
-            vec![
-                (
-                    Box::pin(async move {
-                        if let Err(e) = neutrino.node.run().await {
-                            tracing::error!("Kyoto node err: {}", e);
-                        }
-                    }) as BoxFutureUnit,
-                    "neutrino_node",
-                ),
-                (
-                    Box::pin(run_neutrino_client(neutrino.client, neutrino_client_args))
-                        as BoxFutureUnit,
-                    "neutrino_client",
-                ),
-                (
-                    Box::pin(async move {
-                        while let Some(script) = scripts_rx.recv().await {
-                            script_holder.write().await.add(script);
-                        }
-                    }) as BoxFutureUnit,
-                    "scripts_rx",
-                ),
-                (
-                    Box::pin(async move { block_downloader.run(block_req_rx).await })
-                        as BoxFutureUnit,
-                    "block_donwloader",
-                ),
-                (
-                    Box::pin(async move {
-                        if let Err(e) = sync_orchestrator.run().await {
-                            tracing::error!("Sync orchestrator failure: {}", e);
-                        }
-                    }) as BoxFutureUnit,
-                    "sync_orchestrator",
-                ),
-            ],
-            cancel.clone(),
-        );
-
-        lifecycle.join_all().await;
         Ok(())
     }
 }
 
+type Reactor = nakamoto::net::poll::Reactor<net::TcpStream>;
+
 pub struct Neutrino {
-    pub node: bip157::Node,
-    pub client: bip157::Client,
+    pub client: nakamoto::client::Handle<Waker>,
 }
 
 impl Neutrino {
-    pub async fn connect(block_header: Option<db::BlockHeader>) -> Result<Self, String> {
-        let (network, trusted_peers) = Self::select_network().await?;
-        let indexed_header = block_header.map(|h| IndexedHeader {
-            height: h.height as u32,
-            header: Header {
-                merkle_root: TxMerkleNode::from_str(&h.merkle_root).unwrap(),
-                prev_blockhash: BlockHash::from_str(&h.prev_blockhash).unwrap(),
-                time: h.time as u32,
-                version: Version::from_consensus(h.version),
-                bits: CompactTarget::from_consensus(h.bits as u32),
-                nonce: h.nonce as u32,
-            },
+    pub async fn connect(
+        birth_height: Height,
+        network: Network,
+        scripts: Vec<nakamoto::common::bitcoin::Script>,
+    ) -> Result<Arc<Self>, nakamoto::client::Error> {
+        let cfg = Config {
+            network: network.into(),
+            listen: vec![], // Don't listen for incoming connections.
+            connect: vec![CONFIG.bitcoin.regtest_peer_socket()],
+            ..Config::default()
+        };
+
+        tracing::info!("starting neutrino on network {:?}", network);
+
+        let client = Client::<Reactor>::new()?;
+        let handle = client.handle();
+        let client_rx = handle.events();
+        let (loading_tx, loading_rx) = chan::unbounded::<Loading>();
+
+        thread::spawn(move || {
+            let client_runner = client
+                .load(cfg, loading_tx)
+                .unwrap_or_else(|e| panic!("fail to load bip 157/158 client: {e}"));
+            client_runner.run().expect("client start failed");
         });
 
-        let chain_state: Option<ChainState> = indexed_header
-            .map(|ih| {
-                ChainState::Checkpoint(HeaderCheckpoint {
-                    height: ih.height,
-                    hash: ih.block_hash(),
-                })
-            })
-            .or_else(|| {
-                if network == Network::Bitcoin {
-                    Some(ChainState::Checkpoint(
-                        HeaderCheckpoint::taproot_activation(),
-                    ))
-                } else {
-                    None
+        let instance = Arc::new(Self {
+            client: handle.clone(),
+        });
+        let this = instance.clone();
+        let handle = handle.clone();
+
+        thread::spawn(move || {
+            // Start scanning from genesis (or your stored height)
+            if let Err(e) = handle.rescan(birth_height.., scripts.clone().into_iter()) {
+                tracing::error!("rescan failed: {:?}", e);
+                return;
+            }
+
+            loop {
+                chan::select! {
+                    recv(loading_rx) -> event => {
+                        if let Ok(event) = event {
+                            tracing::debug!("{}",event);
+                        } else {
+                            break;
+                        }
+                    }
                 }
-            });
+            }
 
-        tracing::info!(
-            "starting neutrino on network {}, chain state {:?}",
-            network,
-            chain_state
-        );
+            loop {
+                chan::select! {
+                    recv(client_rx) -> event => {
+                        if let Ok(e) = event {
+                            this.handle_client_event(e);
+                        } else {
+                            tracing::error!("failure receiving client event {:?}", event.err());
+                            break;
+                        }
+                    }
 
-        let mut builder = Builder::new(network);
-        if let Some(s) = chain_state {
-            builder = builder.chain_state(s);
-        }
+                    recv(chan::after(Duration::from_millis(100))) -> _ => {}
+                }
+            }
+        });
 
-        let (node, client) = builder
-            .required_peers(CONFIG.bitcoin.min_peers)
-            .add_peers(trusted_peers)
-            .response_timeout(NODE_RESPONSE_TIMEOUT)
-            .build();
-        Ok(Self { node, client })
+        Ok(instance)
     }
 
-    async fn select_network() -> Result<(Network, Vec<TrustedPeer>), String> {
-        if CONFIG.bitcoin.regtest {
-            let socket = CONFIG.bitcoin.regtest_peer_socket();
-            let peer = TrustedPeer::from_socket_addr(socket);
-            return Ok((bip157::Network::Regtest, vec![peer]));
-        }
-
-        let seeds = bip157::lookup_host("seed.bitcoin.sipa.be").await;
-        let peers: Vec<TrustedPeer> = seeds.into_iter().map(TrustedPeer::from_ip).collect();
-        Ok((bip157::Network::Bitcoin, peers))
+    pub fn handle_client_event(&self, event: Event) {
+        tracing::debug!("{event}");
     }
 }

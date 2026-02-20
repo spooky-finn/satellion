@@ -4,14 +4,9 @@ use std::{
     str::FromStr,
 };
 
-use bip157::ScriptBuf;
-use bitcoin::bip32::DerivationPath;
-pub use bitcoin::network::Network;
+use bitcoin::{ScriptBuf, bip32::DerivationPath};
 
-use crate::btc::{
-    DerivedScript,
-    utxo::{BlockHeader, Utxo},
-};
+use crate::btc::{DerivedScript, config::Network, utxo::Utxo};
 
 /// m / purpose' / coin_type' / account' / change / address_index
 pub type DerivePathSlice = [u32; 5];
@@ -81,7 +76,7 @@ const HARDENED: u32 = 0x80000000;
 impl Display for DerivePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let coin_type = match self.network {
-            Network::Bitcoin => 0,
+            Network::Mainnet => 0,
             _ => 1,
         };
         write!(
@@ -100,7 +95,7 @@ impl DerivePath {
 
     pub fn to_slice(&self) -> DerivePathSlice {
         let network = match self.network {
-            Network::Bitcoin => 0,
+            Network::Mainnet => 0,
             _ => 1,
         };
         [
@@ -118,7 +113,7 @@ impl DerivePath {
                 .ok_or("purpose must be hardened")?,
         )?;
         let network = match v[1].checked_sub(HARDENED) {
-            Some(0) => Network::Bitcoin,
+            Some(0) => Network::Mainnet,
             _ => Network::Regtest,
         };
         let account = v[2]
@@ -137,7 +132,7 @@ impl DerivePath {
 }
 
 pub struct ScriptHolder {
-    map: HashMap<bip157::ScriptBuf, DerivePath>,
+    map: HashMap<ScriptBuf, DerivePath>,
 }
 
 impl ScriptHolder {
@@ -159,27 +154,27 @@ impl ScriptHolder {
         self.map.keys()
     }
 
-    pub fn extract_utxos(&self, indexed_block: &bip157::IndexedBlock) -> Vec<Utxo> {
-        let mut utxos: Vec<Utxo> = vec![];
-        let block = BlockHeader {
-            hash: indexed_block.block.block_hash(),
-            height: indexed_block.height,
-        };
+    pub fn extract_utxos(&self) -> Vec<Utxo> {
+        // let mut utxos: Vec<Utxo> = vec![];
+        // let block = BlockHeader {
+        //     hash: indexed_block.block.block_hash(),
+        //     height: indexed_block.height,
+        // };
 
-        for tx in &indexed_block.block.txdata {
-            for (vout, output) in tx.output.iter().enumerate() {
-                if let Some(derive_path) = self.map.get(&output.script_pubkey) {
-                    utxos.push(Utxo {
-                        tx_id: tx.compute_wtxid(),
-                        vout,
-                        output: output.clone(),
-                        derive_path: derive_path.clone(),
-                        block: block.clone(),
-                    });
-                }
-            }
-        }
-        utxos
+        // for tx in &indexed_block.block.txdata {
+        //     for (vout, output) in tx.output.iter().enumerate() {
+        //         if let Some(derive_path) = self.map.get(&output.script_pubkey) {
+        //             utxos.push(Utxo {
+        //                 tx_id: tx.compute_wtxid(),
+        //                 vout,
+        //                 output: output.clone(),
+        //                 derive_path: derive_path.clone(),
+        //                 block: block.clone(),
+        //             });
+        //         }
+        //     }
+        // }
+        vec![]
     }
 }
 
@@ -205,7 +200,7 @@ mod tests {
         let path = DerivePath {
             purpose: Purpose::Bip86,
             account: 0,
-            network: Network::Bitcoin,
+            network: Network::Mainnet,
             change: Change::External,
             index: 0,
         };
@@ -219,7 +214,7 @@ mod tests {
         assert!(result.is_ok());
         let path = result.unwrap();
         assert_eq!(path.purpose, Purpose::Bip86);
-        assert_eq!(path.network, Network::Bitcoin);
+        assert_eq!(path.network, Network::Mainnet);
         assert_eq!(path.change, Change::External);
         assert_eq!(path.index, 0);
         assert_eq!(path.account, 0);
@@ -230,7 +225,7 @@ mod tests {
         let original = DerivePath {
             purpose: Purpose::Bip86,
             account: 0,
-            network: Network::Bitcoin,
+            network: Network::Mainnet,
             change: Change::Internal,
             index: 5,
         };
@@ -244,7 +239,7 @@ mod tests {
         let path = DerivePath {
             purpose: Purpose::Bip86,
             account: 0,
-            network: Network::Bitcoin,
+            network: Network::Mainnet,
             change: Change::External,
             index: 0,
         };

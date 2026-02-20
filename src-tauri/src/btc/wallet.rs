@@ -1,10 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use bip39::Language;
-use bip157::BlockHash;
-pub use bitcoin::network::Network;
 use bitcoin::{
-    Address,
+    Address, BlockHash, ScriptBuf, Wtxid,
     bip32::{self, Xpriv},
     hashes::Hash,
     key::{Keypair, Secp256k1},
@@ -45,12 +43,12 @@ impl SecureKey for Prk {
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct DerivedScript {
-    pub script: bip157::ScriptBuf,
+    pub script: ScriptBuf,
     pub derive_path: DerivePath,
 }
 
 impl DerivedScript {
-    pub fn new(script: bip157::ScriptBuf, derive_path: DerivePath) -> Self {
+    pub fn new(script: ScriptBuf, derive_path: DerivePath) -> Self {
         Self {
             script,
             derive_path,
@@ -82,7 +80,8 @@ impl BitcoinWallet {
         let mnemonic = bip39::Mnemonic::parse_in_normalized(Language::English, mnemonic)
             .map_err(|e| e.to_string())?;
         let seed = mnemonic.to_seed(CONFIG.xprk_passphrase(passphrase));
-        let xpriv = bip32::Xpriv::new_master(network, &seed).map_err(|e| e.to_string())?;
+        let xpriv =
+            bip32::Xpriv::new_master(network.as_kind(), &seed).map_err(|e| e.to_string())?;
         Ok(Prk { xpriv })
     }
 
@@ -96,24 +95,19 @@ impl BitcoinWallet {
         }
     }
 
-    pub fn derive_scripts_of_interes(
-        &self,
-        xpriv: &Xpriv,
-    ) -> Result<HashSet<DerivedScript>, String> {
+    pub fn derive_scripts_of_interes(&self, prk: &Prk) -> Result<HashSet<DerivedScript>, String> {
         let mut scripts_of_interes: HashSet<DerivedScript> = HashSet::new();
-        let network = CONFIG.bitcoin.network();
-
         {
             // Derive script for main receive script pubkey
             let derive_path = self.main_derive_path();
-            let (_, address) = self.derive_child(xpriv, network, &derive_path)?;
+            let (_, address) = self.derive_child(prk.expose(), &derive_path)?;
             scripts_of_interes.insert(DerivedScript::new(address.script_pubkey(), derive_path));
         }
 
         for labled_derive_path in self.derived_addresses.iter() {
             let derive_path = labled_derive_path.derive_path.clone();
             let (_, address) = self
-                .derive_child(xpriv, network, &derive_path)
+                .derive_child(prk.expose(), &derive_path)
                 .map_err(|e| format!("derived bitcoin address corrupted {e}"))?;
             scripts_of_interes.insert(DerivedScript::new(address.script_pubkey(), derive_path));
         }
@@ -124,7 +118,6 @@ impl BitcoinWallet {
     pub fn derive_child(
         &self,
         xpriv: &Xpriv,
-        network: Network,
         derive_path: &DerivePath,
     ) -> Result<(Keypair, Address), String> {
         let secp = Secp256k1::new();
@@ -136,7 +129,7 @@ impl BitcoinWallet {
 
         // x-only pubkey for taproot
         let (xonly_pk, _parity) = keypair.x_only_public_key();
-
+        let network: bitcoin::Network = CONFIG.bitcoin.network().into();
         // Create taproot address (BIP341 tweak is done automatically by rust-bitcoin)
         let address = Address::p2tr(
             &secp, xonly_pk, None, // no script tree = BIP86 key-path spend
@@ -206,9 +199,7 @@ pub struct BitcoinUnlock {
     pub total_balance: String,
 }
 
-pub struct UnlockCtx {
-    pub script_tx: mpsc::UnboundedSender<DerivedScript>,
-}
+pub struct UnlockCtx {}
 
 impl ChainTrait for BitcoinWallet {
     type Prk = Prk;
@@ -217,22 +208,11 @@ impl ChainTrait for BitcoinWallet {
 
     async fn unlock(
         &mut self,
-        ctx: Self::UnlockContext,
+        _: Self::UnlockContext,
         prk: &Self::Prk,
     ) -> Result<Self::UnlockResult, String> {
-        self.runtime.sync.script_tx = Some(ctx.script_tx.clone());
-
-        let scripts = self.derive_scripts_of_interes(prk.expose())?;
-        for script in scripts {
-            ctx.script_tx.send(script).expect("fail to send script");
-        }
-
         let (_, btc_main_address) = self
-            .derive_child(
-                prk.expose(),
-                CONFIG.bitcoin.network(),
-                &self.main_derive_path(),
-            )
+            .derive_child(prk.expose(), &self.main_derive_path())
             .map_err(|e| e.to_string())?;
 
         Ok(BitcoinUnlock {
@@ -276,24 +256,24 @@ pub mod sync {
     #[derive(Default)]
     pub struct Sync {
         pub script_tx: Option<mpsc::UnboundedSender<DerivedScript>>,
-        pub result: Option<sync::Result>,
+        // pub result: Option<sync::Result>,
     }
 
-    #[derive(Clone)]
-    pub struct Result {
-        pub update: bip157::SyncUpdate,
-        #[allow(dead_code)]
-        pub broadcast_min_fee_rate: bip157::FeeRate,
-        #[allow(dead_code)]
-        pub avg_fee_rate: bip157::FeeRate,
-    }
+    // #[derive(Clone)]
+    // pub struct Result {
+    //     pub update: bip157::SyncUpdate,
+    //     #[allow(dead_code)]
+    //     pub broadcast_min_fee_rate: bip157::FeeRate,
+    //     #[allow(dead_code)]
+    //     pub avg_fee_rate: bip157::FeeRate,
+    // }
 
-    #[derive(Clone)]
-    pub enum Event {
-        ChainSynced(Result),
-        BlockHeader(bip157::chain::IndexedHeader),
-        NewUtxos(Vec<Utxo>),
-    }
+    // #[derive(Clone)]
+    // pub enum Event {
+    //     ChainSynced(Result),
+    //     // BlockHeader(bip157::chain::IndexedHeader),
+    //     NewUtxos(Vec<Utxo>),
+    // }
 }
 
 pub mod persistence {
@@ -386,7 +366,7 @@ impl Persistable for BitcoinWallet {
             .map(|utxo| {
                 let derive_path = DerivePath::from_slice(utxo.deriviation_path)?;
                 let utxo = Utxo {
-                    tx_id: Hash::from_byte_array(utxo.txid),
+                    tx_id: Wtxid::from_byte_array(utxo.txid),
                     block: crate::btc::utxo::BlockHeader {
                         hash: BlockHash::from_byte_array(utxo.block_hash),
                         height: utxo.block_height,
@@ -394,7 +374,7 @@ impl Persistable for BitcoinWallet {
                     vout: utxo.vout,
                     derive_path,
                     output: bitcoin::TxOut {
-                        script_pubkey: bip157::ScriptBuf::from_bytes(utxo.script_pubkey.clone()),
+                        script_pubkey: ScriptBuf::from_bytes(utxo.script_pubkey.clone()),
                         value: bitcoin::Amount::from_sat(utxo.value),
                     },
                 };

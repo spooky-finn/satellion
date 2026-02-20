@@ -1,5 +1,3 @@
-use std::pin::Pin;
-
 use tauri::async_runtime::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
@@ -55,41 +53,41 @@ impl Default for LifecycleState {
     }
 }
 
-/// Spawns and manages the lifecycle of node and event listener tasks
-pub struct NodeLifecycle {
-    pub tasks: Vec<JoinHandle<()>>,
-}
+// /// Spawns and manages the lifecycle of node and event listener tasks
+// pub struct NodeLifecycle {
+//     pub tasks: Vec<JoinHandle<()>>,
+// }
 
-pub type BoxFutureUnit = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
+// pub type BoxFutureUnit = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 
-impl NodeLifecycle {
-    /// Spawn multiple cancellable tasks
-    pub fn spawn<Fut>(futures: Vec<(Fut, &'static str)>, cancel_token: CancellationToken) -> Self
-    where
-        Fut: std::future::Future<Output = ()> + Send + 'static,
-    {
-        let mut tasks = Vec::with_capacity(futures.len());
+// impl NodeLifecycle {
+//     /// Spawn multiple cancellable tasks
+//     pub fn spawn<Fut>(futures: Vec<(Fut, &'static str)>, cancel_token: CancellationToken) -> Self
+//     where
+//         Fut: std::future::Future<Output = ()> + Send + 'static,
+//     {
+//         let mut tasks = Vec::with_capacity(futures.len());
 
-        for (fut, name) in futures {
-            let token = cancel_token.clone();
-            let task = tauri::async_runtime::spawn(async move {
-                tokio::select! {
-                    _ = fut => {},
-                    _ = token.cancelled() => {
-                        tracing::info!("{} stopped", name);
-                    }
-                }
-            });
-            tasks.push(task);
-        }
+//         for (fut, name) in futures {
+//             let token = cancel_token.clone();
+//             let task = tauri::async_runtime::spawn(async move {
+//                 tokio::select! {
+//                     _ = fut => {},
+//                     _ = token.cancelled() => {
+//                         tracing::info!("{} stopped", name);
+//                     }
+//                 }
+//             });
+//             tasks.push(task);
+//         }
 
-        Self { tasks }
-    }
+//         Self { tasks }
+//     }
 
-    /// Optionally, wait for all tasks to finish
-    pub async fn join_all(self) {
-        for t in self.tasks {
-            let _ = t.await;
-        }
-    }
-}
+//     /// Optionally, wait for all tasks to finish
+//     pub async fn join_all(self) {
+//         for t in self.tasks {
+//             let _ = t.await;
+//         }
+//     }
+// }

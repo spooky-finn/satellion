@@ -1,13 +1,13 @@
-use std::{net::SocketAddrV4, str::FromStr};
+use std::{net::SocketAddr, str::FromStr};
 
-use bip157::Network;
+use bitcoin::NetworkKind;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct BitcoinConfig {
     pub regtest: bool,
-    regtest_peer_socket: String,
+    pub regtest_peer_socket: String,
 
     pub min_peers: u8,
 }
@@ -17,12 +17,12 @@ impl BitcoinConfig {
         if self.regtest {
             Network::Regtest
         } else {
-            Network::Bitcoin
+            Network::Mainnet
         }
     }
 
-    pub fn regtest_peer_socket(&self) -> SocketAddrV4 {
-        SocketAddrV4::from_str(&self.regtest_peer_socket)
+    pub fn regtest_peer_socket(&self) -> SocketAddr {
+        SocketAddr::from_str(&self.regtest_peer_socket)
             .expect("invalid config value regtest_peer_socket")
     }
 }
@@ -33,6 +33,39 @@ impl Default for BitcoinConfig {
             regtest: false,
             min_peers: 3,
             regtest_peer_socket: "127.0.0.1:18444".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
+pub enum Network {
+    Mainnet,
+    Regtest,
+}
+
+impl Into<bitcoin::Network> for Network {
+    fn into(self) -> bitcoin::Network {
+        match self {
+            Network::Mainnet => bitcoin::Network::Bitcoin,
+            Network::Regtest => bitcoin::Network::Regtest,
+        }
+    }
+}
+
+impl Into<nakamoto::client::Network> for Network {
+    fn into(self) -> nakamoto::client::Network {
+        match self {
+            Network::Mainnet => nakamoto::client::Network::Mainnet,
+            Network::Regtest => nakamoto::client::Network::Regtest,
+        }
+    }
+}
+
+impl Network {
+    pub fn as_kind(&self) -> NetworkKind {
+        match self {
+            Network::Mainnet => bitcoin::NetworkKind::Main,
+            Network::Regtest => bitcoin::NetworkKind::Test,
         }
     }
 }

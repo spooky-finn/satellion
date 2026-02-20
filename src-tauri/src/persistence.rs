@@ -178,7 +178,7 @@ impl FsRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{btc::address::make_hardened, eth::constants::USDT};
+    use crate::{btc::address::make_hardened, eth::constants::USDT, mnemonic::TEST_MNEMONIC};
 
     #[test]
     fn test_serialication() {
@@ -188,7 +188,7 @@ mod tests {
 
         let persisted_wallet = SerializedWallet {
             name: name.clone(),
-            mnemonic: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about".to_string(),
+            mnemonic: TEST_MNEMONIC.to_string(),
             generated_at: None,
             version: 0,
             last_used_chain: 1,
@@ -197,7 +197,7 @@ mod tests {
                 initial_sync_done: false,
                 childs: vec![crate::btc::persistence::ChildAddress {
                     label: "Secret contractor".to_string(),
-                    devive_path: make_hardened([86,0,0,0,1])
+                    devive_path: make_hardened([86, 0, 0, 0, 1]),
                 }],
                 utxos: vec![],
             },
@@ -205,8 +205,7 @@ mod tests {
                 tracked_tokens: vec![crate::eth::persistence::Token {
                     address: USDT.address.to_string(),
                     decimals: 4,
-                    symbol: "USDT".to_string()
-
+                    symbol: "USDT".to_string(),
                 }],
             },
         };

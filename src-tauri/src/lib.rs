@@ -1,26 +1,25 @@
-mod btc;
-mod chain_trait;
-mod commands;
-mod config;
-mod db;
-mod encryptor;
-mod eth;
-mod mnemonic;
-mod persistence;
-mod repository;
-mod schema;
-mod session;
-mod system;
-mod utils;
-mod wallet;
-mod wallet_keeper;
-use core::fmt;
+pub mod btc;
+pub mod chain_trait;
+pub mod commands;
+pub mod config;
+pub mod db;
+pub mod encryptor;
+pub mod eth;
+pub mod mnemonic;
+pub mod persistence;
+pub mod repository;
+pub mod schema;
+pub mod session;
+pub mod system;
+pub mod utils;
+pub mod wallet;
+pub mod wallet_keeper;
+
 use std::{sync::Arc, time::Duration};
 
 use specta_typescript::Typescript;
 use tauri::{Listener, Manager};
 use tokio::sync::Mutex;
-use tracing_subscriber::{EnvFilter, FmtSubscriber, fmt::time::FormatTime};
 
 use crate::{
     btc::neutrino::{EventEmitter, NeutrinoStarter},
@@ -31,7 +30,7 @@ use crate::{
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    init_tracing();
+    utils::tracing::init();
     db::initialize();
 
     let db = db::connect();
@@ -92,7 +91,7 @@ pub fn run() {
         .setup(move |app| {
             let event_emitter = EventEmitter::new(app.handle().clone());
             let sk = SessionKeeper::new(Some(event_emitter.clone()), Some(Duration::from_mins(1)));
-            let neutrino_starter = NeutrinoStarter::new(chain_repository.clone(), sk.clone());
+            let neutrino_starter = NeutrinoStarter::new(sk.clone());
 
             app.manage(sk.clone());
             app.manage(neutrino_starter);
@@ -118,27 +117,6 @@ fn enable_devtools() -> bool {
     std::env::var("DEVTOOLS")
         .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
         .unwrap_or(false)
-}
-
-fn init_tracing() {
-    struct LocalTimeOnly;
-
-    impl FormatTime for LocalTimeOnly {
-        fn format_time(&self, w: &mut tracing_subscriber::fmt::format::Writer<'_>) -> fmt::Result {
-            let now = chrono::Local::now();
-            write!(w, "{}", now.format("%H:%M:%S"))
-        }
-    }
-
-    let subscriber = FmtSubscriber::builder()
-        .with_timer(LocalTimeOnly)
-        .compact()
-        .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
-        )
-        .finish();
-
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 }
 
 fn setup_session_listeners(

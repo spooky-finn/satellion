@@ -1,4 +1,4 @@
-use shush_rs::SecretBox;
+use shush_rs::{ExposeSecret, SecretBox};
 
 use crate::{btc, config::constants::Chain, eth, mnemonic, wallet_keeper::WalletKeeper};
 
@@ -35,6 +35,20 @@ impl Wallet {
             eth: eth::EthereumWallet::default(),
             keeper: WalletKeeper::new(),
         })
+    }
+
+    pub fn btc_prk(&self) -> Result<btc::Prk, String> {
+        self.btc.build_prk(
+            &self.mnemonic.expose_secret(),
+            &self.passphrase.expose_secret(),
+        )
+    }
+
+    pub fn eth_prk(&self) -> Result<eth::Prk, String> {
+        self.eth.build_prk(
+            &self.mnemonic.expose_secret(),
+            &self.passphrase.expose_secret(),
+        )
     }
 
     pub fn persist(&self) -> Result<(), String> {

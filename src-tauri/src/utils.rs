@@ -31,3 +31,44 @@ impl Throttler {
         }
     }
 }
+
+pub mod tracing {
+    use std::fmt;
+
+    use tracing_subscriber::{EnvFilter, FmtSubscriber, fmt::time::FormatTime};
+
+    pub fn init() {
+        struct LocalTimeOnly;
+
+        impl FormatTime for LocalTimeOnly {
+            fn format_time(
+                &self,
+                w: &mut tracing_subscriber::fmt::format::Writer<'_>,
+            ) -> fmt::Result {
+                let now = chrono::Local::now();
+                write!(w, "{}", now.format("%H:%M:%S"))
+            }
+        }
+
+        let subscriber = FmtSubscriber::builder()
+            .with_timer(LocalTimeOnly)
+            .compact()
+            .with_env_filter(
+                EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+            )
+            .finish();
+
+        tracing::subscriber::set_global_default(subscriber)
+            .expect("setting default subscriber failed");
+    }
+
+    pub fn init_test(level: &str) {
+        let subscriber = FmtSubscriber::builder()
+            .without_time()
+            .compact()
+            .with_env_filter(EnvFilter::new(level))
+            .finish();
+
+        let _ = tracing::subscriber::set_global_default(subscriber);
+    }
+}

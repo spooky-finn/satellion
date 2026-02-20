@@ -1,5 +1,5 @@
+use aes_gcm::aead::OsRng;
 use alloy_signer_local::coins_bip39::{self, English};
-use bitcoin::secp256k1::rand::rngs::OsRng;
 
 pub fn new() -> Result<String, String> {
     let mut rng = OsRng;
@@ -15,3 +15,6 @@ pub fn validate(mnemonic: &str) -> Result<bool, String> {
         Err(e) => Err(format!("Invalid mnemonic: {e}")),
     }
 }
+
+pub static TEST_MNEMONIC: &str =
+    "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";

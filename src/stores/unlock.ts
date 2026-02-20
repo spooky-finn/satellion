@@ -46,9 +46,7 @@ export class Unlock {
 
     runInAction(() => {
       this.available_wallets = r.data
-      if (r.data.length === 1) {
-        this.target_wallet = r.data[0]
-      }
+      if (r.data.length > 0) this.target_wallet = r.data[0]
     })
 
     return r.data
