@@ -37,7 +37,7 @@ impl Wallet {
         })
     }
 
-    pub fn btc_prk(&self) -> Result<btc::Prk, String> {
+    pub fn btc_prk(&self) -> anyhow::Result<btc::Prk> {
         self.btc.build_prk(
             &self.mnemonic.expose_secret(),
             &self.passphrase.expose_secret(),

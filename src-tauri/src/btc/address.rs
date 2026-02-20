@@ -88,9 +88,8 @@ impl Display for DerivePath {
 }
 
 impl DerivePath {
-    pub fn to_path(&self) -> Result<DerivationPath, String> {
-        let str = self.to_string();
-        DerivationPath::from_str(&str).map_err(|e| format!("fail to derive bip86_path: {e}"))
+    pub fn to_path(&self) -> anyhow::Result<DerivationPath> {
+        DerivationPath::from_str(&self.to_string()).map_err(anyhow::Error::from)
     }
 
     pub fn to_slice(&self) -> DerivePathSlice {

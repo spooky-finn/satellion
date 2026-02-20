@@ -63,18 +63,29 @@ impl SessionKeeper {
         sk
     }
 
-    fn session(&mut self) -> Result<&mut Session, String> {
+    fn session(&mut self) -> anyhow::Result<&mut Session> {
         match &mut self.session {
             Some(session) => {
                 session.activated_at = Utc::now();
                 Ok(session)
             }
-            None => Err(Self::fire_expired_event(&self.event_emitter)),
+            None => {
+                Self::fire_expired_event(&self.event_emitter);
+                Err(anyhow::anyhow!("session expired"))
+            }
         }
     }
 
-    pub fn wallet(&mut self) -> Result<&mut Wallet, String> {
+    /// Returns a mutable reference to the wallet, propagating any error as `anyhow::Error`.
+    pub fn wallet_mut(&mut self) -> anyhow::Result<&mut Wallet> {
         self.session().map(|s| &mut s.wallet)
+    }
+
+    /// Returns a mutable reference to the wallet, converting errors to a `String`.
+    pub fn wallet_mut_str_err(&mut self) -> Result<&mut Wallet, String> {
+        self.session()
+            .map(|s| &mut s.wallet)
+            .map_err(|e| e.to_string())
     }
 
     pub fn set(&mut self, session: Session) {
@@ -122,11 +133,10 @@ impl SessionKeeper {
         });
     }
 
-    fn fire_expired_event(event_emitter: &Option<EventEmitter>) -> String {
+    fn fire_expired_event(event_emitter: &Option<EventEmitter>) {
         if let Some(em) = &event_emitter {
             em.session_expired();
         }
-        "Session expired".to_string()
     }
 }
 

@@ -7,14 +7,13 @@ use alloy::{
 };
 use alloy_provider::{DynProvider, ext::AnvilApi};
 use serde::{Deserialize, Serialize};
-use shush_rs::ExposeSecret;
 use specta::{Type, specta};
 
 use crate::{
     chain_trait::{AssetTracker, SecureKey},
     config::Chain,
     eth::{
-        self, PriceFeed, Prk,
+        self, PriceFeed,
         constants::{ETH, ETH_USD_PRICE_FEED},
         erc20_retriver::Erc20Retriever,
         fee_estimator::FeeMode,
@@ -22,7 +21,6 @@ use crate::{
         wallet::parse_addres,
     },
     session::SK,
-    wallet::Wallet,
 };
 
 #[derive(Serialize, Type)]
@@ -30,11 +28,6 @@ pub struct ChainInfo {
     block_number: String,
     block_hash: String,
     base_fee_per_gas: Option<String>,
-}
-
-fn build_prk(w: &Wallet) -> Result<Prk, String> {
-    w.eth
-        .build_prk(&w.mnemonic.expose_secret(), &w.passphrase.expose_secret())
 }
 
 #[specta]
@@ -78,7 +71,7 @@ pub async fn eth_get_balance(
     sk: tauri::State<'_, SK>,
 ) -> Result<Balance, String> {
     let mut sk = sk.lock().await;
-    let wallet = sk.wallet()?;
+    let wallet = sk.wallet_mut_str_err()?;
 
     let provider = provider.inner();
     let address = parse_addres(&address)?;
@@ -149,8 +142,8 @@ pub async fn eth_prepare_send_tx(
         token_address,
     } = req;
     let mut sk = sk.lock().await;
-    let wallet = sk.wallet()?;
-    let prk = build_prk(wallet)?;
+    let wallet = sk.wallet_mut_str_err()?;
+    let prk = wallet.eth_prk().map_err(|e| e.to_string())?;
     let sender = prk.expose().address();
     let recipient = parse_addres(&recipient)?;
     let token_address = parse_addres(&token_address)?;
@@ -208,9 +201,9 @@ pub async fn eth_sign_and_send_tx(
     sk: tauri::State<'_, SK>,
 ) -> Result<String, String> {
     let mut sk = sk.lock().await;
-    let wallet = sk.wallet()?;
+    let wallet = sk.wallet_mut_str_err()?;
     let mut builder = builder.try_lock().map_err(|e| e.to_string())?;
-    let prk = build_prk(wallet)?;
+    let prk = wallet.eth_prk().map_err(|e| e.to_string())?;
     let hash = builder.sign_and_send_tx(prk.expose()).await?;
     Ok(hash.to_string())
 }
@@ -237,7 +230,7 @@ pub async fn eth_track_token(
     sk: tauri::State<'_, SK>,
 ) -> Result<TokenType, String> {
     let mut sk = sk.lock().await;
-    let wallet = sk.wallet()?;
+    let wallet = sk.wallet_mut_str_err()?;
 
     let address = parse_addres(&address)?;
     let token_info = erc20_retriever
@@ -268,7 +261,7 @@ pub async fn eth_untrack_token(
     sk: tauri::State<'_, SK>,
 ) -> Result<(), String> {
     let mut sk = sk.lock().await;
-    let wallet = sk.wallet()?;
+    let wallet = sk.wallet_mut_str_err()?;
 
     let address = parse_addres(&token_address)?;
     let token = wallet

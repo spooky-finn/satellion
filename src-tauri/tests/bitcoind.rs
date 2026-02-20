@@ -1,6 +1,7 @@
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use bitcoin::Address;
 use corepc_node::{Client, Conf, Node, client::bitcoin::Amount};
+use std::{fs, thread, time::Duration};
 
 pub struct BitcoindHarness {
     pub node: Node,
@@ -8,20 +9,52 @@ pub struct BitcoindHarness {
 
 impl BitcoindHarness {
     pub fn start() -> Result<Self> {
+        Self::prepare();
         let exe = std::path::PathBuf::from(
             std::env::var("BITCOIND_EXE")
                 .unwrap_or_else(|_| "/opt/homebrew/bin/bitcoind".to_string()),
         );
 
         let mut conf = Conf::default();
+
         conf.wallet = None;
-        conf.args
-            .extend(["-txindex", "-blockfilterindex=1", "-peerblockfilters"]);
+        conf.attempts = 1;
+        conf.args.extend([
+            "-txindex",
+            "-blockfilterindex=1",
+            "-peerblockfilters",
+            "-connect=0", // CRITICAL: Don't connect to other nodes
+            "-listen=1",  // Ensure we are the master
+        ]);
 
         let node = Node::with_conf(exe, &conf)?;
 
-        // createwallet with descriptors=true (required for Core 28+)
-        let _ = node.client.call::<serde_json::Value>(
+        // retry loop for RPC readiness
+        let client = &node.client;
+        const MAX_ATTEMPTS: u32 = 10;
+        let mut attempt = 0;
+        while attempt < MAX_ATTEMPTS {
+            match client.call::<serde_json::Value>("getblockchaininfo", &[]) {
+                Ok(info) => {
+                    if info["blocks"] == 0 {
+                        break;
+                    }
+                }
+                Err(_) => {
+                    thread::sleep(Duration::from_millis(500));
+                }
+            }
+            attempt += 1;
+            if attempt == MAX_ATTEMPTS {
+                return Err(anyhow!(
+                    "Failed to connect to bitcoind RPC after {} attempts",
+                    MAX_ATTEMPTS
+                ));
+            }
+        }
+
+        // create wallet with descriptors=true
+        let _ = client.call::<serde_json::Value>(
             "createwallet",
             &[
                 serde_json::json!("default"),
@@ -29,16 +62,18 @@ impl BitcoindHarness {
                 serde_json::json!(false),
                 serde_json::json!(""),
                 serde_json::json!(false),
-                serde_json::json!(true), // descriptors
+                serde_json::json!(true),
             ],
         );
 
-        // Use raw Value — Core 28+ changed `warnings` from String to Array,
-        // which breaks corepc-node 0.10.1's typed deserializer
-        let info = node
-            .client
-            .call::<serde_json::Value>("getblockchaininfo", &[])?;
-        assert_eq!(info["blocks"], 0);
+        // 3. DO NOT use existing block height. Verify it is 0.
+        let info: serde_json::Value = node.client.call("getblockchaininfo", &[])?;
+        if info["blocks"].as_u64().unwrap() != 0 {
+            return Err(anyhow!(
+                "State leak! Node started at block {}",
+                info["blocks"]
+            ));
+        }
 
         Ok(Self { node })
     }
@@ -75,6 +110,29 @@ impl BitcoindHarness {
 
     pub fn balance(&self) -> Result<Amount> {
         Ok(self.client().get_balance()?.balance()?)
+    }
+
+    pub fn tips(
+        &self,
+    ) -> std::result::Result<corepc_node::vtype::GetChainTips, corepc_client::client_sync::Error>
+    {
+        self.client().get_chain_tips()
+    }
+
+    fn prepare() {
+        if let Some(home_dir) = std::env::home_dir() {
+            let nakamoto_path = home_dir.join(".nakamoto").join("regtest");
+
+            if nakamoto_path.exists() {
+                if let Err(e) = fs::remove_dir_all(&nakamoto_path) {
+                    eprintln!("Failed to clean nakamoto dir at {:?}: {}", nakamoto_path, e);
+                } else {
+                    println!("Successfully cleaned: {:?}", nakamoto_path);
+                }
+            }
+        } else {
+            eprintln!("Could not resolve user home directory.");
+        }
     }
 }
 

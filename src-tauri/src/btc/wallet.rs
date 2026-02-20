@@ -75,13 +75,11 @@ impl BitcoinWallet {
         }
     }
 
-    pub fn build_prk(&self, mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
+    pub fn build_prk(&self, mnemonic: &str, passphrase: &str) -> anyhow::Result<Prk> {
         let network = CONFIG.bitcoin.network();
-        let mnemonic = bip39::Mnemonic::parse_in_normalized(Language::English, mnemonic)
-            .map_err(|e| e.to_string())?;
+        let mnemonic = bip39::Mnemonic::parse_in_normalized(Language::English, mnemonic)?;
         let seed = mnemonic.to_seed(CONFIG.xprk_passphrase(passphrase));
-        let xpriv =
-            bip32::Xpriv::new_master(network.as_kind(), &seed).map_err(|e| e.to_string())?;
+        let xpriv = bip32::Xpriv::new_master(network.as_kind(), &seed)?;
         Ok(Prk { xpriv })
     }
 
@@ -95,7 +93,7 @@ impl BitcoinWallet {
         }
     }
 
-    pub fn derive_scripts_of_interes(&self, prk: &Prk) -> Result<HashSet<DerivedScript>, String> {
+    pub fn derive_scripts_of_interes(&self, prk: &Prk) -> anyhow::Result<HashSet<DerivedScript>> {
         let mut scripts_of_interes: HashSet<DerivedScript> = HashSet::new();
         {
             // Derive script for main receive script pubkey
@@ -106,9 +104,7 @@ impl BitcoinWallet {
 
         for labled_derive_path in self.derived_addresses.iter() {
             let derive_path = labled_derive_path.derive_path.clone();
-            let (_, address) = self
-                .derive_child(prk.expose(), &derive_path)
-                .map_err(|e| format!("derived bitcoin address corrupted {e}"))?;
+            let (_, address) = self.derive_child(prk.expose(), &derive_path)?;
             scripts_of_interes.insert(DerivedScript::new(address.script_pubkey(), derive_path));
         }
 
@@ -119,12 +115,11 @@ impl BitcoinWallet {
         &self,
         xpriv: &Xpriv,
         derive_path: &DerivePath,
-    ) -> Result<(Keypair, Address), String> {
+    ) -> anyhow::Result<(Keypair, Address)> {
         let secp = Secp256k1::new();
         // derive child private key
         let keypair = xpriv
-            .derive_priv(&secp, &derive_path.to_path()?)
-            .map_err(|e| format!("Derivation error: {}", e))?
+            .derive_priv(&secp, &derive_path.to_path()?)?
             .to_keypair(&secp);
 
         // x-only pubkey for taproot

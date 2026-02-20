@@ -78,7 +78,7 @@ pub async fn list_wallets(
 #[tauri::command]
 pub async fn chain_switch_event(chain: Chain, sk: tauri::State<'_, SK>) -> Result<(), String> {
     let mut sk = sk.lock().await;
-    let wallet = sk.wallet()?;
+    let wallet = sk.wallet_mut_str_err()?;
     wallet.last_used_chain = chain;
     wallet.persist()?;
     Ok(())
@@ -127,7 +127,7 @@ pub async fn unlock_wallet(
 ) -> Result<UnlockMsg, String> {
     let mut wallet = wallet_keeper.load(&wallet_name, &passphrase)?;
     let eth_prk = wallet.eth_prk()?;
-    let btc_prk = wallet.btc_prk()?;
+    let btc_prk = wallet.btc_prk().map_err(|e| e.to_string())?;
 
     // Unlock both wallets in parallel using the ChainWallet trait
     let (ethereum, bitcoin) = tokio::try_join!(

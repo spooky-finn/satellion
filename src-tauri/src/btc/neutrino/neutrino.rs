@@ -62,10 +62,10 @@ impl NeutrinoStarter {
         Ok(())
     }
 
-    async fn run_node(&self, args: NodeStartArgs) -> Result<(), String> {
+    async fn run_node(&self, args: NodeStartArgs) -> anyhow::Result<()> {
         let scripts = {
             let mut sk = self.sk.lock().await;
-            let wallet = sk.wallet()?;
+            let wallet = sk.wallet_mut().map_err(|e| anyhow::anyhow!(e))?;
             let prk = wallet.btc_prk()?;
             wallet.btc.derive_scripts_of_interes(&prk)?
         };
@@ -79,10 +79,7 @@ impl NeutrinoStarter {
             })
             .collect();
 
-        Neutrino::connect(args.birth_height, CONFIG.bitcoin.network(), scripts)
-            .await
-            .map_err(|e| format!("Failed to connect: {}", e))?;
-
+        Neutrino::connect(args.birth_height, CONFIG.bitcoin.network(), scripts).await?;
         Ok(())
     }
 }

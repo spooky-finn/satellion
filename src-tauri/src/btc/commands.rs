@@ -1,22 +1,15 @@
 use serde::{Deserialize, Serialize};
-use shush_rs::ExposeSecret;
 use specta::{Type, specta};
 
 use crate::{
     btc::{
-        DerivedScript, Prk,
+        DerivedScript,
         address::{self, DerivePathSlice},
     },
     chain_trait::SecureKey,
     config::CONFIG,
     session::SK,
-    wallet::Wallet,
 };
-
-fn build_prk(w: &Wallet) -> Result<Prk, String> {
-    w.btc
-        .build_prk(&w.mnemonic.expose_secret(), &w.passphrase.expose_secret())
-}
 
 #[specta]
 #[tauri::command]
@@ -26,7 +19,7 @@ pub async fn btc_derive_address(
     sk: tauri::State<'_, SK>,
 ) -> Result<String, String> {
     let mut sk = sk.lock().await;
-    let wallet = sk.wallet()?;
+    let wallet = sk.wallet_mut_str_err()?;
     let derive_path = address::DerivePath {
         change: address::Change::External,
         index,
@@ -38,8 +31,12 @@ pub async fn btc_derive_address(
         return Err(format!("Deriviation index {} already occupied", index));
     }
 
-    let prk = build_prk(wallet)?;
-    let (_, address) = wallet.btc.derive_child(prk.expose(), &derive_path)?;
+    let prk = wallet.btc_prk().map_err(|e| e.to_string())?;
+
+    let (_, address) = wallet
+        .btc
+        .derive_child(prk.expose(), &derive_path)
+        .map_err(|e| e.to_string())?;
 
     wallet.mutate_btc(|chain| {
         chain.add_child(label, derive_path.clone());
@@ -56,7 +53,7 @@ pub async fn btc_derive_address(
 pub async fn btc_unoccupied_deriviation_index(sk: tauri::State<'_, SK>) -> Result<u32, String> {
     let mut sk = sk.lock().await;
     Ok(sk
-        .wallet()?
+        .wallet_mut_str_err()?
         .btc
         .unoccupied_deriviation_index(address::Change::External))
 }
@@ -74,8 +71,9 @@ pub async fn btc_list_derived_addresess(
     sk: tauri::State<'_, SK>,
 ) -> Result<Vec<DerivedAddress>, String> {
     let mut sk = sk.lock().await;
-    let wallet = sk.wallet()?;
-    let prk = build_prk(wallet)?;
+    let wallet = sk.wallet_mut_str_err()?;
+    let prk = wallet.btc_prk().map_err(|e| e.to_string())?;
+
     Ok(wallet
         .btc
         .list_external_addresess()
@@ -114,7 +112,7 @@ const UTXO_DISPLAY_LIMIT: usize = 500;
 #[tauri::command]
 pub async fn btc_list_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<Utxo>, String> {
     let mut sk = sk.lock().await;
-    let wallet = sk.wallet()?;
+    let wallet = sk.wallet_mut_str_err()?;
 
     let derivepath_label_map: std::collections::HashMap<DerivePathSlice, String> = wallet
         .btc
