@@ -1,7 +1,7 @@
 use anyhow::{Result, anyhow};
-use bitcoin::Address;
+use corepc_client::bitcoin::Address;
 use corepc_node::{Client, Conf, Node, client::bitcoin::Amount};
-use std::{fs, thread, time::Duration};
+use std::{fs, str::FromStr, thread, time::Duration};
 
 pub struct BitcoindHarness {
     pub node: Node,
@@ -92,20 +92,16 @@ impl BitcoindHarness {
         self.mine_blocks(101)
     }
 
-    pub fn send_to(&self, address: &Address, btc: f64) -> Result<()> {
+    pub fn send_to(&self, address: &str, btc: f64) -> Result<()> {
         self.client()
-            .send_to_address(address, Amount::from_btc(btc)?)?;
+            .send_to_address(&parse_addr(address), Amount::from_btc(btc)?)?;
         Ok(())
     }
 
-    pub fn send_and_confirm(&self, address: &Address, btc: f64) -> Result<()> {
+    pub fn send_and_confirm(&self, address: &str, btc: f64) -> Result<()> {
         self.send_to(address, btc)?;
         self.mine_blocks(1)?;
         Ok(())
-    }
-
-    pub fn new_address(&self) -> Result<Address> {
-        Ok(self.client().new_address()?)
     }
 
     pub fn balance(&self) -> Result<Amount> {
@@ -140,4 +136,11 @@ impl Drop for BitcoindHarness {
     fn drop(&mut self) {
         let _ = self.node.stop();
     }
+}
+
+fn parse_addr(addr: &str) -> Address {
+    Address::from_str(addr)
+        .expect("invalid address")
+        .require_network(corepc_client::bitcoin::Network::Regtest)
+        .expect("invalid network")
 }

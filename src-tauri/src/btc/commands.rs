@@ -133,7 +133,7 @@ pub async fn btc_list_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<Utxo>, Strin
                     .cloned(),
             };
             Utxo {
-                value: utxo.output.value.to_sat().to_string(),
+                value: utxo.output.value.to_string(),
                 utxo_id: UtxoId {
                     tx_id: utxo.tx_id.to_string(),
                     vout: utxo.vout.to_string(),

@@ -1,6 +1,6 @@
 use std::{net::SocketAddr, str::FromStr};
 
-use bitcoin::NetworkKind;
+use nakamoto::common::bitcoin;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,15 +57,6 @@ impl Into<nakamoto::client::Network> for Network {
         match self {
             Network::Mainnet => nakamoto::client::Network::Mainnet,
             Network::Regtest => nakamoto::client::Network::Regtest,
-        }
-    }
-}
-
-impl Network {
-    pub fn as_kind(&self) -> NetworkKind {
-        match self {
-            Network::Mainnet => bitcoin::NetworkKind::Main,
-            Network::Regtest => bitcoin::NetworkKind::Test,
         }
     }
 }

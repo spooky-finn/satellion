@@ -1,13 +1,21 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    str::FromStr,
+};
 
 use bip39::Language;
-use bitcoin::{
-    Address, BlockHash, ScriptBuf, Wtxid,
-    bip32::{self, Xpriv},
-    hashes::Hash,
-    key::{Keypair, Secp256k1},
-};
 use tokio::sync::mpsc;
+
+use nakamoto::{
+    chain::BlockHash,
+    common::{
+        bitcoin::{
+            Address, OutPoint, Script, TxOut, Txid, schnorr::UntweakedPublicKey,
+            secp256k1::Secp256k1,
+        },
+        bitcoin_hashes::hex::FromHex,
+    },
+};
 
 use crate::{
     btc::{
@@ -24,17 +32,17 @@ pub struct RuntimeData {
 }
 
 pub struct Prk {
-    xpriv: Xpriv,
+    xpriv: bip32::XPrv,
 }
 
 impl Drop for Prk {
     fn drop(&mut self) {
-        self.xpriv.private_key.non_secure_erase();
+        // self.xpriv.private_key().
     }
 }
 
 impl SecureKey for Prk {
-    type Material = Xpriv;
+    type Material = bip32::XPrv;
 
     fn expose(&self) -> &Self::Material {
         &self.xpriv
@@ -43,12 +51,12 @@ impl SecureKey for Prk {
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct DerivedScript {
-    pub script: ScriptBuf,
+    pub script: Script,
     pub derive_path: DerivePath,
 }
 
 impl DerivedScript {
-    pub fn new(script: ScriptBuf, derive_path: DerivePath) -> Self {
+    pub fn new(script: Script, derive_path: DerivePath) -> Self {
         Self {
             script,
             derive_path,
@@ -58,7 +66,7 @@ impl DerivedScript {
 
 pub struct BitcoinWallet {
     pub derived_addresses: Vec<LabeledDerivationPath>,
-    pub utxos: HashMap<String, Utxo>,
+    pub utxos: HashMap<OutPoint, Utxo>,
     pub cfilter_scanner_height: u32,
     pub initial_sync_done: bool,
     pub runtime: RuntimeData,
@@ -76,10 +84,9 @@ impl BitcoinWallet {
     }
 
     pub fn build_prk(&self, mnemonic: &str, passphrase: &str) -> anyhow::Result<Prk> {
-        let network = CONFIG.bitcoin.network();
         let mnemonic = bip39::Mnemonic::parse_in_normalized(Language::English, mnemonic)?;
         let seed = mnemonic.to_seed(CONFIG.xprk_passphrase(passphrase));
-        let xpriv = bip32::Xpriv::new_master(network.as_kind(), &seed)?;
+        let xpriv = bip32::XPrv::new(&seed)?;
         Ok(Prk { xpriv })
     }
 
@@ -113,21 +120,34 @@ impl BitcoinWallet {
 
     pub fn derive_child(
         &self,
-        xpriv: &Xpriv,
+        xprv: &bip32::XPrv,
         derive_path: &DerivePath,
-    ) -> anyhow::Result<(Keypair, Address)> {
+    ) -> anyhow::Result<(nakamoto::common::bitcoin::util::key::KeyPair, Address)> {
         let secp = Secp256k1::new();
         // derive child private key
-        let keypair = xpriv
-            .derive_priv(&secp, &derive_path.to_path()?)?
-            .to_keypair(&secp);
+        // let child_number = derive_path;
+        let path = derive_path.to_path().unwrap();
+        let child_xprv =
+            bip32::XPrv::derive_from_path(xprv.private_key().to_bytes(), &path).unwrap();
 
+        let keypair = nakamoto::common::bitcoin::util::key::KeyPair::from_seckey_slice(
+            &secp,
+            &child_xprv.private_key().to_bytes(),
+        )?;
+
+        // A canonicalized secp256k1 public key that assumes even Y and stores only X.
+        let (pubkey, _) = UntweakedPublicKey::from_keypair(&keypair);
+        // let keypair = PrivateKey::from(&secp, &child_xprv.private_key);
+        // let d = pubk.public_key();
         // x-only pubkey for taproot
-        let (xonly_pk, _parity) = keypair.x_only_public_key();
-        let network: bitcoin::Network = CONFIG.bitcoin.network().into();
+        // let (xonly_pk, _parity) = keypair.x_only_public_key();
+        // let network: bitcoin::Network = CONFIG.bitcoin.network().into();
         // Create taproot address (BIP341 tweak is done automatically by rust-bitcoin)
+
+        let network: nakamoto::common::bitcoin::Network = CONFIG.bitcoin.network().into();
+
         let address = Address::p2tr(
-            &secp, xonly_pk, None, // no script tree = BIP86 key-path spend
+            &secp, pubkey, None, // no script tree = BIP86 key-path spend
             network,
         );
 
@@ -164,15 +184,12 @@ impl BitcoinWallet {
 
     pub fn insert_utxos(&mut self, utxos: Vec<Utxo>) {
         for utxo in utxos {
-            self.utxos.insert(utxo.id(), utxo);
+            self.utxos.insert(utxo.out_point(), utxo);
         }
     }
 
     pub fn total_balance(&self) -> u64 {
-        self.utxos
-            .iter()
-            .map(|utxo| utxo.1.output.value.to_sat())
-            .sum()
+        self.utxos.iter().map(|utxo| utxo.1.output.value).sum()
     }
 
     pub fn add_script_of_interes(&mut self, script: DerivedScript) {
@@ -285,9 +302,9 @@ pub mod persistence {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct Utxo {
         /// Transaction hash (32 bytes)
-        pub txid: [u8; 32],
+        pub txid: String,
         /// Output index within the transaction
-        pub vout: usize,
+        pub vout: u32,
         /// Value in satoshis
         pub value: u64,
         /// ScriptPubKey (raw hex)
@@ -295,9 +312,9 @@ pub mod persistence {
         /// BIP-84 path to derive priv key from xpriv key
         pub deriviation_path: DerivePathSlice,
         /// Block height where this UTXO was created
-        pub block_height: u32,
+        pub block_height: u64,
         /// Block hash for additional integrity
-        pub block_hash: [u8; 32],
+        pub block_hash: String,
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -329,12 +346,12 @@ impl Persistable for BitcoinWallet {
                 .utxos
                 .values()
                 .map(|utxo| persistence::Utxo {
-                    block_hash: utxo.block.hash.to_byte_array(),
+                    block_hash: utxo.block.hash.to_string(),
                     block_height: utxo.block.height,
                     deriviation_path: utxo.derive_path.to_slice(),
                     script_pubkey: utxo.output.script_pubkey.to_bytes(),
-                    txid: utxo.tx_id.to_byte_array(),
-                    value: utxo.output.value.to_sat(),
+                    txid: utxo.tx_id.to_string(),
+                    value: utxo.output.value,
                     vout: utxo.vout,
                 })
                 .collect(),
@@ -355,25 +372,25 @@ impl Persistable for BitcoinWallet {
                 })
             })
             .collect::<Result<Vec<LabeledDerivationPath>, String>>()?;
-        let utxos: HashMap<String, Utxo> = data
+        let utxos: HashMap<OutPoint, Utxo> = data
             .utxos
             .iter()
             .map(|utxo| {
                 let derive_path = DerivePath::from_slice(utxo.deriviation_path)?;
                 let utxo = Utxo {
-                    tx_id: Wtxid::from_byte_array(utxo.txid),
+                    tx_id: Txid::from_str(&utxo.txid).unwrap(),
                     block: crate::btc::utxo::BlockHeader {
-                        hash: BlockHash::from_byte_array(utxo.block_hash),
+                        hash: BlockHash::from_hex(&utxo.block_hash).unwrap(),
                         height: utxo.block_height,
                     },
                     vout: utxo.vout,
                     derive_path,
-                    output: bitcoin::TxOut {
-                        script_pubkey: ScriptBuf::from_bytes(utxo.script_pubkey.clone()),
-                        value: bitcoin::Amount::from_sat(utxo.value),
+                    output: TxOut {
+                        script_pubkey: Script::from(utxo.script_pubkey.clone()),
+                        value: utxo.value,
                     },
                 };
-                Ok((utxo.id(), utxo))
+                Ok((utxo.out_point(), utxo))
             })
             .collect::<Result<_, String>>()?;
         Ok(Self {

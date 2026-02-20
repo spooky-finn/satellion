@@ -43,23 +43,35 @@ async fn neutrino_e2e_connect_and_ready() -> anyhow::Result<()> {
 
     sleep(Duration::from_secs(1)).await;
 
-    let mut sk = sk.lock().await;
-    let wallet = sk.wallet_mut()?;
+    let address = {
+        let mut sk = sk.lock().await;
+        let wallet = sk.wallet_mut()?;
 
-    let prk = wallet.btc_prk()?;
-    let derive_path = wallet.btc.main_derive_path();
-    let (_, address) = wallet.btc.derive_child(prk.expose(), &derive_path)?;
+        let prk = wallet.btc_prk()?;
+        let derive_path = wallet.btc.main_derive_path();
+        let (_, address) = wallet.btc.derive_child(prk.expose(), &derive_path)?;
+        address
+    };
 
     let balance = harness.balance()?;
     println!("balance before {}", balance.to_btc());
 
     harness.fund_wallet()?;
-    harness.send_and_confirm(&address, 1.2)?;
+    harness.send_and_confirm(&address.to_string(), 1.2)?;
 
     let balance = harness.balance()?;
     println!("balance {}", balance.to_btc());
 
     let tips = harness.tips()?;
     println!("tips {:?}", tips);
+
+    sleep(Duration::from_secs(3)).await;
+
+    {
+        let mut sk = sk.lock().await;
+        let wallet = sk.wallet_mut()?;
+        assert_eq!(wallet.btc.utxos.len(), 1, "Wallet should contain one utxo");
+    }
+
     Ok(())
 }

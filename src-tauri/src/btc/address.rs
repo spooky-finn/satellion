@@ -4,7 +4,8 @@ use std::{
     str::FromStr,
 };
 
-use bitcoin::{ScriptBuf, bip32::DerivationPath};
+use bip32::DerivationPath;
+use nakamoto::common::bitcoin::Script;
 
 use crate::btc::{DerivedScript, config::Network, utxo::Utxo};
 
@@ -131,7 +132,7 @@ impl DerivePath {
 }
 
 pub struct ScriptHolder {
-    map: HashMap<ScriptBuf, DerivePath>,
+    map: HashMap<Script, DerivePath>,
 }
 
 impl ScriptHolder {
@@ -149,7 +150,7 @@ impl ScriptHolder {
         self.map.len()
     }
 
-    pub fn scripts(&self) -> Keys<'_, ScriptBuf, DerivePath> {
+    pub fn scripts(&self) -> Keys<'_, Script, DerivePath> {
         self.map.keys()
     }
 
