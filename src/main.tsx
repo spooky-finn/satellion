@@ -1,29 +1,16 @@
 import { CssVarsProvider } from '@mui/joy'
-import { extendTheme } from '@mui/joy/styles'
 import { listen } from '@tauri-apps/api/event'
 import React, { useLayoutEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Route, Routes, useNavigate } from 'react-router'
 import { NotifierOverlay } from './lib/notifier/notification_overlay'
+import { theme } from './lib/notifier/theme'
 import { route } from './routes'
 import Bitcoin from './routes/bitcoin/bitcoin'
 import { CreateWallet } from './routes/create_wallet'
 import { Ethereum } from './routes/ethereum/ethereum'
 import { EthereumTransfer } from './routes/ethereum/transfer'
 import UnlockWallet from './routes/unlock_wallet'
-
-const theme = extendTheme({
-  cssVarPrefix: 'mode-toggle',
-  // @ts-expect-error
-  colorSchemeSelector: '.demo_mode-toggle-%s',
-  components: {
-    JoyButton: {
-      defaultProps: {
-        size: 'sm',
-      },
-    },
-  },
-})
 
 const App = () => {
   const navigate = useNavigate()

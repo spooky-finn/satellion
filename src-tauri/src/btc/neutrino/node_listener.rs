@@ -130,10 +130,10 @@ impl NodeEventHandler {
                 }
             }
             bip157::Info::SuccessfulHandshake => {
-                tracing::debug!("Successful handshake with peer");
+                tracing::info!("Neutrino handshake with peer");
             }
             bip157::Info::ConnectionsMet => {
-                tracing::debug!("Connection requirements met");
+                tracing::info!("Neutrino is connected to all required peers.");
             }
             bip157::Info::BlockReceived(_) => {
                 // Handled by block downloader

@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use serde::Serialize;
-use shush_rs::ExposeSecret;
 use specta::{Type, specta};
 use tauri::AppHandle;
 use tokio::sync::mpsc;
