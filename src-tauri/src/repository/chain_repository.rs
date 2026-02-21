@@ -9,14 +9,22 @@ pub struct ChainRepository {
     base: BaseRepository,
 }
 
+pub trait ChainRepositoryTrait: Send + Sync {
+    fn save_block_header(&self, block_header: &IndexedHeader) -> Result<usize, Error>;
+    fn last_block(&self) -> Result<BlockHeader, Error>;
+    fn get_block_header(&self, height: u32) -> Result<Option<BlockHeader>, Error>;
+}
+
 impl ChainRepository {
     pub fn new(db_pool: Pool<ConnectionManager<SqliteConnection>>) -> Self {
         Self {
             base: BaseRepository::new(db_pool),
         }
     }
+}
 
-    pub fn save_block_header(&self, block_header: &IndexedHeader) -> Result<usize, Error> {
+impl ChainRepositoryTrait for ChainRepository {
+    fn save_block_header(&self, block_header: &IndexedHeader) -> Result<usize, Error> {
         let mut conn = self.base.get_conn()?;
         diesel::insert_into(bitcoin_block_headers::table)
             .values(&BlockHeader {
@@ -38,7 +46,7 @@ impl ChainRepository {
             })
     }
 
-    pub fn last_block(&self) -> Result<BlockHeader, Error> {
+    fn last_block(&self) -> Result<BlockHeader, Error> {
         let mut conn = self.base.get_conn()?;
         let last_block = bitcoin_block_headers::table
             .select(bitcoin_block_headers::all_columns)
@@ -63,7 +71,7 @@ impl ChainRepository {
     //         .load::<BlockHeader>(&mut conn)
     // }
 
-    pub fn get_block_header(&self, height: u32) -> Result<Option<BlockHeader>, Error> {
+    fn get_block_header(&self, height: u32) -> Result<Option<BlockHeader>, Error> {
         let mut conn = self.base.get_conn()?;
         bitcoin_block_headers::table
             .select(bitcoin_block_headers::all_columns)

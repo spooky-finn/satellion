@@ -13,14 +13,14 @@ use crate::{
         DerivedScript,
         address::ScriptHolder,
         neutrino::{
-            BoxFutureUnit, EventEmitter, LifecycleState, NodeLifecycle, SyncOrchestrator,
+            BoxFutureUnit, EventEmitterTrait, LifecycleState, NodeLifecycle, SyncOrchestrator,
             block_sync_worker::{BlockRequestChannel, BlockSyncWorker},
             node_listener::{NeutrinoClientArgs, run_neutrino_client},
         },
     },
     config::CONFIG,
     db,
-    repository::ChainRepository,
+    repository::ChainRepositoryTrait,
     session::{SK, SessionKeeper},
 };
 
@@ -29,18 +29,18 @@ static NODE_RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 #[derive(Clone)]
 pub struct NeutrinoStarter {
     sk: Arc<Mutex<SessionKeeper>>,
-    repository: ChainRepository,
+    repository: Arc<dyn ChainRepositoryTrait>,
     state: Arc<Mutex<LifecycleState>>,
 }
 
 pub struct NodeStartArgs {
-    pub event_emitter: EventEmitter,
+    pub event_emitter: Arc<dyn EventEmitterTrait>,
     pub script_rx: mpsc::UnboundedReceiver<DerivedScript>,
     pub last_seen_height: u32,
 }
 
 impl NeutrinoStarter {
-    pub fn new(repository: ChainRepository, sk: SK) -> Self {
+    pub fn new(repository: Arc<dyn ChainRepositoryTrait>, sk: SK) -> Self {
         Self {
             repository,
             sk,

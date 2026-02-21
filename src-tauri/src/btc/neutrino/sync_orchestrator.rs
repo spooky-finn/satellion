@@ -1,10 +1,8 @@
+use std::sync::Arc;
+
 use tokio::sync::mpsc;
 
-use crate::{
-    btc::{neutrino::EventEmitter, wallet::sync},
-    repository::ChainRepository,
-    session::SK,
-};
+use crate::{EventEmitterTrait, btc::wallet::sync, repository::ChainRepositoryTrait, session::SK};
 
 #[derive(Debug)]
 pub struct Channels {
@@ -24,13 +22,17 @@ impl Default for Channels {
 
 pub struct SyncOrchestrator {
     sk: SK,
-    chain_repository: ChainRepository,
-    event_emitter: EventEmitter,
+    chain_repository: Arc<dyn ChainRepositoryTrait>,
+    event_emitter: Arc<dyn EventEmitterTrait>,
     channels: Channels,
 }
 
 impl SyncOrchestrator {
-    pub fn new(sk: SK, chain_repository: ChainRepository, event_emitter: EventEmitter) -> Self {
+    pub fn new(
+        sk: SK,
+        chain_repository: Arc<dyn ChainRepositoryTrait>,
+        event_emitter: Arc<dyn EventEmitterTrait>,
+    ) -> Self {
         Self {
             channels: Channels::default(),
             sk,
@@ -75,13 +77,13 @@ impl SyncOrchestrator {
             sync::Event::NewUtxos(utxos) => {
                 let mut sk = self.sk.lock().await;
                 let wallet = sk.wallet()?;
-wallet.btc.insert_utxos(utxos.clone());
+                wallet.btc.insert_utxos(utxos.clone());
 
                 utxos.iter().for_each(|each| {
                     self.event_emitter
                         .new_utxo(each.output.value.to_sat(), wallet.btc.total_balance());
                 });
-                            }
+            }
         }
         Ok(())
     }

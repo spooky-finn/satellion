@@ -3,7 +3,10 @@ use std::{sync::Arc, time::Duration};
 use chrono::{DateTime, Utc};
 use tokio::sync::Mutex;
 
-use crate::{btc::neutrino::EventEmitter, wallet::Wallet};
+use crate::{
+    btc::neutrino::{EventEmitter, EventEmitterTrait},
+    wallet::Wallet,
+};
 
 pub struct Session {
     pub wallet: Wallet,

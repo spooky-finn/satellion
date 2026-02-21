@@ -6,14 +6,18 @@ use tokio::sync::{RwLock, mpsc};
 
 use bip157::{Client, Event, IndexedFilter, chain::BlockHeaderChanges};
 
-use super::{EventEmitter, HeightUpdateStatus};
+use super::HeightUpdateStatus;
 use crate::{
-    btc::{address::ScriptHolder, neutrino::block_sync_worker::BlockRequestEvent, sync},
+    btc::{
+        address::ScriptHolder,
+        neutrino::{EventEmitterTrait, block_sync_worker::BlockRequestEvent},
+        sync,
+    },
     utils::Throttler,
 };
 
 pub struct NeutrinoClientArgs {
-    pub event_emitter: EventEmitter,
+    pub event_emitter: Arc<dyn EventEmitterTrait>,
     pub sync_event_tx: mpsc::UnboundedSender<sync::Event>,
     pub block_req_tx: mpsc::UnboundedSender<BlockRequestEvent>,
     pub script_holder: Arc<RwLock<ScriptHolder>>,

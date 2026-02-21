@@ -231,11 +231,11 @@ pub struct TransferContext {
 }
 
 pub trait TransferBuilder {
-    async fn build_transaction(
+    fn build_transaction(
         &self,
         req: &TransferRequest,
         ctx: &TransferContext,
-    ) -> Result<TransactionRequest, TransferBuilderError>;
+    ) -> impl Future<Output = Result<TransactionRequest, TransferBuilderError>> + Send;
 }
 
 /// Trait for checking if accounts have sufficient balance for transfers.
@@ -249,14 +249,14 @@ pub trait BalanceChecker {
     /// This method validates that the sender's account balance is sufficient to cover
     /// the requested transfer amount plus any associated transaction fees. The specific
     /// validation logic depends on the asset type being transferred.
-    async fn check_balance(
+    fn check_balance(
         &self,
         _req: &TransferRequest,
         _ctx: &TransferContext,
         _estimated_gas: u64,
         _estimator: Eip1559Estimation,
-    ) -> Result<(), TransferBuilderError> {
-        Ok(())
+    ) -> impl Future<Output = Result<(), TransferBuilderError>> + Send {
+        async { Ok(()) }
     }
 }
 

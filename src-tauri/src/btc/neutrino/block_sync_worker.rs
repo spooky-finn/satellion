@@ -9,7 +9,7 @@ use bip157::{BlockHash, FeeRate, IndexedBlock, Requester, SyncUpdate};
 
 use crate::btc::{
     address::ScriptHolder,
-    neutrino::{EventEmitter, HeightUpdateStatus},
+    neutrino::{EventEmitterTrait, HeightUpdateStatus},
     sync,
 };
 
@@ -38,7 +38,7 @@ pub struct BlockSyncWorker {
     concurrency: usize,
     sync_tx: mpsc::UnboundedSender<sync::Event>,
     script_holder: Arc<RwLock<ScriptHolder>>,
-    event_emitter: EventEmitter,
+    event_emitter: Arc<dyn EventEmitterTrait>,
 }
 
 impl BlockSyncWorker {
@@ -46,7 +46,7 @@ impl BlockSyncWorker {
         requester: Requester,
         sync_tx: mpsc::UnboundedSender<sync::Event>,
         script_holder: Arc<RwLock<ScriptHolder>>,
-        event_emitter: EventEmitter,
+        event_emitter: Arc<dyn EventEmitterTrait>,
     ) -> Self {
         Self {
             requester,
@@ -72,7 +72,7 @@ impl BlockSyncWorker {
                     BlockRequestEvent::Final(block_hash, sync_update) => {
                         Self::download_block(requester, script_holder, sync_tx.clone(), block_hash)
                             .await;
-                        Self::complete(&emitter, sync_update, sync_tx, block_hash).await;
+                        Self::complete(emitter, sync_update, sync_tx, block_hash).await;
                     }
                     BlockRequestEvent::Middle(block_hash) => {
                         Self::download_block(requester, script_holder, sync_tx, block_hash).await
@@ -97,7 +97,7 @@ impl BlockSyncWorker {
     }
 
     async fn complete(
-        emitter: &EventEmitter,
+        emitter: Arc<dyn EventEmitterTrait>,
         sync_update: SyncUpdate,
         sync_tx: mpsc::UnboundedSender<sync::Event>,
         block_hash: BlockHash,

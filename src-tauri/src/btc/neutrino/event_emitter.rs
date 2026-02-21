@@ -3,6 +3,17 @@ use specta::Type;
 use tauri::{AppHandle, Emitter};
 use tauri_specta::{Events, collect_events};
 
+use mockall::{automock, predicate::*};
+
+#[automock]
+pub trait EventEmitterTrait: Send + Sync {
+    fn height_updated(&self, height: u32, status: HeightUpdateStatus);
+    fn cf_sync_progress(&self, pct: f32);
+    fn node_warning(&self, msg: String);
+    fn new_utxo(&self, value: u64, total: u64);
+    fn session_expired(&self);
+}
+
 pub const EVENT_HEIGHT_UPDATE: &str = "btc_sync";
 pub const EVENT_SYNC_PROGRESS: &str = "btc_sync_progress";
 pub const EVENT_SYNC_WARNING: &str = "btc_sync_warning";
@@ -54,27 +65,23 @@ pub struct EventEmitter {
     app: AppHandle,
 }
 
-impl EventEmitter {
-    pub fn new(app: AppHandle) -> Self {
-        Self { app }
-    }
-
-    pub fn height_updated(&self, height: u32, status: HeightUpdateStatus) {
+impl EventEmitterTrait for EventEmitter {
+    fn height_updated(&self, height: u32, status: HeightUpdateStatus) {
         self.emit(
             EVENT_HEIGHT_UPDATE,
             SyncHeightUpdateEvent { height, status },
         );
     }
 
-    pub fn cf_sync_progress(&self, pct: f32) {
+    fn cf_sync_progress(&self, pct: f32) {
         self.emit(EVENT_SYNC_PROGRESS, SyncProgressEvent { progress: pct });
     }
 
-    pub fn node_warning(&self, msg: String) {
+    fn node_warning(&self, msg: String) {
         self.emit(EVENT_SYNC_WARNING, SyncWarningEvent { msg });
     }
 
-    pub fn new_utxo(&self, value: u64, total: u64) {
+    fn new_utxo(&self, value: u64, total: u64) {
         self.emit(
             EVENT_SYNC_NEW_UTXO,
             SyncNewUtxoEvent {
@@ -84,8 +91,14 @@ impl EventEmitter {
         );
     }
 
-    pub fn session_expired(&self) {
+    fn session_expired(&self) {
         self.emit(EVENT_SESSION_EXPIRED, ());
+    }
+}
+
+impl EventEmitter {
+    pub fn new(app: AppHandle) -> Self {
+        Self { app }
     }
 
     fn emit<S: Serialize + Clone>(&self, event: &str, payload: S) {

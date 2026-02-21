@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use serde::Serialize;
 use shush_rs::ExposeSecret;
 use specta::{Type, specta};
@@ -17,7 +19,7 @@ use crate::{
         constants::{BTC_USD_PRICE_FEED, ETH_USD_PRICE_FEED},
     },
     mnemonic,
-    repository::ChainRepository,
+    repository::{ChainRepository, ChainRepositoryTrait},
     session::{SK, Session},
     wallet_keeper::{CreationFlow, WalletKeeper},
 };
@@ -131,15 +133,9 @@ pub async fn unlock_wallet(
     let (script_tx, script_rx) = mpsc::unbounded_channel();
     let mut wallet = wallet_keeper.load(&wallet_name, &passphrase)?;
 
-    // Derive private keys for chains
-    let eth_prk = wallet
-        .eth
-        .build_prk(&wallet.mnemonic.expose_secret(), &passphrase)?;
-    let btc_prk = wallet
-        .btc
-        .build_prk(&wallet.mnemonic.expose_secret(), &passphrase)?;
+    let eth_prk = wallet.eth_prk()?;
+    let btc_prk = wallet.btc_prk()?;
 
-    // Unlock both wallets in parallel using the ChainWallet trait
     let (ethereum, bitcoin) = tokio::try_join!(
         wallet.eth.unlock((), &eth_prk),
         wallet.btc.unlock(UnlockCtx { script_tx }, &btc_prk)
@@ -147,7 +143,7 @@ pub async fn unlock_wallet(
 
     let last_used_chain = wallet.last_used_chain;
 
-    let event_emitter = EventEmitter::new(app);
+    let event_emitter = Arc::new(EventEmitter::new(app));
     neutrino_starter
         .request_node_start(
             NodeStartArgs {

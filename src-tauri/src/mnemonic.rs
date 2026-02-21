@@ -15,3 +15,6 @@ pub fn validate(mnemonic: &str) -> Result<bool, String> {
         Err(e) => Err(format!("Invalid mnemonic: {e}")),
     }
 }
+
+pub static TEST_MNEMONIC: &str =
+    "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";

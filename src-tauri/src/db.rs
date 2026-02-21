@@ -43,7 +43,7 @@ pub fn connect() -> Pool {
         .expect("Error creating DB pool")
 }
 
-#[derive(Insertable, Queryable, Debug, PartialEq)]
+#[derive(Insertable, Queryable, Debug, PartialEq, Clone)]
 #[diesel(table_name = schema::bitcoin_block_headers)]
 pub struct BlockHeader {
     pub height: i32,
