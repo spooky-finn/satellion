@@ -1,1 +1,0 @@
-ALTER TABLE utxos DROP COLUMN deriviation_path;

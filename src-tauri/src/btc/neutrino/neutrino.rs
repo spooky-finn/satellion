@@ -2,11 +2,7 @@ use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::sync::{Mutex, RwLock, mpsc};
 use tokio_util::sync::CancellationToken;
 
-use bip157::{
-    BlockHash, Builder, Header, HeaderCheckpoint, Network, TrustedPeer,
-    chain::{ChainState, IndexedHeader},
-};
-use bitcoin::{CompactTarget, TxMerkleNode, block::Version};
+use bip157::{BlockHash, Builder, HeaderCheckpoint, Network, TrustedPeer, chain::ChainState};
 
 use crate::{
     btc::{
@@ -172,23 +168,11 @@ pub struct Neutrino {
 impl Neutrino {
     pub async fn connect(block_header: Option<db::BlockHeader>) -> Result<Self, String> {
         let (network, trusted_peers) = Self::select_network().await?;
-        let indexed_header = block_header.map(|h| IndexedHeader {
-            height: h.height as u32,
-            header: Header {
-                merkle_root: TxMerkleNode::from_str(&h.merkle_root).unwrap(),
-                prev_blockhash: BlockHash::from_str(&h.prev_blockhash).unwrap(),
-                time: h.time as u32,
-                version: Version::from_consensus(h.version),
-                bits: CompactTarget::from_consensus(h.bits as u32),
-                nonce: h.nonce as u32,
-            },
-        });
-
-        let chain_state: Option<ChainState> = indexed_header
+        let chain_state: Option<ChainState> = block_header
             .map(|ih| {
                 ChainState::Checkpoint(HeaderCheckpoint {
-                    height: ih.height,
-                    hash: ih.block_hash(),
+                    height: ih.height as u32,
+                    hash: BlockHash::from_str(&ih.blockhash).expect("invalid blockhash"),
                 })
             })
             .or_else(|| {

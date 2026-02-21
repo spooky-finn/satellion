@@ -47,10 +47,7 @@ pub fn connect() -> Pool {
 #[diesel(table_name = schema::bitcoin_block_headers)]
 pub struct BlockHeader {
     pub height: i32,
-    pub merkle_root: String,
+    pub blockhash: String,
     pub prev_blockhash: String,
     pub time: i32,
-    pub version: i32,
-    pub bits: i32,
-    pub nonce: i32,
 }

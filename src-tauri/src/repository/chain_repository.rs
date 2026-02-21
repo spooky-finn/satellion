@@ -26,15 +26,14 @@ impl ChainRepository {
 impl ChainRepositoryTrait for ChainRepository {
     fn save_block_header(&self, block_header: &IndexedHeader) -> Result<usize, Error> {
         let mut conn = self.base.get_conn()?;
+        let blockhash = block_header.block_hash().to_string();
+
         diesel::insert_into(bitcoin_block_headers::table)
             .values(&BlockHeader {
                 height: block_header.height as i32,
-                merkle_root: block_header.header.merkle_root.to_string(),
+                blockhash,
                 prev_blockhash: block_header.header.prev_blockhash.to_string(),
                 time: block_header.header.time as i32,
-                version: block_header.header.version.to_consensus(),
-                bits: block_header.header.bits.to_consensus() as i32,
-                nonce: block_header.header.nonce as i32,
             })
             .execute(&mut conn)
             .or_else(|err| {
@@ -55,21 +54,6 @@ impl ChainRepositoryTrait for ChainRepository {
 
         Ok(last_block)
     }
-
-    // pub fn get_block_headers(
-    //     &self,
-    //     last_seen_height: u32,
-    //     limit: i64,
-    // ) -> Result<Vec<BlockHeader>, Error> {
-    //     let mut conn = self.base.get_conn()?;
-    //     let min_height = (last_seen_height as i64 - limit) as i32;
-    //     bitcoin_block_headers::table
-    //         .select(bitcoin_block_headers::all_columns)
-    //         .filter(bitcoin_block_headers::height.gt(min_height))
-    //         .filter(bitcoin_block_headers::height.le(last_seen_height as i32))
-    //         .order(bitcoin_block_headers::height.desc())
-    //         .load::<BlockHeader>(&mut conn)
-    // }
 
     fn get_block_header(&self, height: u32) -> Result<Option<BlockHeader>, Error> {
         let mut conn = self.base.get_conn()?;
