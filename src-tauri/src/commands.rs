@@ -1,16 +1,9 @@
-use std::sync::Arc;
-
 use serde::Serialize;
 use specta::{Type, specta};
-use tauri::AppHandle;
-use tokio::sync::mpsc;
 use zeroize::Zeroize;
 
 use crate::{
-    btc::{
-        self, UnlockCtx,
-        neutrino::{EventEmitter, NeutrinoStarter, NodeStartArgs},
-    },
+    btc::{self},
     chain_trait::ChainTrait,
     config::{CONFIG, Chain, constants},
     eth::{
@@ -122,14 +115,11 @@ pub async fn price_feed(price_feed: tauri::State<'_, PriceFeed>) -> Result<Price
 #[specta]
 #[tauri::command]
 pub async fn unlock_wallet(
-    app: AppHandle,
     wallet_name: String,
     passphrase: String,
     wallet_keeper: tauri::State<'_, WalletKeeper>,
     sk: tauri::State<'_, SK>,
-    neutrino_starter: tauri::State<'_, NeutrinoStarter>,
 ) -> Result<UnlockMsg, String> {
-    let (script_tx, script_rx) = mpsc::unbounded_channel();
     let mut wallet = wallet_keeper.load(&wallet_name, &passphrase)?;
 
     let eth_prk = wallet.eth_prk()?;
@@ -137,22 +127,10 @@ pub async fn unlock_wallet(
 
     let (ethereum, bitcoin) = tokio::try_join!(
         wallet.eth.unlock((), &eth_prk),
-        wallet.btc.unlock(UnlockCtx { script_tx }, &btc_prk)
+        wallet.btc.unlock((), &btc_prk)
     )?;
 
     let last_used_chain = wallet.last_used_chain;
-
-    let event_emitter = Arc::new(EventEmitter::new(app));
-    neutrino_starter
-        .request_node_start(
-            NodeStartArgs {
-                event_emitter,
-                last_seen_height: wallet.btc.cfilter_scanner_height - 1,
-                script_rx,
-            },
-            wallet_name,
-        )
-        .await?;
 
     sk.lock()
         .await

@@ -59,6 +59,7 @@ pub fn run() {
             btc::commands::btc_unoccupied_deriviation_index,
             btc::commands::btc_list_derived_addresess,
             btc::commands::btc_list_utxos,
+            btc::neutrino::commands::btc_neutrino_start,
             eth::commands::eth_chain_info,
             eth::commands::eth_get_balance,
             eth::commands::eth_prepare_send_tx,

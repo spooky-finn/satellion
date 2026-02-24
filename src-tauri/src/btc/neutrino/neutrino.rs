@@ -1,17 +1,16 @@
 use std::{str::FromStr, sync::Arc, time::Duration};
-use tokio::sync::{Mutex, RwLock, mpsc};
+use tokio::sync::{Mutex, RwLock};
 use tokio_util::sync::CancellationToken;
 
 use bip157::{BlockHash, Builder, HeaderCheckpoint, Network, TrustedPeer, chain::ChainState};
 
 use crate::{
     btc::{
-        DerivedScript,
         address::ScriptHolder,
         neutrino::{
             BoxFutureUnit, EventEmitterTrait, LifecycleState, NodeLifecycle, SyncOrchestrator,
             block_sync_worker::{BlockRequestChannel, BlockSyncWorker},
-            node_listener::{NeutrinoClientArgs, run_neutrino_client},
+            node_listener::{NeutrinoClientContext, run_neutrino_client},
         },
     },
     config::CONFIG,
@@ -31,7 +30,6 @@ pub struct NeutrinoStarter {
 
 pub struct NodeStartArgs {
     pub event_emitter: Arc<dyn EventEmitterTrait>,
-    pub script_rx: mpsc::UnboundedReceiver<DerivedScript>,
     pub last_seen_height: u32,
 }
 
@@ -77,7 +75,6 @@ impl NeutrinoStarter {
     async fn run_node(&self, args: NodeStartArgs, cancel: CancellationToken) -> Result<(), String> {
         let NodeStartArgs {
             event_emitter,
-            script_rx: mut scripts_rx,
             last_seen_height,
         } = args;
 
@@ -86,18 +83,28 @@ impl NeutrinoStarter {
             .get_block_header(last_seen_height)
             .map_err(|e| format!("Failed to load block header: {}", e))?;
 
+        let wallet_birth_date = {
+            let mut sk = self.sk.lock().await;
+            sk.wallet().ok().and_then(|w| w.birth_date.clone())
+        };
+
         let neutrino = Neutrino::connect(block_header)
             .await
             .map_err(|e| format!("Failed to connect: {}", e))?;
+
+        let requester = neutrino.client.requester.clone();
+        let script_holder = Arc::new(RwLock::new(ScriptHolder::new()));
+        let block_req_channel = BlockRequestChannel::default();
 
         let mut sync_orchestrator = SyncOrchestrator::new(
             self.sk.clone(),
             self.repository.clone(),
             event_emitter.clone(),
+            script_holder.clone(),
+            block_req_channel.tx.clone(),
+            wallet_birth_date,
         );
 
-        let requester = neutrino.client.requester.clone();
-        let script_holder = Arc::new(RwLock::new(ScriptHolder::new()));
         let block_downloader = BlockSyncWorker::new(
             requester,
             sync_orchestrator.transmitter(),
@@ -105,12 +112,10 @@ impl NeutrinoStarter {
             event_emitter.clone(),
         );
 
-        let block_req_channel = BlockRequestChannel::default();
-        let neutrino_client_args = NeutrinoClientArgs {
-            event_emitter,
+        let neutrino_client_args = NeutrinoClientContext {
+            event_emitter: event_emitter.clone(),
             sync_event_tx: sync_orchestrator.transmitter(),
             block_req_tx: block_req_channel.tx.clone(),
-            script_holder: script_holder.clone(),
         };
 
         let block_req_rx = block_req_channel.rx;
@@ -129,14 +134,6 @@ impl NeutrinoStarter {
                     Box::pin(run_neutrino_client(neutrino.client, neutrino_client_args))
                         as BoxFutureUnit,
                     "neutrino_client",
-                ),
-                (
-                    Box::pin(async move {
-                        while let Some(script) = scripts_rx.recv().await {
-                            script_holder.write().await.add(script);
-                        }
-                    }) as BoxFutureUnit,
-                    "scripts_rx",
                 ),
                 (
                     Box::pin(async move { block_downloader.run(block_req_rx).await })

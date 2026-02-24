@@ -13,7 +13,7 @@ use satellion_lib::{
     wallet::Wallet,
 };
 use shush_rs::SecretBox;
-use tokio::{sync::mpsc, time::sleep};
+use tokio::time::sleep;
 
 use crate::{bitcoind::BitcoindHarness, mocks::MockChainRepository};
 
@@ -38,14 +38,12 @@ async fn neutrino_e2e_connect_and_ready() -> Result<(), Box<dyn Error>> {
     }
 
     let starter = NeutrinoStarter::new(chain_repo, sk_clone);
-    let (script_tx, script_rx) = mpsc::unbounded_channel();
     let event_emitter = MockEventEmitterTrait::new();
 
     starter
         .request_node_start(
             NodeStartArgs {
                 event_emitter: Arc::new(event_emitter),
-                script_rx,
                 last_seen_height: 0,
             },
             wallet_name,

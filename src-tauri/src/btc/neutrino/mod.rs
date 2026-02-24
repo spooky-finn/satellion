@@ -1,4 +1,5 @@
 mod block_sync_worker;
+pub mod commands;
 mod event_emitter;
 mod lifecycle;
 mod neutrino;

@@ -9,3 +9,13 @@ diesel::table! {
         time -> Integer,
     }
 }
+
+diesel::table! {
+    #[sql_name = "bitcoin.compact_filters"]
+    bitcoin_compact_filters (blockhash) {
+        blockhash -> Text,
+        filter_data -> Binary,
+    }
+}
+
+diesel::allow_tables_to_appear_in_same_query!(bitcoin_block_headers, bitcoin_compact_filters,);

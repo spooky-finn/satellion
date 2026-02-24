@@ -136,6 +136,7 @@ impl DerivePath {
     }
 }
 
+#[derive(Default)]
 pub struct ScriptHolder {
     map: HashMap<bip157::ScriptBuf, DerivePath>,
 }

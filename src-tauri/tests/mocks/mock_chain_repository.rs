@@ -3,16 +3,18 @@ use std::{collections::HashMap, sync::Mutex};
 use bip157::chain::IndexedHeader;
 use diesel::result::Error;
 
-use satellion_lib::{db::BlockHeader, repository::ChainRepositoryTrait};
+use satellion_lib::{db::BlockHeader, db::CompactFilter, repository::ChainRepositoryTrait};
 
 pub struct MockChainRepository {
     blocks: Mutex<HashMap<u32, BlockHeader>>,
+    compact_filters: Mutex<HashMap<String, Vec<u8>>>,
 }
 
 impl MockChainRepository {
     pub fn new() -> Self {
         Self {
             blocks: Mutex::new(HashMap::new()),
+            compact_filters: Mutex::new(HashMap::new()),
         }
     }
 }
@@ -30,12 +32,9 @@ impl ChainRepositoryTrait for MockChainRepository {
             height,
             BlockHeader {
                 height: height as i32,
-                merkle_root: header.header.merkle_root.to_string(),
+                blockhash: header.header.block_hash().to_string(),
                 prev_blockhash: header.header.prev_blockhash.to_string(),
                 time: header.header.time as i32,
-                version: header.header.version.to_consensus(),
-                bits: header.header.bits.to_consensus() as i32,
-                nonce: header.header.nonce as i32,
             },
         );
 
@@ -54,5 +53,22 @@ impl ChainRepositoryTrait for MockChainRepository {
     fn get_block_header(&self, height: u32) -> Result<Option<BlockHeader>, Error> {
         let blocks = self.blocks.lock().unwrap();
         Ok(blocks.get(&height).cloned())
+    }
+
+    fn save_compact_filter(&self, blockhash: &str, filter_data: &[u8]) -> Result<(), Error> {
+        let mut filters = self.compact_filters.lock().unwrap();
+        filters.insert(blockhash.to_string(), filter_data.to_vec());
+        Ok(())
+    }
+
+    fn get_compact_filter(
+        &self,
+        blockhash: &str,
+    ) -> Result<Option<CompactFilter>, Error> {
+        let filters = self.compact_filters.lock().unwrap();
+        Ok(filters.get(blockhash).map(|data| CompactFilter {
+            blockhash: blockhash.to_string(),
+            filter_data: data.clone(),
+        }))
     }
 }
