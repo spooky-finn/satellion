@@ -109,6 +109,14 @@ async btcListUtxos() : Promise<Result<Utxo[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async btcNeutrinoStart() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("btc_neutrino_start") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async ethChainInfo() : Promise<Result<ChainInfo, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("eth_chain_info") };

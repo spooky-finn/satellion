@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use bip39::Language;
 use bip157::BlockHash;
@@ -9,11 +12,11 @@ use bitcoin::{
     hashes::Hash,
     key::{Keypair, Secp256k1},
 };
-use tokio::sync::mpsc;
+use tokio::sync::RwLock;
 
 use crate::{
     btc::{
-        address::{Change, DerivePath, LabeledDerivationPath, Purpose},
+        address::{Change, DerivePath, LabeledDerivationPath, Purpose, ScriptHolder},
         utxo::Utxo,
     },
     chain_trait::{AssetTracker, ChainTrait, Persistable, SecureKey},
@@ -23,6 +26,7 @@ use crate::{
 #[derive(Default)]
 pub struct RuntimeData {
     pub sync: sync::Sync,
+    pub script_holder: Arc<RwLock<ScriptHolder>>,
 }
 
 pub struct Prk {
@@ -188,15 +192,8 @@ impl BitcoinWallet {
     }
 
     pub fn add_script_of_interes(&mut self, script: DerivedScript) {
-        self.runtime
-            .sync
-            .script_tx
-            .as_ref()
-            .expect("script_tx should be set after unlock")
-            .send(script)
-            .unwrap_or_else(|e| {
-                tracing::error!("Failed to send script of interest to channel: {}", e);
-            });
+        let mut script_holder = self.runtime.script_holder.blocking_write();
+        script_holder.add(script);
     }
 }
 
@@ -206,25 +203,24 @@ pub struct BitcoinUnlock {
     pub total_balance: String,
 }
 
-pub struct UnlockCtx {
-    pub script_tx: mpsc::UnboundedSender<DerivedScript>,
-}
+pub struct UnlockCtx {}
 
 impl ChainTrait for BitcoinWallet {
     type Prk = Prk;
     type UnlockResult = BitcoinUnlock;
-    type UnlockContext = UnlockCtx;
+    type UnlockContext = ();
 
     async fn unlock(
         &mut self,
-        ctx: Self::UnlockContext,
+        _: Self::UnlockContext,
         prk: &Self::Prk,
     ) -> Result<Self::UnlockResult, String> {
-        self.runtime.sync.script_tx = Some(ctx.script_tx.clone());
-
         let scripts = self.derive_scripts_of_interes(prk.expose())?;
-        for script in scripts {
-            ctx.script_tx.send(script).expect("fail to send script");
+        {
+            let mut script_holder = self.runtime.script_holder.write().await;
+            for script in scripts {
+                script_holder.add(script);
+            }
         }
 
         let (_, btc_main_address) = self
@@ -277,7 +273,6 @@ pub mod sync {
 
     #[derive(Default)]
     pub struct Sync {
-        pub script_tx: Option<mpsc::UnboundedSender<DerivedScript>>,
         pub result: Option<sync::Result>,
     }
 

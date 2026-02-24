@@ -1,12 +1,11 @@
 use std::{str::FromStr, sync::Arc, time::Duration};
-use tokio::sync::{Mutex, RwLock, mpsc};
+use tokio::sync::{Mutex, RwLock};
 use tokio_util::sync::CancellationToken;
 
 use bip157::{BlockHash, Builder, HeaderCheckpoint, Network, TrustedPeer, chain::ChainState};
 
 use crate::{
     btc::{
-        DerivedScript,
         address::ScriptHolder,
         neutrino::{
             BoxFutureUnit, EventEmitterTrait, LifecycleState, NodeLifecycle, SyncOrchestrator,
@@ -31,7 +30,6 @@ pub struct NeutrinoStarter {
 
 pub struct NodeStartArgs {
     pub event_emitter: Arc<dyn EventEmitterTrait>,
-    pub script_rx: mpsc::UnboundedReceiver<DerivedScript>,
     pub last_seen_height: u32,
 }
 
@@ -77,7 +75,6 @@ impl NeutrinoStarter {
     async fn run_node(&self, args: NodeStartArgs, cancel: CancellationToken) -> Result<(), String> {
         let NodeStartArgs {
             event_emitter,
-            script_rx: mut scripts_rx,
             last_seen_height,
         } = args;
 
@@ -137,14 +134,6 @@ impl NeutrinoStarter {
                     Box::pin(run_neutrino_client(neutrino.client, neutrino_client_args))
                         as BoxFutureUnit,
                     "neutrino_client",
-                ),
-                (
-                    Box::pin(async move {
-                        while let Some(script) = scripts_rx.recv().await {
-                            script_holder.write().await.add(script);
-                        }
-                    }) as BoxFutureUnit,
-                    "scripts_rx",
                 ),
                 (
                     Box::pin(async move { block_downloader.run(block_req_rx).await })
