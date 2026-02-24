@@ -25,6 +25,7 @@ pub struct SyncOrchestrator {
     chain_repository: Arc<dyn ChainRepositoryTrait>,
     event_emitter: Arc<dyn EventEmitterTrait>,
     channels: Channels,
+    wallet_birth_date: Option<u64>,
 }
 
 impl SyncOrchestrator {
@@ -32,12 +33,14 @@ impl SyncOrchestrator {
         sk: SK,
         chain_repository: Arc<dyn ChainRepositoryTrait>,
         event_emitter: Arc<dyn EventEmitterTrait>,
+        wallet_birth_date: Option<u64>,
     ) -> Self {
         Self {
             channels: Channels::default(),
             sk,
             chain_repository,
             event_emitter,
+            wallet_birth_date,
         }
     }
 
@@ -55,6 +58,12 @@ impl SyncOrchestrator {
         self.channels.sync_event_tx.clone()
     }
 
+    fn should_persist_block(&self, block_time: u32) -> bool {
+        self.wallet_birth_date
+            .map(|birth| block_time as u64 >= birth)
+            .unwrap_or(true)
+    }
+
     async fn handle_sync_event(&self, event: sync::Event) -> Result<(), String> {
         match event {
             sync::Event::ChainSynced(event) => {
@@ -70,6 +79,10 @@ impl SyncOrchestrator {
             }
             sync::Event::BlockHeader(header) => {
                 tracing::debug!("New block {}", header.height);
+                if !self.should_persist_block(header.header.time) {
+                    return Ok(());
+                }
+
                 if let Err(e) = self.chain_repository.save_block_header(&header) {
                     tracing::error!("Failed to save block header: {}", e);
                 }

@@ -37,7 +37,7 @@ impl WalletKeeper {
         } else {
             name.to_string()
         };
-        let generated_at = match flow {
+        let birth_date = match flow {
             CreationFlow::Import => None,
             CreationFlow::Generation => Some(utils::now()),
         };
@@ -45,7 +45,7 @@ impl WalletKeeper {
             name,
             mnemonic.to_string(),
             SecretBox::new(Box::new(passphrase.to_string())),
-            generated_at,
+            birth_date,
         )?;
         self.repository.store(&wallet)?;
         Ok(wallet)

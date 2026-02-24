@@ -86,6 +86,11 @@ impl NeutrinoStarter {
             .get_block_header(last_seen_height)
             .map_err(|e| format!("Failed to load block header: {}", e))?;
 
+        let wallet_birth_date = {
+            let mut sk = self.sk.lock().await;
+            sk.wallet().ok().and_then(|w| w.birth_date.clone())
+        };
+
         let neutrino = Neutrino::connect(block_header)
             .await
             .map_err(|e| format!("Failed to connect: {}", e))?;
@@ -94,6 +99,7 @@ impl NeutrinoStarter {
             self.sk.clone(),
             self.repository.clone(),
             event_emitter.clone(),
+            wallet_birth_date,
         );
 
         let requester = neutrino.client.requester.clone();
@@ -107,10 +113,12 @@ impl NeutrinoStarter {
 
         let block_req_channel = BlockRequestChannel::default();
         let neutrino_client_args = NeutrinoClientArgs {
-            event_emitter,
+            event_emitter: event_emitter.clone(),
             sync_event_tx: sync_orchestrator.transmitter(),
             block_req_tx: block_req_channel.tx.clone(),
             script_holder: script_holder.clone(),
+            chain_repository: self.repository.clone(),
+            wallet_birth_date,
         };
 
         let block_req_rx = block_req_channel.rx;

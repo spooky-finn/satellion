@@ -7,7 +7,7 @@ pub struct Wallet {
     pub mnemonic: SecretBox<String>,
     pub passphrase: SecretBox<String>,
     pub last_used_chain: Chain,
-    pub generated_at: Option<u64>,
+    pub birth_date: Option<u64>,
     pub version: u8,
 
     pub btc: btc::BitcoinWallet,
@@ -21,7 +21,7 @@ impl Wallet {
         name: String,
         mnemonic: String,
         passphrase: SecretBox<String>,
-        generated_at: Option<u64>,
+        birth_date: Option<u64>,
     ) -> Result<Self, String> {
         mnemonic::validate(&mnemonic)?;
         Ok(Wallet {
@@ -29,7 +29,7 @@ impl Wallet {
             mnemonic: SecretBox::new(Box::new(mnemonic)),
             passphrase,
             last_used_chain: Chain::Bitcoin,
-            generated_at,
+            birth_date,
             version: 1,
             btc: btc::BitcoinWallet::default(),
             eth: eth::EthereumWallet::default(),

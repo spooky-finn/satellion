@@ -51,3 +51,10 @@ pub struct BlockHeader {
     pub prev_blockhash: String,
     pub time: i32,
 }
+
+#[derive(Insertable, Queryable, Debug, PartialEq, Clone)]
+#[diesel(table_name = schema::bitcoin_compact_filters)]
+pub struct CompactFilter {
+    pub blockhash: String,
+    pub filter_data: Vec<u8>,
+}

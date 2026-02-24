@@ -13,6 +13,8 @@ use crate::{
         neutrino::{EventEmitterTrait, block_sync_worker::BlockRequestEvent},
         sync,
     },
+    db::BlockHeader,
+    repository::ChainRepositoryTrait,
     utils::Throttler,
 };
 
@@ -21,6 +23,8 @@ pub struct NeutrinoClientArgs {
     pub sync_event_tx: mpsc::UnboundedSender<sync::Event>,
     pub block_req_tx: mpsc::UnboundedSender<BlockRequestEvent>,
     pub script_holder: Arc<RwLock<ScriptHolder>>,
+    pub chain_repository: Arc<dyn ChainRepositoryTrait>,
+    pub wallet_birth_date: Option<u64>,
 }
 
 struct NodeEventHandler {
@@ -56,16 +60,17 @@ impl NodeEventHandler {
         }
     }
 
+    /// Handle a compact filter - check if it matches and queue block download
     async fn handle_filter(&self, filter: IndexedFilter) {
-        // Handle a compact filter - check if it matches and queue block download
         let script_holder = self.args.script_holder.read().await;
         assert!(
             script_holder.len() >= 1,
             "No scripts to check in the filter"
         );
+        let scipts = script_holder.scripts();
 
         // Check if this filter matches any of our scripts
-        if filter.contains_any(script_holder.scripts()) {
+        if filter.contains_any(scipts) {
             let block_hash = filter.block_hash();
             if let Err(e) = self
                 .args
@@ -74,6 +79,44 @@ impl NodeEventHandler {
             {
                 tracing::error!("fail to send to block_req_tx: {}", e);
             }
+        }
+
+        self.persist_cfilter(filter);
+    }
+
+    /// Persist filter only if block time >= wallet birth date
+    fn should_persist_filter(&self, header: BlockHeader) -> bool {
+        self.args
+            .wallet_birth_date
+            .map(|birth| header.time as u64 >= birth)
+            .unwrap_or(true)
+    }
+
+    fn persist_cfilter(&self, filter: IndexedFilter) {
+        let repo = &self.args.chain_repository;
+        let header = match repo.get_block_header(filter.height()) {
+            Ok(Some(header)) => header,
+            Ok(None) => {
+                tracing::warn!("Missing block header at height {}", filter.height());
+                return;
+            }
+            Err(e) => {
+                panic!("Failed to load block header: {}", e);
+            }
+        };
+
+        if !self.should_persist_filter(header) {
+            return;
+        }
+
+        let filter_bytes = filter.clone().into_contents();
+        let block_hash = filter.block_hash();
+        if let Err(e) = repo.save_compact_filter(&block_hash.to_string(), &filter_bytes) {
+            tracing::error!(
+                "Failed to persist compact filter for block {}: {}",
+                block_hash,
+                e
+            );
         }
     }
 

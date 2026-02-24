@@ -2,7 +2,11 @@ use bip157::chain::IndexedHeader;
 use diesel::{SqliteConnection, prelude::*, r2d2::ConnectionManager, result::Error};
 use r2d2::Pool;
 
-use crate::{db::BlockHeader, repository::BaseRepository, schema::bitcoin_block_headers};
+use crate::{
+    db::{BlockHeader, CompactFilter},
+    repository::BaseRepository,
+    schema::{bitcoin_block_headers, bitcoin_compact_filters},
+};
 
 #[derive(Clone)]
 pub struct ChainRepository {
@@ -13,6 +17,8 @@ pub trait ChainRepositoryTrait: Send + Sync {
     fn save_block_header(&self, block_header: &IndexedHeader) -> Result<usize, Error>;
     fn last_block(&self) -> Result<BlockHeader, Error>;
     fn get_block_header(&self, height: u32) -> Result<Option<BlockHeader>, Error>;
+    fn save_compact_filter(&self, blockhash: &str, filter_data: &[u8]) -> Result<(), Error>;
+    fn get_compact_filter(&self, blockhash: &str) -> Result<Option<CompactFilter>, Error>;
 }
 
 impl ChainRepository {
@@ -61,6 +67,26 @@ impl ChainRepositoryTrait for ChainRepository {
             .select(bitcoin_block_headers::all_columns)
             .filter(bitcoin_block_headers::height.eq(height as i32))
             .first::<BlockHeader>(&mut conn)
+            .optional()
+    }
+
+    fn save_compact_filter(&self, blockhash: &str, filter_data: &[u8]) -> Result<(), Error> {
+        let mut conn = self.base.get_conn()?;
+        diesel::insert_into(bitcoin_compact_filters::table)
+            .values(&CompactFilter {
+                blockhash: blockhash.to_string(),
+                filter_data: filter_data.to_vec(),
+            })
+            .execute(&mut conn)?;
+        Ok(())
+    }
+
+    fn get_compact_filter(&self, blockhash: &str) -> Result<Option<CompactFilter>, Error> {
+        let mut conn = self.base.get_conn()?;
+        bitcoin_compact_filters::table
+            .select(bitcoin_compact_filters::all_columns)
+            .filter(bitcoin_compact_filters::blockhash.eq(blockhash))
+            .first::<CompactFilter>(&mut conn)
             .optional()
     }
 }
