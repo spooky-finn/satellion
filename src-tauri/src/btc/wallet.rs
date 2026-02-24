@@ -271,6 +271,8 @@ impl AssetTracker<LabeledDerivationPath> for BitcoinWallet {
 }
 
 pub mod sync {
+    use bip157::IndexedFilter;
+
     use super::*;
 
     #[derive(Default)]
@@ -292,6 +294,7 @@ pub mod sync {
     pub enum Event {
         ChainSynced(Result),
         BlockHeader(bip157::chain::IndexedHeader),
+        BlockFilter(IndexedFilter),
         NewUtxos(Vec<Utxo>),
     }
 }

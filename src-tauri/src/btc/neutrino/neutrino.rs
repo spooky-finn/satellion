@@ -11,7 +11,7 @@ use crate::{
         neutrino::{
             BoxFutureUnit, EventEmitterTrait, LifecycleState, NodeLifecycle, SyncOrchestrator,
             block_sync_worker::{BlockRequestChannel, BlockSyncWorker},
-            node_listener::{NeutrinoClientArgs, run_neutrino_client},
+            node_listener::{NeutrinoClientContext, run_neutrino_client},
         },
     },
     config::CONFIG,
@@ -95,15 +95,19 @@ impl NeutrinoStarter {
             .await
             .map_err(|e| format!("Failed to connect: {}", e))?;
 
+        let requester = neutrino.client.requester.clone();
+        let script_holder = Arc::new(RwLock::new(ScriptHolder::new()));
+        let block_req_channel = BlockRequestChannel::default();
+
         let mut sync_orchestrator = SyncOrchestrator::new(
             self.sk.clone(),
             self.repository.clone(),
             event_emitter.clone(),
+            script_holder.clone(),
+            block_req_channel.tx.clone(),
             wallet_birth_date,
         );
 
-        let requester = neutrino.client.requester.clone();
-        let script_holder = Arc::new(RwLock::new(ScriptHolder::new()));
         let block_downloader = BlockSyncWorker::new(
             requester,
             sync_orchestrator.transmitter(),
@@ -111,14 +115,10 @@ impl NeutrinoStarter {
             event_emitter.clone(),
         );
 
-        let block_req_channel = BlockRequestChannel::default();
-        let neutrino_client_args = NeutrinoClientArgs {
+        let neutrino_client_args = NeutrinoClientContext {
             event_emitter: event_emitter.clone(),
             sync_event_tx: sync_orchestrator.transmitter(),
             block_req_tx: block_req_channel.tx.clone(),
-            script_holder: script_holder.clone(),
-            chain_repository: self.repository.clone(),
-            wallet_birth_date,
         };
 
         let block_req_rx = block_req_channel.rx;
