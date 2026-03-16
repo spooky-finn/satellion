@@ -1,4 +1,4 @@
-**Privacy Dilemma**
+# Privacy Dilemma
 
 When I started building this wallet, the primary objective was uncompromising privacy and security. In theory, the path was clear. In practice, the trade-offs turned out to be much harsher than expected — especially in terms of usability.
 
@@ -37,5 +37,3 @@ The fundamental question is product direction:
 The tension is not technical — it is philosophical and product-oriented. Privacy at protocol level is achievable. Privacy at scale, without sacrificing usability for constrained environments, is significantly harder.
 
 At this stage, the open question is whether to optimize for ideological purity or for real-world adoption.
-
-created_at 2026-02-24
