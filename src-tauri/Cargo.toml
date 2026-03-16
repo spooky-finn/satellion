@@ -50,6 +50,7 @@ bip157 = "0.3.4"
 bitcoin = "0.32.8"
 bip39 = "2.2.2"
 esplora-client = "0.12.3"
+rustywallet-electrum = "0.2.0"
 # Codegen
 specta = "=2.0.0-rc.22"
 specta-typescript = "0.0.9"
