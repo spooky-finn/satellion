@@ -46,7 +46,6 @@ alloy = "1.7.3"
 alloy-provider = { version = "1.7.3", features = ["anvil-node"] }
 alloy-signer-local = { version = "1.7.3", features = ["mnemonic"] }
 # Bitcoin
-bip157 = "0.3.4"
 bitcoin = "0.32.8"
 bip39 = "2.2.2"
 esplora-client = "0.12.3"

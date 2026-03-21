@@ -11,7 +11,6 @@ use crate::{
         constants::{BTC_USD_PRICE_FEED, ETH_USD_PRICE_FEED},
     },
     mnemonic,
-    repository::{ChainRepository, ChainRepositoryTrait},
     session::{SK, Session},
     wallet_keeper::{CreationFlow, WalletKeeper},
 };
@@ -19,19 +18,6 @@ use crate::{
 #[derive(Type, Serialize)]
 pub struct ChainStatus {
     pub height: u32,
-}
-
-#[specta]
-#[tauri::command]
-pub async fn chain_status(
-    chain_repository: tauri::State<'_, ChainRepository>,
-) -> Result<ChainStatus, String> {
-    let last_block = chain_repository
-        .last_block()
-        .map_err(|_| "Error getting last block height".to_string())?;
-    Ok(ChainStatus {
-        height: last_block.height as u32,
-    })
 }
 
 #[specta]

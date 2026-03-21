@@ -4,10 +4,9 @@ use std::{
 };
 
 use bip39::Language;
-use bip157::BlockHash;
 pub use bitcoin::network::Network;
 use bitcoin::{
-    Address,
+    Address, BlockHash,
     bip32::{self, Xpriv},
     hashes::Hash,
     key::{Keypair, Secp256k1},
@@ -25,7 +24,6 @@ use crate::{
 
 #[derive(Default)]
 pub struct RuntimeData {
-    pub sync: sync::Sync,
     pub script_holder: Arc<RwLock<ScriptHolder>>,
 }
 
@@ -49,12 +47,12 @@ impl SecureKey for Prk {
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct DerivedScript {
-    pub script: bip157::ScriptBuf,
+    pub script: bitcoin::ScriptBuf,
     pub derive_path: DerivePath,
 }
 
 impl DerivedScript {
-    pub fn new(script: bip157::ScriptBuf, derive_path: DerivePath) -> Self {
+    pub fn new(script: bitcoin::ScriptBuf, derive_path: DerivePath) -> Self {
         Self {
             script,
             derive_path,
@@ -65,16 +63,12 @@ impl DerivedScript {
 pub struct BitcoinWallet {
     pub derived_addresses: Vec<LabeledDerivationPath>,
     pub utxos: HashMap<String, Utxo>,
-    pub cfilter_scanner_height: u32,
-    pub initial_sync_done: bool,
     pub runtime: RuntimeData,
 }
 
 impl BitcoinWallet {
     pub fn default() -> BitcoinWallet {
         BitcoinWallet {
-            cfilter_scanner_height: 1,
-            initial_sync_done: false,
             derived_addresses: Vec::new(),
             utxos: HashMap::new(),
             runtime: RuntimeData::default(),
@@ -266,34 +260,6 @@ impl AssetTracker<LabeledDerivationPath> for BitcoinWallet {
     }
 }
 
-pub mod sync {
-    use bip157::IndexedFilter;
-
-    use super::*;
-
-    #[derive(Default)]
-    pub struct Sync {
-        pub result: Option<sync::Result>,
-    }
-
-    #[derive(Clone)]
-    pub struct Result {
-        pub update: bip157::SyncUpdate,
-        #[allow(dead_code)]
-        pub broadcast_min_fee_rate: bip157::FeeRate,
-        #[allow(dead_code)]
-        pub avg_fee_rate: bip157::FeeRate,
-    }
-
-    #[derive(Clone)]
-    pub enum Event {
-        ChainSynced(Result),
-        BlockHeader(bip157::chain::IndexedHeader),
-        BlockFilter(IndexedFilter),
-        NewUtxos(Vec<Utxo>),
-    }
-}
-
 pub mod persistence {
     use serde::{Deserialize, Serialize};
 
@@ -327,8 +293,6 @@ pub mod persistence {
     pub struct Wallet {
         pub childs: Vec<ChildAddress>,
         pub utxos: Vec<Utxo>,
-        pub cfilter_scanner_height: Option<u32>,
-        pub initial_sync_done: bool,
     }
 }
 
@@ -361,8 +325,6 @@ impl Persistable for BitcoinWallet {
                     vout: utxo.vout,
                 })
                 .collect(),
-            initial_sync_done: self.initial_sync_done,
-            cfilter_scanner_height: Some(self.cfilter_scanner_height),
         })
     }
 
@@ -392,7 +354,7 @@ impl Persistable for BitcoinWallet {
                     vout: utxo.vout,
                     derive_path,
                     output: bitcoin::TxOut {
-                        script_pubkey: bip157::ScriptBuf::from_bytes(utxo.script_pubkey.clone()),
+                        script_pubkey: bitcoin::ScriptBuf::from_bytes(utxo.script_pubkey.clone()),
                         value: bitcoin::Amount::from_sat(utxo.value),
                     },
                 };
@@ -402,8 +364,6 @@ impl Persistable for BitcoinWallet {
         Ok(Self {
             derived_addresses,
             utxos,
-            initial_sync_done: data.initial_sync_done,
-            cfilter_scanner_height: data.cfilter_scanner_height.unwrap_or(0),
             runtime: RuntimeData::default(),
         })
     }
@@ -421,8 +381,6 @@ mod tests {
         let purpose = Purpose::Bip86;
         let wallet = BitcoinWallet {
             utxos: HashMap::new(),
-            cfilter_scanner_height: 0,
-            initial_sync_done: false,
             runtime: RuntimeData::default(),
             derived_addresses: vec![
                 LabeledDerivationPath {

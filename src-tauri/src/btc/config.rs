@@ -1,6 +1,6 @@
 use std::{net::SocketAddrV4, str::FromStr};
 
-use bip157::Network;
+use bitcoin::Network;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

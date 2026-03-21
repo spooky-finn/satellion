@@ -98,12 +98,6 @@ impl AssetTracker<Token> for EthereumWallet {
 }
 
 impl EthereumWallet {
-    pub fn default() -> EthereumWallet {
-        EthereumWallet {
-            tracked_tokens: constants::default_tokens(),
-        }
-    }
-
     pub fn build_prk(&self, mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
         MnemonicBuilder::<English>::default()
             .phrase(mnemonic)
@@ -119,6 +113,14 @@ impl EthereumWallet {
         self.tracked_tokens
             .iter()
             .find(|each| each.address == token)
+    }
+}
+
+impl Default for EthereumWallet {
+    fn default() -> Self {
+        Self {
+            tracked_tokens: constants::default_tokens(),
+        }
     }
 }
 

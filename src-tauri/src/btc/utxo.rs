@@ -1,5 +1,4 @@
-use bip157::{BlockHash, Wtxid};
-use bitcoin::TxOut;
+use bitcoin::{BlockHash, TxOut, Wtxid};
 
 use crate::btc::address::DerivePath;
 

@@ -22,8 +22,7 @@ use tauri::{Listener, Manager};
 use tokio::sync::Mutex;
 
 use crate::{
-    btc::neutrino::{EventEmitter, EventEmitterTrait, NeutrinoStarter},
-    repository::ChainRepository,
+    btc::{EventEmitter, EventEmitterTrait},
     session::SessionKeeper,
     wallet_keeper::WalletKeeper,
 };
@@ -42,13 +41,10 @@ pub fn run() {
     let tx_builder = eth::TxBuilder::new(eth_batch_provider);
     let price_feed = eth::PriceFeed::new(eth_provider.clone());
 
-    let chain_repository = ChainRepository::new(db.clone());
-
     let builder = tauri_specta::Builder::<tauri::Wry>::new()
         .commands(tauri_specta::collect_commands![
             commands::generate_mnemonic,
             commands::create_wallet,
-            commands::chain_status,
             commands::list_wallets,
             commands::unlock_wallet,
             commands::forget_wallet,
@@ -59,7 +55,6 @@ pub fn run() {
             btc::commands::btc_unoccupied_deriviation_index,
             btc::commands::btc_list_derived_addresess,
             btc::commands::btc_list_utxos,
-            btc::neutrino::commands::btc_neutrino_start,
             eth::commands::eth_chain_info,
             eth::commands::eth_get_balance,
             eth::commands::eth_prepare_send_tx,
@@ -70,7 +65,7 @@ pub fn run() {
             eth::commands::eth_anvil_set_initial_balances,
         ])
         .constant("MIN_PASSPHRASE_LEN", config::MIN_PASSPHRASE_LEN)
-        .events(btc::neutrino::list_events());
+        .events(btc::event_emitter::list_events());
 
     #[cfg(debug_assertions)]
     builder
@@ -87,16 +82,12 @@ pub fn run() {
         .manage(eth_provider.clone())
         .manage(erc20_retriever)
         .manage(price_feed)
-        .manage(chain_repository.clone())
         .manage(Mutex::new(tx_builder))
         .setup(move |app| {
             let event_emitter = EventEmitter::new(app.handle().clone());
             let sk = SessionKeeper::new(Some(event_emitter.clone()), Some(Duration::from_mins(1)));
-            let chain_repo = Arc::new(chain_repository.clone());
-            let neutrino_starter = NeutrinoStarter::new(chain_repo, sk.clone());
 
             app.manage(sk.clone());
-            app.manage(neutrino_starter);
 
             system::session_monitor::init(app.handle());
             let app_handle = app.handle();

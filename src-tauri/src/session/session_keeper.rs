@@ -4,10 +4,9 @@ use chrono::{DateTime, Utc};
 use tokio::sync::Mutex;
 
 use crate::{
-    btc::neutrino::{EventEmitter, EventEmitterTrait},
+    btc::{EventEmitter, EventEmitterTrait},
     wallet::Wallet,
 };
-
 pub struct Session {
     pub wallet: Wallet,
     pub activated_at: DateTime<Utc>,
@@ -28,19 +27,7 @@ impl Session {
         self
     }
 
-    /// Skip auto-lock if Bitcoin initial sync is not completed.
-    /// During the sync, new UTXOs may be discovered that need to be persisted and encrypted.
-    /// Leaving them unencrypted could compromise privacy and confidentiality
-    /// if the computer is accessed by someone else (e.g., a third party or government).
-    pub fn autolock_enabled(&self) -> bool {
-        self.wallet.btc.initial_sync_done
-    }
-
     pub fn is_expired(&self) -> bool {
-        if !self.autolock_enabled() {
-            return false;
-        }
-
         self.activated_at + self.inactivity_timeout < Utc::now()
     }
 }
@@ -85,9 +72,7 @@ impl SessionKeeper {
     }
 
     pub fn soft_terminate(&mut self) -> bool {
-        if let Some(s) = &self.session
-            && s.autolock_enabled()
-        {
+        if let Some(_) = &self.session {
             self.terminate();
             return true;
         }
@@ -162,8 +147,7 @@ mod tests {
         let _guard = SECRETBOX_TEST_LOCK.lock().unwrap();
         let sk = SessionKeeper::new(None, Some(MONITOR_INTERVAL));
 
-        let mut wallet = new_wallet();
-        wallet.btc.initial_sync_done = true;
+        let wallet = new_wallet();
 
         let session = Session::new(wallet).with_inactivity_timeout(Duration::from_millis(100));
         {
@@ -182,42 +166,5 @@ mod tests {
 
         let mut keeper = sk.lock().await;
         assert!(keeper.session().is_err(), "Session should be terminated");
-    }
-
-    #[tokio::test]
-    async fn test_skip_auto_lock_during_initial_sync() {
-        let _guard = SECRETBOX_TEST_LOCK.lock().unwrap();
-        let sk = SessionKeeper::new(None, Some(MONITOR_INTERVAL));
-
-        let wallet = new_wallet();
-        let session = Session::new(wallet).with_inactivity_timeout(Duration::from_millis(100));
-        {
-            let mut keeper = sk.lock().await;
-            keeper.set(session);
-        }
-        // Wait longer than the expiry duration
-        sleep(Duration::from_millis(110)).await;
-        {
-            let mut keeper = sk.lock().await;
-            let session_ref = keeper
-                .session()
-                .expect("Session should exist because sync is not done");
-            assert!(
-                !session_ref.is_expired(),
-                "Session should not expire during initial sync"
-            );
-            // Mark initial sync as done
-            session_ref.wallet.btc.initial_sync_done = true;
-        }
-
-        // Now that sync is done, wait for the next check
-        sleep(Duration::from_millis(110)).await;
-        let mut keeper = sk.lock().await;
-        // Manually trigger check
-        keeper.soft_terminate();
-        assert!(
-            keeper.session().is_err(),
-            "Session should expire after initial sync is completed"
-        );
     }
 }

@@ -4,10 +4,10 @@ After re-evaluating the project’s long-term roadmap, I have decided to shift t
 
 ## Rationale for the Pivot
 
-My objective is to balance robust security with practical utility. For my current vision and development stage, I am prioritizing disk, network efficiency and ease of use over the resource-intensive requirements of client-side filtering.
+My objective is to balance robust security with practical utility. For my current vision and development stage, I am prioritizing disk, network efficiency, and ease of use over the resource-intensive requirements of client-side filtering.
 
-- Privacy via Proxying: We believe that high-level privacy can be effectively managed at the network layer. Integrating Tor proxying provides a more accessible and immediate privacy solution for sensitive transactions without the overhead of BIP-157.
+* Privacy via Proxying: I believe that high-level privacy can be effectively managed at the network layer. Integrating Tor proxying provides a more accessible and immediate privacy solution for sensitive transactions without the overhead of BIP-157.
 
-- Threat Model & Risk Assessment: While large-scale surveillance via node-provider cooperation is a theoretical risk, we consider it a secondary concern compared to the immediate technical hurdles of maintaining a dual-sync architecture. Given the current regulatory landscape, a lean, functional implementation is our highest priority.
+* Threat Model & Risk Assessment: While large-scale surveillance via node-provider cooperation is a theoretical risk, I consider it a secondary concern compared to the immediate technical hurdles of maintaining a dual-sync architecture. Given the current regulatory landscape, a lean, functional implementation is my highest priority.
 
-- Revised Roadmap: We are not abandoning the "Neutrino" (BIP-157) implementation; rather, we are deferring it. Our immediate focus will be the robust implementation of Electrum synchronization and Tor integration. This ensures a faster, more reliable experience for users with limited hardware resources.
+* Revised Roadmap: My immediate focus will be the robust implementation of Electrum synchronization and Tor integration. This ensures a faster, more reliable experience for users with limited hardware resources.
