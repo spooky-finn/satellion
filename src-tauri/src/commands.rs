@@ -15,11 +15,6 @@ use crate::{
     wallet_keeper::{CreationFlow, WalletKeeper},
 };
 
-#[derive(Type, Serialize)]
-pub struct ChainStatus {
-    pub height: u32,
-}
-
 #[specta]
 #[tauri::command]
 pub async fn generate_mnemonic() -> Result<String, String> {
@@ -68,21 +63,21 @@ pub async fn chain_switch_event(chain: Chain, sk: tauri::State<'_, SK>) -> Resul
 }
 
 #[derive(Type, Serialize)]
-pub struct UnlockMsg {
-    ethereum: eth::wallet::EthereumUnlock,
-    bitcoin: btc::wallet::BitcoinUnlock,
+pub struct UnlockDto {
+    ethereum: eth::wallet::AccountDto,
+    bitcoin: btc::wallet::AccountDto,
     last_used_chain: Chain,
 }
 
 #[derive(Type, Serialize)]
-pub struct PriceFeedMsg {
+pub struct PriceFeedDto {
     btc_usd: u32,
     eth_usd: u32,
 }
 
 #[specta]
 #[tauri::command]
-pub async fn price_feed(price_feed: tauri::State<'_, PriceFeed>) -> Result<PriceFeedMsg, String> {
+pub async fn price_feed(price_feed: tauri::State<'_, PriceFeed>) -> Result<PriceFeedDto, String> {
     let btc_usd = price_feed.get_price(BTC_USD_PRICE_FEED).await?;
     let eth_usd = price_feed.get_price(ETH_USD_PRICE_FEED).await?;
 
@@ -92,7 +87,7 @@ pub async fn price_feed(price_feed: tauri::State<'_, PriceFeed>) -> Result<Price
             .map_err(|_| format!("Failed to parse price: {}", raw))
     };
 
-    Ok(PriceFeedMsg {
+    Ok(PriceFeedDto {
         btc_usd: clean_price(btc_usd)?,
         eth_usd: clean_price(eth_usd)?,
     })
@@ -105,24 +100,25 @@ pub async fn unlock_wallet(
     passphrase: String,
     wallet_keeper: tauri::State<'_, WalletKeeper>,
     sk: tauri::State<'_, SK>,
-) -> Result<UnlockMsg, String> {
+) -> Result<UnlockDto, String> {
     let mut wallet = wallet_keeper.load(&wallet_name, &passphrase)?;
 
-    let eth_prk = wallet.eth_prk()?;
-    let btc_prk = wallet.btc_prk()?;
+    let (eth_prk, btc_prk, last_used_chain) = {
+        let eth_prk = wallet.eth_prk()?;
+        let btc_prk = wallet.btc_prk()?;
+        let last_used_chain = wallet.last_used_chain;
+        (eth_prk, btc_prk, last_used_chain)
+    };
 
-    let (ethereum, bitcoin) = tokio::try_join!(
-        wallet.eth.unlock((), &eth_prk),
-        wallet.btc.unlock((), &btc_prk)
-    )?;
+    let (ethereum, bitcoin) = (
+        wallet.eth.get_account_state((), &eth_prk)?,
+        wallet.btc.get_account_state((), &btc_prk)?,
+    );
 
-    let last_used_chain = wallet.last_used_chain;
+    let session = Session::new(wallet).with_inactivity_timeout(CONFIG.session_inactivity_timeout());
+    sk.lock().await.set(session);
 
-    sk.lock()
-        .await
-        .set(Session::new(wallet).with_inactivity_timeout(CONFIG.session_inactivity_timeout()));
-
-    Ok(UnlockMsg {
+    Ok(UnlockDto {
         ethereum,
         bitcoin,
         last_used_chain,

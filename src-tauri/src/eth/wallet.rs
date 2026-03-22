@@ -17,7 +17,7 @@ pub struct EthereumWallet {
 }
 
 #[derive(serde::Serialize, specta::Type)]
-pub struct EthereumUnlock {
+pub struct AccountDto {
     pub address: String,
 }
 pub struct Prk {
@@ -34,24 +34,24 @@ impl SecureKey for Prk {
 impl ChainTrait for EthereumWallet {
     type Prk = Prk;
     type UnlockContext = ();
-    type UnlockResult = EthereumUnlock;
+    type AccountState = AccountDto;
 
-    async fn unlock(
+    fn get_account_state(
         &mut self,
         _: Self::UnlockContext,
         prk: &Self::Prk,
-    ) -> Result<Self::UnlockResult, String> {
-        Ok(EthereumUnlock {
+    ) -> Result<Self::AccountState, String> {
+        Ok(AccountDto {
             address: prk.expose().address().to_string(),
         })
     }
 }
 
 impl Persistable for EthereumWallet {
-    type Serialized = persistence::Wallet;
+    type Serialized = persistence::WalletData;
 
     fn serialize(&self) -> Result<Self::Serialized, String> {
-        Ok(persistence::Wallet {
+        Ok(persistence::WalletData {
             tracked_tokens: self
                 .tracked_tokens
                 .iter()
@@ -139,7 +139,7 @@ pub mod persistence {
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct Wallet {
+    pub struct WalletData {
         pub tracked_tokens: Vec<Token>,
     }
 }

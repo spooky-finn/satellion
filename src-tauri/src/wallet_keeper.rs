@@ -14,13 +14,15 @@ pub struct WalletKeeper {
     repository: persistence::Repository,
 }
 
-impl WalletKeeper {
-    pub fn new() -> Self {
+impl Default for WalletKeeper {
+    fn default() -> Self {
         Self {
             repository: persistence::Repository,
         }
     }
+}
 
+impl WalletKeeper {
     pub fn ls(&self) -> Result<Vec<String>, std::io::Error> {
         self.repository.ls()
     }

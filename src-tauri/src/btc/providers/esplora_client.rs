@@ -39,7 +39,7 @@ impl EsploraClient {
     /// Get a map where the key is the confirmation target (in number of
     /// blocks) and the value is the estimated feerate (in sat/vB).
     pub async fn get_fee_estimates(&self) -> Result<HashMap<u16, f64>, Error> {
-        Ok(self.client.get_fee_estimates().await?)
+        self.client.get_fee_estimates().await
     }
 
     /// Fetches all UTXOs for a list of addresses.

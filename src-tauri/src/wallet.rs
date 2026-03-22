@@ -33,7 +33,7 @@ impl Wallet {
             version: 1,
             btc: btc::BitcoinWallet::default(),
             eth: eth::EthereumWallet::default(),
-            keeper: WalletKeeper::new(),
+            keeper: WalletKeeper::default(),
         })
     }
 
@@ -55,12 +55,13 @@ impl Wallet {
         self.keeper.save(self)
     }
 
-    pub fn mutate_btc<F>(&mut self, f: F) -> Result<(), String>
+    pub fn mutate_btc<F, T>(&mut self, f: F) -> Result<T, String>
     where
-        F: FnOnce(&mut btc::BitcoinWallet) -> Result<(), String>,
+        F: FnOnce(&mut btc::BitcoinWallet) -> Result<T, String>,
     {
-        f(&mut self.btc)?;
-        self.persist()
+        let res = f(&mut self.btc)?;
+        self.persist()?;
+        Ok(res)
     }
 
     pub fn mutate_eth<F>(&mut self, f: F) -> Result<(), String>

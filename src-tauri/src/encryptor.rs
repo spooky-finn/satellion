@@ -1,7 +1,7 @@
 //! Generic envelope encryption module for secure data storage.
 //!
 //! This module implements envelope encryption (key wrapping) for any sensitive data.
-//! The encryption scheme uses:
+//! The encryption schema uses:
 //! - AES-256-GCM for authenticated encryption
 //! - Argon2 for password-based key derivation
 //! - Two-layer encryption: DEK (Data Encryption Key) encrypts plaintext,

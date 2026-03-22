@@ -72,7 +72,7 @@ impl SessionKeeper {
     }
 
     pub fn soft_terminate(&mut self) -> bool {
-        if let Some(_) = &self.session {
+        if self.session.is_some() {
             self.terminate();
             return true;
         }
@@ -99,11 +99,10 @@ impl SessionKeeper {
                     let mut sk = sk.lock().await;
                     if let Some(session) = &sk.session
                         && session.is_expired()
+                        && sk.soft_terminate()
                     {
-                        if sk.soft_terminate() {
-                            Self::fire_expired_event(&em);
-                            tracing::warn!("Session expired and dropped from mem");
-                        };
+                        Self::fire_expired_event(&em);
+                        tracing::warn!("Session expired and dropped from mem");
                     }
                 }
             }

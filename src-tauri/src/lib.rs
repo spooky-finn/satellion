@@ -33,7 +33,7 @@ pub fn run() {
     db::initialize();
 
     let db = db::connect();
-    let wallet_keeper = WalletKeeper::new();
+    let wallet_keeper = WalletKeeper::default();
 
     let eth_provider = eth::select_provider();
     let eth_batch_provider = eth::new_provider_batched(eth_provider.clone());
@@ -51,9 +51,9 @@ pub fn run() {
             commands::get_config,
             commands::chain_switch_event,
             commands::price_feed,
-            btc::commands::btc_derive_address,
+            btc::commands::btc_derive_external_address,
             btc::commands::btc_unoccupied_deriviation_index,
-            btc::commands::btc_list_derived_addresess,
+            btc::commands::btc_list_external_addresess,
             btc::commands::btc_list_utxos,
             eth::commands::eth_chain_info,
             eth::commands::eth_get_balance,

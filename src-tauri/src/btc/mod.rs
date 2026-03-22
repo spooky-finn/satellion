@@ -1,3 +1,4 @@
+pub mod account;
 pub mod address;
 pub mod commands;
 pub mod config;

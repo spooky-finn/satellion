@@ -15,8 +15,8 @@ use crate::{
 pub struct SerializedWallet {
     pub name: String,
     pub mnemonic: String,
-    pub bitcoin_data: crate::btc::persistence::Wallet,
-    pub ethereum_data: crate::eth::persistence::Wallet,
+    pub bitcoin_data: crate::btc::persistence::WalletData,
+    pub ethereum_data: crate::eth::persistence::WalletData,
     pub last_used_chain: u16,
     pub birth_date: Option<u64>,
     pub version: u8,
@@ -25,12 +25,11 @@ pub struct SerializedWallet {
 impl SerializedWallet {
     pub fn to_model(&self, passphrase: SecretBox<String>) -> Result<Wallet, String> {
         Ok(Wallet {
-            keeper: WalletKeeper::new(),
+            keeper: WalletKeeper::default(),
             name: self.name.clone(),
             mnemonic: SecretBox::new(Box::new(self.mnemonic.clone())),
             passphrase,
-            // Use the Persistable trait for deserialization
-            btc: crate::btc::BitcoinWallet::deserialize(self.bitcoin_data.clone())?,
+            btc: self.bitcoin_data.deserialize()?,
             eth: crate::eth::EthereumWallet::deserialize(self.ethereum_data.clone())?,
             last_used_chain: Chain::from(self.last_used_chain),
             birth_date: self.birth_date,
@@ -178,7 +177,7 @@ impl FsRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{btc::address::make_hardened, eth::constants::USDT};
+    use crate::eth::constants::USDT;
 
     #[test]
     fn test_serialication() {
@@ -192,14 +191,11 @@ mod tests {
             birth_date: None,
             version: 0,
             last_used_chain: 1,
-            bitcoin_data: crate::btc::persistence::Wallet {
-                childs: vec![crate::btc::persistence::ChildAddress {
-                    label: "Secret contractor".to_string(),
-                    devive_path: make_hardened([86,0,0,0,1])
-                }],
-                utxos: vec![],
+            bitcoin_data: crate::btc::persistence::WalletData {
+                active_account: 0,
+                accounts: vec![]
             },
-            ethereum_data: crate::eth::persistence::Wallet {
+            ethereum_data: crate::eth::persistence::WalletData {
                 tracked_tokens: vec![crate::eth::persistence::Token {
                     address: USDT.address.to_string(),
                     decimals: 4,
