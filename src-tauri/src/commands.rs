@@ -5,7 +5,7 @@ use zeroize::Zeroize;
 use crate::{
     btc::{self},
     chain_trait::ChainTrait,
-    config::{CONFIG, Chain, constants},
+    config::{BlockChain, CONFIG, constants},
     eth::{
         self, PriceFeed,
         constants::{BTC_USD_PRICE_FEED, ETH_USD_PRICE_FEED},
@@ -54,7 +54,7 @@ pub async fn list_wallets(
 
 #[specta]
 #[tauri::command]
-pub async fn chain_switch_event(chain: Chain, sk: tauri::State<'_, SK>) -> Result<(), String> {
+pub async fn chain_switch_event(chain: BlockChain, sk: tauri::State<'_, SK>) -> Result<(), String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     wallet.last_used_chain = chain;
@@ -64,9 +64,9 @@ pub async fn chain_switch_event(chain: Chain, sk: tauri::State<'_, SK>) -> Resul
 
 #[derive(Type, Serialize)]
 pub struct UnlockDto {
-    ethereum: eth::wallet::AccountDto,
-    bitcoin: btc::wallet::AccountDto,
-    last_used_chain: Chain,
+    ethereum: eth::wallet::UnlockDto,
+    bitcoin: btc::wallet::UnlockDto,
+    last_used_chain: BlockChain,
 }
 
 #[derive(Type, Serialize)]
@@ -111,8 +111,8 @@ pub async fn unlock_wallet(
     };
 
     let (ethereum, bitcoin) = (
-        wallet.eth.get_account_state((), &eth_prk)?,
-        wallet.btc.get_account_state((), &btc_prk)?,
+        wallet.eth.unlock((), &eth_prk)?,
+        wallet.btc.unlock((), &btc_prk)?,
     );
 
     let session = Session::new(wallet).with_inactivity_timeout(CONFIG.session_inactivity_timeout());

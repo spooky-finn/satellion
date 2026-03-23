@@ -5,7 +5,7 @@ use shush_rs::{ExposeSecret, SecretBox};
 
 use crate::{
     chain_trait::Persistable,
-    config::{Config, constants::Chain},
+    config::{Config, constants::BlockChain},
     encryptor::{self, Envelope},
     wallet::Wallet,
     wallet_keeper::WalletKeeper,
@@ -31,7 +31,7 @@ impl SerializedWallet {
             passphrase,
             btc: self.bitcoin_data.deserialize()?,
             eth: crate::eth::EthereumWallet::deserialize(self.ethereum_data.clone())?,
-            last_used_chain: Chain::from(self.last_used_chain),
+            last_used_chain: BlockChain::from(self.last_used_chain),
             birth_date: self.birth_date,
             version: self.version,
         })

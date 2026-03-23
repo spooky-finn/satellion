@@ -4,7 +4,7 @@ use bitcoin::bip32::{self, Xpriv};
 use crate::{
     btc::{
         account::{Account, AccountIndex},
-        address::{Change, DeriviationSchema, LabeledDeriviationScheme},
+        key_derivation::{Change, KeyDerivationPath, LabeledDeriviationScheme},
     },
     chain_trait::{AssetTracker, ChainTrait, SecureKey},
     config::CONFIG,
@@ -69,13 +69,13 @@ impl BitcoinWallet {
         &self,
         change: Change,
         index: u32,
-    ) -> Result<DeriviationSchema, String> {
+    ) -> Result<KeyDerivationPath, String> {
         let account = self.active_account()?;
-        let schema = Account::new_deriviation_scheme_for_account(account.index, change, index);
-        if !account.deriviation_schema_available(schema.clone()) {
-            return Err(format!("Deriviation index {} already occupied", index));
+        let path = Account::new_deriviation_scheme_for_account(account.index, change, index);
+        if !account.deriviation_schema_available(path.clone()) {
+            return Err(format!("Derivation index {} already occupied", index));
         }
-        Ok(schema)
+        Ok(path)
     }
 
     pub fn get_mut_active_account(&mut self) -> Result<&mut Account, String> {
@@ -85,38 +85,66 @@ impl BitcoinWallet {
             .find(|each| each.index == active_index)
             .ok_or("account not found".to_string())
     }
+
+    pub fn active_account_info(&self, prk: &Prk) -> Result<ActiveAccountDto, String> {
+        let account = self.active_account()?;
+        let (_, btc_main_address) = Account::derive_child(
+            prk.expose(),
+            &self.new_deriviation_schema(Change::External, 0)?,
+        )
+        .map_err(|e| e.to_string())?;
+        let active_account = ActiveAccountDto {
+            address: btc_main_address.to_string(),
+            total_balance: account.total_balance().to_string(),
+        };
+        Ok(active_account)
+    }
+
+    fn list_all_accounts(&self) -> Vec<AccountIdDto> {
+        self.accounts
+            .iter()
+            .map(|e| AccountIdDto {
+                index: e.index,
+                name: e.name.clone(),
+            })
+            .collect()
+    }
 }
 
 #[derive(serde::Serialize, specta::Type)]
-pub struct AccountDto {
+pub struct ActiveAccountDto {
     /** main external address to accept payments */
     pub address: String,
     pub total_balance: String,
+}
+
+#[derive(serde::Serialize, specta::Type)]
+pub struct AccountIdDto {
+    pub index: AccountIndex,
+    pub name: String,
+}
+
+#[derive(serde::Serialize, specta::Type)]
+pub struct UnlockDto {
+    pub accounts: Vec<AccountIdDto>,
+    pub active_account: ActiveAccountDto,
 }
 
 pub struct UnlockCtx {}
 
 impl ChainTrait for BitcoinWallet {
     type Prk = Prk;
-    type AccountState = AccountDto;
+    type AccountState = UnlockDto;
     type UnlockContext = ();
 
-    fn get_account_state(
+    fn unlock(
         &mut self,
         _: Self::UnlockContext,
         prk: &Self::Prk,
     ) -> Result<Self::AccountState, String> {
-        let account = self.active_account()?;
-
-        let (_, btc_main_address) = Account::derive_child(
-            prk.expose(),
-            &self.new_deriviation_schema(Change::External, 0)?,
-        )
-        .map_err(|e| e.to_string())?;
-
-        Ok(AccountDto {
-            address: btc_main_address.to_string(),
-            total_balance: account.total_balance().to_string(),
+        Ok(UnlockDto {
+            accounts: self.list_all_accounts(),
+            active_account: self.active_account_info(&prk)?,
         })
     }
 }
@@ -126,10 +154,10 @@ impl AssetTracker<LabeledDeriviationScheme> for BitcoinWallet {
         let account = self.get_mut_active_account()?;
 
         // Check if an address with the same purpose and index already exists
-        if account.addresses.iter().any(|a| a.schema == address.schema) {
+        if account.addresses.iter().any(|a| a.path == address.path) {
             return Err(format!(
                 "Address with change {:?} and index {} already tracked",
-                address.schema.change, address.schema.index
+                address.path.change, address.path.index
             ));
         }
         account.addresses.push(address);
@@ -140,7 +168,7 @@ impl AssetTracker<LabeledDeriviationScheme> for BitcoinWallet {
         let account = self.get_mut_active_account()?;
 
         let len_before = account.addresses.len();
-        account.addresses.retain(|a| a.schema != address.schema);
+        account.addresses.retain(|a| a.path != address.path);
         if account.addresses.len() == len_before {
             return Err("Address not tracked".to_string());
         }

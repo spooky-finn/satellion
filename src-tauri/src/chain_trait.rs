@@ -6,7 +6,7 @@ pub trait ChainTrait {
     type AccountState;
 
     /// Unlocks the wallet using the provided private key material.
-    fn get_account_state(
+    fn unlock(
         &mut self,
         ctx: Self::UnlockContext,
         prk: &Self::Prk,

@@ -9,8 +9,8 @@ use bitcoin::{
 use crate::{
     btc::{
         self,
-        address::{
-            Change, DerivedScript, DeriviationSchema, DeriviationSchemaSlice,
+        key_derivation::{
+            Change, DerivedScript, KeyDerivationPath, KeyDeriviationPathSlice,
             LabeledDeriviationScheme, Proposal,
         },
         utxo::{Utxo, UtxoIdentifier},
@@ -38,19 +38,11 @@ impl Account {
             addresses: vec![
                 LabeledDeriviationScheme {
                     label: "main".to_string(),
-                    schema: Account::new_deriviation_scheme_for_account(
-                        account,
-                        Change::External,
-                        0,
-                    ),
+                    path: Account::new_deriviation_scheme_for_account(account, Change::External, 0),
                 },
                 LabeledDeriviationScheme {
                     label: "main_change".to_string(),
-                    schema: Account::new_deriviation_scheme_for_account(
-                        account,
-                        Change::Internal,
-                        0,
-                    ),
+                    path: Account::new_deriviation_scheme_for_account(account, Change::Internal, 0),
                 },
             ],
             utxos: HashMap::new(),
@@ -58,35 +50,36 @@ impl Account {
         Ok(account)
     }
 
-    pub fn derive_script(
-        xpriv: &Xpriv,
-        schema: DeriviationSchema,
-    ) -> Result<DerivedScript, String> {
-        let (_, address) = Account::derive_child(xpriv, &schema)?;
-        let schema = DerivedScript::new(address.script_pubkey(), schema);
-        Ok(schema)
+    pub fn derive_script(xpriv: &Xpriv, path: KeyDerivationPath) -> Result<DerivedScript, String> {
+        let (_, address) = Account::derive_child(xpriv, &path)?;
+        let script = DerivedScript::new(address.script_pubkey(), path);
+        Ok(script)
     }
 
     pub fn get_scripts_hashset(&self, xpriv: &Xpriv) -> Result<HashSet<DerivedScript>, String> {
         let mut scripts_of_interes: HashSet<DerivedScript> = HashSet::new();
 
-        for LabeledDeriviationScheme { schema, .. } in self.addresses.iter().cloned() {
-            scripts_of_interes.insert(Account::derive_script(xpriv, schema)?);
+        for LabeledDeriviationScheme {
+            path: derivation_path,
+            ..
+        } in self.addresses.iter().cloned()
+        {
+            scripts_of_interes.insert(Account::derive_script(xpriv, derivation_path)?);
         }
 
         Ok(scripts_of_interes)
     }
 
-    pub fn deriviation_schema_available(&self, schema: DeriviationSchema) -> bool {
-        !self.addresses.iter().any(|a| a.schema == schema)
+    pub fn deriviation_schema_available(&self, path: KeyDerivationPath) -> bool {
+        !self.addresses.iter().any(|a| a.path == path)
     }
 
     pub fn unoccupied_deriviation_index(&self, change: Change) -> u32 {
         let occupied: HashSet<u32> = self
             .addresses
             .iter()
-            .filter(|a| a.schema.change == change)
-            .map(|a| a.schema.index)
+            .filter(|a| a.path.change == change)
+            .map(|a| a.path.index)
             .collect();
         (1..).find(|i| !occupied.contains(i)).unwrap_or(1)
     }
@@ -95,18 +88,18 @@ impl Account {
         &mut self,
         prk: &btc::Prk,
         label: String,
-        schema: DeriviationSchema,
+        path: KeyDerivationPath,
     ) -> Result<(Keypair, Address), String> {
-        let child = Account::derive_child(prk.expose(), &schema)?;
+        let child = Account::derive_child(prk.expose(), &path)?;
         self.addresses
-            .push(LabeledDeriviationScheme { label, schema });
+            .push(LabeledDeriviationScheme { label, path });
         Ok(child)
     }
 
     pub fn get_external_addresess(&self) -> impl Iterator<Item = &LabeledDeriviationScheme> {
         self.addresses
             .iter()
-            .filter(|a| a.schema.change == Change::External)
+            .filter(|a| a.path.change == Change::External)
     }
 
     pub fn add_utxos(&mut self, utxos: Vec<Utxo>) {
@@ -126,8 +119,8 @@ impl Account {
         account: AccountIndex,
         change: Change,
         index: u32,
-    ) -> DeriviationSchema {
-        DeriviationSchema {
+    ) -> KeyDerivationPath {
+        KeyDerivationPath {
             purpose: Proposal::Bip86,
             network: CONFIG.bitcoin.network(),
             account,
@@ -138,12 +131,12 @@ impl Account {
 
     pub fn derive_child(
         xpriv: &Xpriv,
-        schema: &DeriviationSchema,
+        path: &KeyDerivationPath,
     ) -> Result<(Keypair, Address), String> {
         let secp = Secp256k1::new();
         // derive child private key
         let keypair = xpriv
-            .derive_priv(&secp, &schema.to_path()?)
+            .derive_priv(&secp, &path.to_path()?)
             .map_err(|e| format!("Derivation error: {}", e))?
             .to_keypair(&secp);
 
@@ -164,12 +157,12 @@ impl Account {
     pub fn schema_label_map(&self) -> SchemaLabelMap {
         self.addresses
             .iter()
-            .map(|e| (e.schema.to_slice(), e.label.clone()))
+            .map(|e| (e.path.to_slice(), e.label.clone()))
             .collect()
     }
 }
 
-pub type SchemaLabelMap = HashMap<DeriviationSchemaSlice, String>;
+pub type SchemaLabelMap = HashMap<KeyDeriviationPathSlice, String>;
 
 pub mod persistence {
     use serde::{Deserialize, Serialize};
@@ -177,7 +170,7 @@ pub mod persistence {
 
     use crate::btc::{
         account::{Account, AccountIndex},
-        address::{DeriviationSchema, DeriviationSchemaSlice, LabeledDeriviationScheme},
+        key_derivation::{KeyDerivationPath, KeyDeriviationPathSlice, LabeledDeriviationScheme},
         utxo::Utxo,
         utxo::persistence::UtxoData,
     };
@@ -186,14 +179,14 @@ pub mod persistence {
     pub struct AccountSnapshot {
         pub name: String,
         pub index: AccountIndex,
-        pub addresses: Vec<DeriviationSchemeSnapshot>,
+        pub addresses: Vec<DerivationPathSnapshot>,
         pub utxos: Vec<UtxoData>,
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct DeriviationSchemeSnapshot {
+    pub struct DerivationPathSnapshot {
         pub label: String,
-        pub deriviation_scheme: DeriviationSchemaSlice,
+        pub path: KeyDeriviationPathSlice,
     }
 
     impl Account {
@@ -204,9 +197,9 @@ pub mod persistence {
                 addresses: self
                     .addresses
                     .iter()
-                    .map(|addr| DeriviationSchemeSnapshot {
+                    .map(|addr| DerivationPathSnapshot {
                         label: addr.label.clone(),
-                        deriviation_scheme: addr.schema.to_slice(),
+                        path: addr.path.to_slice(),
                     })
                     .collect(),
                 utxos: self
@@ -224,10 +217,10 @@ pub mod persistence {
                 .addresses
                 .iter()
                 .map(|addr| {
-                    let schema = DeriviationSchema::from_slice(addr.deriviation_scheme)?;
+                    let path = KeyDerivationPath::from_slice(addr.path)?;
                     Ok(LabeledDeriviationScheme {
                         label: addr.label.clone(),
-                        schema,
+                        path,
                     })
                 })
                 .collect::<Result<Vec<LabeledDeriviationScheme>, String>>()?;

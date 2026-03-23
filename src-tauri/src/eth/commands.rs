@@ -12,7 +12,7 @@ use specta::{Type, specta};
 
 use crate::{
     chain_trait::{AssetTracker, SecureKey},
-    config::Chain,
+    config::BlockChain,
     eth::{
         self, PriceFeed, Prk,
         constants::{ETH, ETH_USD_PRICE_FEED},
@@ -224,7 +224,7 @@ pub async fn eth_verify_address(address: String) -> Result<bool, String> {
 
 #[derive(Type, Serialize)]
 pub struct TokenType {
-    chain: Chain,
+    chain: BlockChain,
     symbol: String,
     decimals: i32,
 }
@@ -255,7 +255,7 @@ pub async fn eth_track_token(
     })?;
 
     Ok(TokenType {
-        chain: Chain::Ethereum,
+        chain: BlockChain::Ethereum,
         symbol: token_info.symbol,
         decimals: token_info.decimals as i32,
     })

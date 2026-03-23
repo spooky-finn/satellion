@@ -3,11 +3,11 @@ use specta::{Type, specta};
 
 use crate::{
     btc::{
-        AccountDto,
+        ActiveAccountDto,
         account::{Account, AccountIndex},
-        address::{self, Change},
+        key_derivation::{self, Change},
     },
-    chain_trait::{ChainTrait, SecureKey},
+    chain_trait::SecureKey,
     session::SK,
 };
 
@@ -16,7 +16,7 @@ use crate::{
 pub async fn btc_switch_account(
     account: AccountIndex,
     sk: tauri::State<'_, SK>,
-) -> Result<AccountDto, String> {
+) -> Result<ActiveAccountDto, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
 
@@ -26,7 +26,7 @@ pub async fn btc_switch_account(
     })?;
 
     let prk = wallet.btc_prk()?;
-    wallet.btc.get_account_state((), &prk)
+    wallet.btc.active_account_info(&prk)
 }
 
 #[specta]
@@ -40,10 +40,10 @@ pub async fn btc_derive_external_address(
     let wallet = sk.wallet()?;
     let prk = wallet.btc_prk()?;
 
-    let schema = wallet.btc.new_deriviation_schema(Change::External, index)?;
+    let path = wallet.btc.new_deriviation_schema(Change::External, index)?;
     let address = wallet.mutate_btc(|btc| {
         let account = btc.get_mut_active_account()?;
-        let (_, address) = account.add_child(&prk, label, schema.clone())?;
+        let (_, address) = account.add_child(&prk, label, path.clone())?;
         Ok(address)
     })?;
 
@@ -55,13 +55,13 @@ pub async fn btc_derive_external_address(
 pub async fn btc_unoccupied_deriviation_index(sk: tauri::State<'_, SK>) -> Result<u32, String> {
     let mut sk = sk.lock().await;
     let account = sk.wallet()?.btc.active_account()?;
-    Ok(account.unoccupied_deriviation_index(address::Change::External))
+    Ok(account.unoccupied_deriviation_index(key_derivation::Change::External))
 }
 
 #[derive(Type, Serialize, Deserialize)]
 pub struct DerivedAddressDto {
     pub label: String,
-    pub schema: String,
+    pub path: String,
     pub address: String,
 }
 
@@ -82,9 +82,9 @@ pub async fn btc_list_external_addresess(
     Ok(addresses
         .into_iter()
         .map(|addr| {
-            let (_, address) = Account::derive_child(prk.expose(), &addr.schema).unwrap();
+            let (_, address) = Account::derive_child(prk.expose(), &addr.path).unwrap();
             DerivedAddressDto {
-                schema: addr.schema.to_string(),
+                path: addr.path.to_string(),
                 label: addr.label.clone(),
                 address: address.to_string(),
             }
@@ -126,7 +126,7 @@ pub async fn btc_list_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, St
                 tx_id: utxo.tx_id.to_string(),
                 vout: utxo.vout.to_string(),
             },
-            deriv_path: utxo.deriviation_schema.to_string(),
+            deriv_path: utxo.derivation.to_string(),
             address_label: utxo.label(&schema_label_map),
         })
         .collect();

@@ -2,7 +2,7 @@ use bitcoin::{BlockHash, TxOut, Wtxid};
 
 use crate::btc::{
     account::SchemaLabelMap,
-    address::{Change, DeriviationSchema},
+    key_derivation::{Change, KeyDerivationPath},
 };
 
 #[derive(Debug, Clone)]
@@ -19,7 +19,7 @@ pub struct Utxo {
     pub tx_id: Wtxid,
     pub vout: usize,
     pub output: TxOut,
-    pub deriviation_schema: DeriviationSchema,
+    pub derivation: KeyDerivationPath,
     pub block: BlockHeader,
 }
 
@@ -29,11 +29,9 @@ impl Utxo {
     }
 
     pub fn label(&self, schema_label_map: &SchemaLabelMap) -> Option<String> {
-        let label: Option<String> = match self.deriviation_schema.change {
+        let label: Option<String> = match self.derivation.change {
             Change::Internal => Some("Change".to_string()),
-            Change::External => schema_label_map
-                .get(&self.deriviation_schema.to_slice())
-                .cloned(),
+            Change::External => schema_label_map.get(&self.derivation.to_slice()).cloned(),
         };
 
         label
@@ -42,7 +40,7 @@ impl Utxo {
 
 pub mod persistence {
     use crate::btc::{
-        address::{DeriviationSchema, DeriviationSchemaSlice},
+        key_derivation::{KeyDerivationPath, KeyDeriviationPathSlice},
         utxo::Utxo,
     };
     use bitcoin::{BlockHash, Wtxid, hashes::Hash};
@@ -67,7 +65,7 @@ pub mod persistence {
         /// ScriptPubKey (raw hex)
         pub script_pubkey: Vec<u8>,
         /// BIP-84 path to derive priv key from xpriv key
-        pub deriviation_path: DeriviationSchemaSlice,
+        pub derivation: KeyDeriviationPathSlice,
         pub block: BlockHeaderData,
     }
 
@@ -78,7 +76,7 @@ pub mod persistence {
                     height: self.block.height,
                     hash: self.block.hash.to_byte_array(),
                 },
-                deriviation_path: self.deriviation_schema.to_slice(),
+                derivation: self.derivation.to_slice(),
                 script_pubkey: self.output.script_pubkey.to_bytes(),
                 txid: self.tx_id.to_byte_array(),
                 value: self.output.value.to_sat(),
@@ -96,7 +94,7 @@ pub mod persistence {
                     height: self.block.height,
                 },
                 vout: self.vout,
-                deriviation_schema: DeriviationSchema::from_slice(self.deriviation_path)?,
+                derivation: KeyDerivationPath::from_slice(self.derivation)?,
                 output: bitcoin::TxOut {
                     script_pubkey: bitcoin::ScriptBuf::from_bytes(self.script_pubkey.clone()),
                     value: bitcoin::Amount::from_sat(self.value),
