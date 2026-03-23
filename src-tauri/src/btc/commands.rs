@@ -4,10 +4,10 @@ use specta::{Type, specta};
 use crate::{
     btc::{
         ActiveAccountDto,
-        account::{Account, AccountIndex},
+        account::Account,
         key_derivation::{self, Change},
     },
-    chain_trait::SecureKey,
+    chain_trait::{AccountIndex, SecureKey},
     session::SK,
 };
 

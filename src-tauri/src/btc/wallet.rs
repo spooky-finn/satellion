@@ -3,10 +3,10 @@ use bitcoin::bip32::{self, Xpriv};
 
 use crate::{
     btc::{
-        account::{Account, AccountIndex},
+        account::Account,
         key_derivation::{Change, KeyDerivationPath, LabeledDeriviationScheme},
     },
-    chain_trait::{AssetTracker, ChainTrait, SecureKey},
+    chain_trait::{AccountIndex, AssetTracker, ChainTrait, SecureKey},
     config::CONFIG,
 };
 
@@ -36,7 +36,7 @@ pub struct BitcoinWallet {
 impl Default for BitcoinWallet {
     fn default() -> BitcoinWallet {
         let active_account = 0;
-        let account = Account::new(active_account, "main".to_string()).unwrap();
+        let account = Account::new(active_account, "main".to_string());
         BitcoinWallet {
             active_account,
             accounts: vec![account],
@@ -59,6 +59,19 @@ impl BitcoinWallet {
             .iter()
             .find(|each| each.index == self.active_account)
             .ok_or("account not found".to_string())
+    }
+
+    pub fn add_account(&mut self, label: String) -> AccountIndex {
+        let next_index = self
+            .accounts
+            .iter()
+            .map(|a| a.index)
+            .max()
+            .map(|i| i + 1)
+            .unwrap_or(0);
+        let account = Account::new(next_index, label);
+        self.accounts.push(account);
+        next_index
     }
 
     pub fn switch_account(&mut self, account: AccountIndex) {
@@ -179,9 +192,9 @@ impl AssetTracker<LabeledDeriviationScheme> for BitcoinWallet {
 pub mod persistence {
     use serde::{Deserialize, Serialize};
 
-    use crate::btc::{
-        BitcoinWallet,
-        account::{AccountIndex, persistence},
+    use crate::{
+        btc::{BitcoinWallet, account::persistence},
+        chain_trait::AccountIndex,
     };
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

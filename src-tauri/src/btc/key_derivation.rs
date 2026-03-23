@@ -2,7 +2,7 @@ use std::{fmt::Display, str::FromStr};
 
 use bitcoin::{Network, bip32::DerivationPath};
 
-use crate::btc::account::AccountIndex;
+use crate::chain_trait::AccountIndex;
 
 /// m / purpose' / coin_type' / account' / change / address_index
 pub type KeyDeriviationPathSlice = [u32; 5];

@@ -4,7 +4,7 @@ use alloy::primitives::Address;
 use alloy_signer_local::{MnemonicBuilder, PrivateKeySigner, coins_bip39::English};
 
 use crate::{
-    chain_trait::{AssetTracker, ChainTrait, Persistable, SecureKey},
+    chain_trait::{AccountIndex, AssetTracker, ChainTrait, Persistable, SecureKey},
     config::CONFIG,
     eth::{
         constants::{self},
@@ -13,6 +13,7 @@ use crate::{
 };
 
 pub struct EthereumWallet {
+    pub active_account: AccountIndex,
     pub tracked_tokens: Vec<Token>,
 }
 
@@ -74,7 +75,10 @@ impl Persistable for EthereumWallet {
                 decimals: token.decimals,
             });
         }
-        Ok(Self { tracked_tokens })
+        Ok(Self {
+            tracked_tokens,
+            active_account: 0,
+        })
     }
 }
 
@@ -120,6 +124,7 @@ impl Default for EthereumWallet {
     fn default() -> Self {
         Self {
             tracked_tokens: constants::default_tokens(),
+            active_account: 0,
         }
     }
 }

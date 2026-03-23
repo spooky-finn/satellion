@@ -15,11 +15,10 @@ use crate::{
         },
         utxo::{Utxo, UtxoIdentifier},
     },
-    chain_trait::SecureKey,
+    chain_trait::{AccountIndex, SecureKey},
     config::CONFIG,
 };
 
-pub type AccountIndex = u32;
 type AccountAddresses = Vec<LabeledDeriviationScheme>;
 
 #[derive(Clone)]
@@ -31,8 +30,8 @@ pub struct Account {
 }
 
 impl Account {
-    pub fn new(account: AccountIndex, name: String) -> Result<Self, String> {
-        let account = Self {
+    pub fn new(account: AccountIndex, name: String) -> Self {
+        Self {
             index: account,
             name,
             addresses: vec![
@@ -46,8 +45,7 @@ impl Account {
                 },
             ],
             utxos: HashMap::new(),
-        };
-        Ok(account)
+        }
     }
 
     pub fn derive_script(xpriv: &Xpriv, path: KeyDerivationPath) -> Result<DerivedScript, String> {

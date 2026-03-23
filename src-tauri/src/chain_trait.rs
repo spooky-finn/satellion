@@ -66,3 +66,5 @@ where
     /// an address string or similar unique identifier.
     fn untrack(&mut self, asset: Asset) -> Result<(), String>;
 }
+
+pub type AccountIndex = u32;

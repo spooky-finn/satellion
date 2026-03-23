@@ -49,12 +49,16 @@ pub fn run() {
             commands::unlock_wallet,
             commands::forget_wallet,
             commands::get_config,
-            commands::chain_switch_event,
+            commands::add_account,
+            commands::switch_account,
+            commands::switch_blockchain,
             commands::price_feed,
+            // Bitcoin specific rpc
             btc::commands::btc_derive_external_address,
             btc::commands::btc_unoccupied_deriviation_index,
             btc::commands::btc_list_external_addresess,
             btc::commands::btc_list_utxos,
+            // Ethereum specific rpc
             eth::commands::eth_chain_info,
             eth::commands::eth_get_balance,
             eth::commands::eth_prepare_send_tx,

@@ -4,7 +4,7 @@ use zeroize::Zeroize;
 
 use crate::{
     btc::{self},
-    chain_trait::ChainTrait,
+    chain_trait::{AccountIndex, ChainTrait},
     config::{BlockChain, CONFIG, constants},
     eth::{
         self, PriceFeed,
@@ -54,10 +54,46 @@ pub async fn list_wallets(
 
 #[specta]
 #[tauri::command]
-pub async fn chain_switch_event(chain: BlockChain, sk: tauri::State<'_, SK>) -> Result<(), String> {
+pub async fn switch_blockchain(chain: BlockChain, sk: tauri::State<'_, SK>) -> Result<(), String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     wallet.last_used_chain = chain;
+    wallet.persist()?;
+    Ok(())
+}
+
+#[specta]
+#[tauri::command]
+pub async fn add_account(
+    chain: BlockChain,
+    label: String,
+    sk: tauri::State<'_, SK>,
+) -> Result<(), String> {
+    let mut sk = sk.lock().await;
+    let wallet = sk.wallet()?;
+    match chain {
+        BlockChain::Bitcoin => {
+            wallet.btc.add_account(label);
+        }
+        BlockChain::Ethereum => todo!(),
+    }
+    wallet.persist()?;
+    Ok(())
+}
+
+#[specta]
+#[tauri::command]
+pub async fn switch_account(
+    chain: BlockChain,
+    account: AccountIndex,
+    sk: tauri::State<'_, SK>,
+) -> Result<(), String> {
+    let mut sk = sk.lock().await;
+    let wallet = sk.wallet()?;
+    match chain {
+        BlockChain::Bitcoin => wallet.btc.active_account = account,
+        BlockChain::Ethereum => wallet.eth.active_account = account,
+    }
     wallet.persist()?;
     Ok(())
 }
