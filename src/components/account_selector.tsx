@@ -38,6 +38,7 @@ class CreateAccountVM {
 
 export class AccountSelectorVM {
   readonly create = new CreateAccountVM()
+  readonly account_loader = new Loader()
   accounts: Account[] = []
 
   active_account: Account['index'] | null = null
@@ -45,7 +46,10 @@ export class AccountSelectorVM {
     this.active_account = a
   }
 
-  constructor(readonly chain: BlockChain) {
+  constructor(
+    readonly chain: BlockChain,
+    readonly switch_handler: (account: Account['index']) => Promise<void>,
+  ) {
     makeAutoObservable(this)
   }
 
@@ -78,23 +82,42 @@ export class AccountSelectorVM {
       this.create.set_name_input_visible(true)
     }
   }
+
+  async handle_account_switch(account: Account['index'] | null) {
+    if (account == null) return
+
+    this.account_loader.start()
+    const res = await commands.switchAccount(this.chain, account)
+    if (res.status == 'error') {
+      notifier.err(res.error)
+      this.account_loader.stop()
+      throw res.error
+    }
+
+    await this.switch_handler(account)
+    this.account_loader.stop()
+  }
 }
 
 export const AccountSelector = observer(({ vm }: { vm: AccountSelectorVM }) => (
-  <Row alignItems={'center'}>
+  <Row alignItems={'center'} gap={0.5}>
     <P level="body-xs">Account</P>
     <Select
       variant="plain"
       color="primary"
       value={vm.active_account}
-      onChange={(_, v) => vm.set_active_account(v)}
+      onChange={(_, v) => {
+        vm.set_active_account(v)
+        vm.handle_account_switch(v)
+      }}
       sx={{ width: 'min-content' }}
       size="sm"
       slotProps={{ listbox: { variant: 'soft' } }}
+      disabled={vm.account_loader.loading}
     >
       {vm.accounts.map(each => (
         <Option value={each.index} key={each.index}>
-          {each.name}
+          {each.index}. {each.name}
         </Option>
       ))}
 

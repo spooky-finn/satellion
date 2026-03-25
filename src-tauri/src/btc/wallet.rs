@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 use bip39::Language;
 use bitcoin::bip32::{self, Xpriv};
 
@@ -106,11 +108,10 @@ impl BitcoinWallet {
             .derive(prk.expose())
             .map_err(|e| e.to_string())?;
 
-        let active_account = ActiveAccountDto {
+        Ok(ActiveAccountDto {
             address: mainkey.address.to_string(),
             total_balance: account.total_balance().to_string(),
-        };
-        Ok(active_account)
+        })
     }
 
     fn list_all_accounts(&self) -> Vec<AccountIdDto> {
@@ -124,20 +125,20 @@ impl BitcoinWallet {
     }
 }
 
-#[derive(serde::Serialize, specta::Type)]
+#[derive(Serialize, specta::Type)]
 pub struct ActiveAccountDto {
     /** main external address to accept payments */
     pub address: String,
     pub total_balance: String,
 }
 
-#[derive(serde::Serialize, specta::Type)]
+#[derive(Serialize, specta::Type)]
 pub struct AccountIdDto {
     pub index: AccountIndex,
     pub name: String,
 }
 
-#[derive(serde::Serialize, specta::Type)]
+#[derive(Serialize, specta::Type)]
 pub struct BitcoinUnlockDto {
     pub accounts: Vec<AccountIdDto>,
     pub active_account: ActiveAccountDto,

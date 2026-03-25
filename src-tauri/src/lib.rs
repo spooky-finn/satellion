@@ -58,6 +58,7 @@ pub fn run() {
             btc::commands::btc_unoccupied_deriviation_index,
             btc::commands::btc_list_external_addresess,
             btc::commands::btc_list_utxos,
+            btc::commands::btc_account_info,
             // Ethereum specific rpc
             eth::commands::eth_chain_info,
             eth::commands::eth_get_balance,

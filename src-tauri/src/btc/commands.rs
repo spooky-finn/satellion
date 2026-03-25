@@ -6,24 +6,15 @@ use crate::{
         ActiveAccountDto,
         key_derivation::{self, Change, ChildKeyDeriviationScheme},
     },
-    chain_trait::{AccountIndex, SecureKey},
+    chain_trait::SecureKey,
     session::SK,
 };
 
 #[specta]
 #[tauri::command]
-pub async fn btc_switch_account(
-    account: AccountIndex,
-    sk: tauri::State<'_, SK>,
-) -> Result<ActiveAccountDto, String> {
+pub async fn btc_account_info(sk: tauri::State<'_, SK>) -> Result<ActiveAccountDto, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
-
-    wallet.mutate_btc(|btc| {
-        btc.switch_account(account);
-        Ok(())
-    })?;
-
     let prk = wallet.btc_prk()?;
     wallet.btc.active_account_info(&prk)
 }

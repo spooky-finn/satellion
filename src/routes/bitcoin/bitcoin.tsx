@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router'
 import { AccountSelector } from '../../components/account_selector'
 import { Navbar } from '../../components/navbar'
 import { route } from '../../routes'
-import { P, Row } from '../../shortcuts'
+import { P, Progress, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
 import { DeriveChildAddress } from './derive_child'
 import { ListDerivedAddresses } from './list_childs'
@@ -32,6 +32,7 @@ const Bitcoin = () => {
         </P>
         <AccountSelector vm={btc.account_selector} />
       </Row>
+      {btc.account_selector.account_loader.loading && <Progress size="sm" />}
       {addr && (
         <Card size="sm" variant="soft">
           <Stack>

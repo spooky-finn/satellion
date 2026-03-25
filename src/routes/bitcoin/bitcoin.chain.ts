@@ -1,18 +1,23 @@
 import { type Event, listen } from '@tauri-apps/api/event'
 import { makeAutoObservable } from 'mobx'
-import type {
-  BitcoinUnlockDto,
-  SyncHeightUpdateEvent,
-  SyncNewUtxoEvent,
-  SyncProgressEvent,
-  SyncWarningEvent,
+import {
+  type BitcoinUnlockDto,
+  type BlockChain,
+  commands,
+  type SyncHeightUpdateEvent,
+  type SyncNewUtxoEvent,
+  type SyncProgressEvent,
+  type SyncWarningEvent,
 } from '../../bindings'
 import { AccountSelectorVM } from '../../components/account_selector'
 import { notifier } from '../../lib/notifier'
 import { sat2btc } from './utils/amount_formatters'
 
 export class BitcoinChain {
-  readonly account_selector = new AccountSelectorVM('Bitcoin')
+  readonly chain: BlockChain = 'Bitcoin'
+  readonly account_selector = new AccountSelectorVM(this.chain, async _ => {
+    await this.load_account_info()
+  })
 
   constructor() {
     makeAutoObservable(this)
@@ -34,10 +39,13 @@ export class BitcoinChain {
   }
 
   init(unlock: BitcoinUnlockDto) {
-    this.address = unlock.active_account.address
-    this.total_balance_sat = unlock.active_account.total_balance
-
     this.account_selector.init(unlock.accounts, unlock.accounts[0].index)
+    this.init_with_account_info(unlock.active_account)
+  }
+
+  init_with_account_info(info: BitcoinUnlockDto['active_account']) {
+    this.address = info.address
+    this.total_balance_sat = info.total_balance
   }
 
   address!: string
@@ -67,5 +75,15 @@ export class BitcoinChain {
   total_balance_sat: string = '0'
   set_total_balance_sat(s: string) {
     this.total_balance_sat = s
+  }
+
+  async load_account_info() {
+    const res = await commands.btcAccountInfo()
+    if (res.status == 'error') {
+      notifier.err(res.error)
+      throw res.error
+    }
+
+    this.init_with_account_info(res.data)
   }
 }
