@@ -26,10 +26,12 @@ const Bitcoin = () => {
   return (
     <Stack gap={1}>
       <Navbar />
-      <P level="h3" color="primary">
-        Bitcoin
-      </P>
-      <AccountSelector vm={btc.account_selector} />
+      <Row gap={3}>
+        <P level="h3" color="primary">
+          Bitcoin
+        </P>
+        <AccountSelector vm={btc.account_selector} />
+      </Row>
       {addr && (
         <Card size="sm" variant="soft">
           <Stack>

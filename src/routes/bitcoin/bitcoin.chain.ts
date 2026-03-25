@@ -12,7 +12,7 @@ import { notifier } from '../../lib/notifier'
 import { sat2btc } from './utils/amount_formatters'
 
 export class BitcoinChain {
-  readonly account_selector = new AccountSelectorVM()
+  readonly account_selector = new AccountSelectorVM('Bitcoin')
 
   constructor() {
     makeAutoObservable(this)
