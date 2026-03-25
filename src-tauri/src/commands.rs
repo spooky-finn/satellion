@@ -68,17 +68,15 @@ pub async fn add_account(
     chain: BlockChain,
     label: String,
     sk: tauri::State<'_, SK>,
-) -> Result<(), String> {
+) -> Result<u32, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
-    match chain {
-        BlockChain::Bitcoin => {
-            wallet.btc.add_account(label);
-        }
+    let account_index = match chain {
+        BlockChain::Bitcoin => wallet.btc.add_account(label),
         BlockChain::Ethereum => todo!(),
-    }
+    };
     wallet.persist()?;
-    Ok(())
+    Ok(account_index)
 }
 
 #[specta]
@@ -100,8 +98,8 @@ pub async fn switch_account(
 
 #[derive(Type, Serialize)]
 pub struct UnlockDto {
-    ethereum: eth::wallet::UnlockDto,
-    bitcoin: btc::wallet::UnlockDto,
+    ethereum: eth::wallet::EthereumUnlockDto,
+    bitcoin: btc::wallet::BitcoinUnlockDto,
     last_used_chain: BlockChain,
 }
 

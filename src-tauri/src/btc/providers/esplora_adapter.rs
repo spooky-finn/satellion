@@ -24,11 +24,11 @@ impl EsploraProvider {
 // Esplora API is a RESTful HTTP interface for querying Bitcoin blockchain data.
 // It is developed by Blockstream and powers the public Blockstream Explorer.
 // It allows clients (wallets, services, indexers) to fetch blockchain state without running a full node with a custom indexer.
-pub struct EsploraClient {
+pub struct EsploraAdapter {
     client: AsyncClient<DefaultSleeper>,
 }
 
-impl EsploraClient {
+impl EsploraAdapter {
     pub fn new(base_url: &str) -> Self {
         let client = Builder::new(base_url)
             .build_async()
@@ -76,7 +76,7 @@ mod test {
 
     #[tokio::test]
     async fn it_fee_estimate() {
-        let client = EsploraClient::new(EsploraProvider::MempoolSpace.main_net());
+        let client = EsploraAdapter::new(EsploraProvider::MempoolSpace.main_net());
         let fees = client.get_fee_estimates().await;
         match fees {
             Ok(r) => {
@@ -90,7 +90,7 @@ mod test {
 
     #[tokio::test]
     async fn get_utxos_by_addresses() {
-        let client = EsploraClient::new(EsploraProvider::MempoolSpace.main_net());
+        let client = EsploraAdapter::new(EsploraProvider::MempoolSpace.main_net());
         let satochi = Address::from_str("bc1qgx3xl9f6scnh34tph2my3tytmy0m9zqurqstpp")
             .unwrap()
             .require_network(bitcoin::Network::Bitcoin)

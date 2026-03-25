@@ -1,4 +1,4 @@
-use bitcoin::{BlockHash, TxOut, Wtxid};
+use bitcoin::{BlockHash, TxOut, Txid};
 
 use crate::btc::{
     account::SchemaLabelMap,
@@ -16,15 +16,15 @@ pub type UtxoIdentifier = String;
 /// Unspent transaction output domain model
 #[derive(Debug, Clone)]
 pub struct Utxo {
-    pub tx_id: Wtxid,
+    pub tx_id: Txid,
     pub vout: usize,
     pub output: TxOut,
     pub derivation: KeyDerivationPath,
-    pub block: BlockHeader,
+    pub height: u32,
 }
 
 impl Utxo {
-    pub fn id(&self) -> UtxoIdentifier {
+    pub fn outpoint(&self) -> UtxoIdentifier {
         format!("{}{}", self.tx_id, self.vout)
     }
 
@@ -43,16 +43,8 @@ pub mod persistence {
         key_derivation::{KeyDerivationPath, KeyDeriviationPathSlice},
         utxo::Utxo,
     };
-    use bitcoin::{BlockHash, Wtxid, hashes::Hash};
+    use bitcoin::{Txid, hashes::Hash};
     use serde::{Deserialize, Serialize};
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct BlockHeaderData {
-        /// Block height where this UTXO was created
-        pub height: u32,
-        /// Block hash for additional integrity
-        pub hash: [u8; 32],
-    }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct UtxoData {
@@ -66,16 +58,13 @@ pub mod persistence {
         pub script_pubkey: Vec<u8>,
         /// BIP-84 path to derive priv key from xpriv key
         pub derivation: KeyDeriviationPathSlice,
-        pub block: BlockHeaderData,
+        pub height: u32,
     }
 
     impl Utxo {
         pub fn serialize(&self) -> Result<UtxoData, String> {
             Ok(UtxoData {
-                block: BlockHeaderData {
-                    height: self.block.height,
-                    hash: self.block.hash.to_byte_array(),
-                },
+                height: self.height,
                 derivation: self.derivation.to_slice(),
                 script_pubkey: self.output.script_pubkey.to_bytes(),
                 txid: self.tx_id.to_byte_array(),
@@ -88,11 +77,8 @@ pub mod persistence {
     impl UtxoData {
         pub fn deserialize(&self) -> Result<Utxo, String> {
             Ok(Utxo {
-                tx_id: Wtxid::from_byte_array(self.txid),
-                block: crate::btc::utxo::BlockHeader {
-                    hash: BlockHash::from_byte_array(self.block.hash),
-                    height: self.block.height,
-                },
+                tx_id: Txid::from_byte_array(self.txid),
+                height: self.height,
                 vout: self.vout,
                 derivation: KeyDerivationPath::from_slice(self.derivation)?,
                 output: bitcoin::TxOut {

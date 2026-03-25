@@ -50,7 +50,7 @@ class DeriveChild {
 
     this.address = null
     this.loader.start()
-    const res = await commands.btcDeriveAddress(this.label, this.index)
+    const res = await commands.btcDeriveExternalAddress(this.label, this.index)
     this.loader.stop()
     if (res.status === 'error') {
       notifier.err(res.error)

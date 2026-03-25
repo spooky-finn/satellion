@@ -1,16 +1,19 @@
 import { type Event, listen } from '@tauri-apps/api/event'
 import { makeAutoObservable } from 'mobx'
 import type {
+  BitcoinUnlockDto,
   SyncHeightUpdateEvent,
   SyncNewUtxoEvent,
   SyncProgressEvent,
   SyncWarningEvent,
-  UnlockMsg,
 } from '../../bindings'
+import { AccountSelectorVM } from '../../components/account_selector'
 import { notifier } from '../../lib/notifier'
 import { sat2btc } from './utils/amount_formatters'
 
 export class BitcoinChain {
+  readonly account_selector = new AccountSelectorVM()
+
   constructor() {
     makeAutoObservable(this)
 
@@ -30,9 +33,11 @@ export class BitcoinChain {
     })
   }
 
-  init(unlock: UnlockMsg['bitcoin']) {
-    this.address = unlock.address
-    this.total_balance_sat = unlock.total_balance
+  init(unlock: BitcoinUnlockDto) {
+    this.address = unlock.active_account.address
+    this.total_balance_sat = unlock.active_account.total_balance
+
+    this.account_selector.init(unlock.accounts, unlock.accounts[0].index)
   }
 
   address!: string

@@ -21,14 +21,6 @@ async createWallet(mnemonic: string, passphrase: string, name: string, creationT
     else return { status: "error", error: e  as any };
 }
 },
-async chainStatus() : Promise<Result<ChainStatus, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("chain_status") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 async listWallets() : Promise<Result<string[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("list_wallets") };
@@ -37,7 +29,7 @@ async listWallets() : Promise<Result<string[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async unlockWallet(walletName: string, passphrase: string) : Promise<Result<UnlockMsg, string>> {
+async unlockWallet(walletName: string, passphrase: string) : Promise<Result<UnlockDto, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("unlock_wallet", { walletName, passphrase }) };
 } catch (e) {
@@ -61,15 +53,31 @@ async getConfig() : Promise<Result<UIConfig, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async chainSwitchEvent(chain: Chain) : Promise<Result<null, string>> {
+async addAccount(chain: BlockChain, label: string) : Promise<Result<number, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("chain_switch_event", { chain }) };
+    return { status: "ok", data: await TAURI_INVOKE("add_account", { chain, label }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async priceFeed() : Promise<Result<PriceFeedMsg, string>> {
+async switchAccount(chain: BlockChain, account: number) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("switch_account", { chain, account }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async switchBlockchain(chain: BlockChain) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("switch_blockchain", { chain }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async priceFeed() : Promise<Result<PriceFeedDto, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("price_feed") };
 } catch (e) {
@@ -77,9 +85,9 @@ async priceFeed() : Promise<Result<PriceFeedMsg, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async btcDeriveAddress(label: string, index: number) : Promise<Result<string, string>> {
+async btcDeriveExternalAddress(label: string, index: number) : Promise<Result<string, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("btc_derive_address", { label, index }) };
+    return { status: "ok", data: await TAURI_INVOKE("btc_derive_external_address", { label, index }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -93,25 +101,17 @@ async btcUnoccupiedDeriviationIndex() : Promise<Result<number, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async btcListDerivedAddresess() : Promise<Result<DerivedAddress[], string>> {
+async btcListExternalAddresess() : Promise<Result<DerivedAddressDto[], string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("btc_list_derived_addresess") };
+    return { status: "ok", data: await TAURI_INVOKE("btc_list_external_addresess") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async btcListUtxos() : Promise<Result<Utxo[], string>> {
+async btcListUtxos() : Promise<Result<UtxoDto[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("btc_list_utxos") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async btcNeutrinoStart() : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("btc_neutrino_start") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -204,28 +204,33 @@ export const MIN_PASSPHRASE_LEN = 4 as const;
 
 /** user-defined types **/
 
+export type AccountIdDto = { index: number; name: string }
+export type ActiveAccountDto = { 
+/**
+ * main external address to accept payments
+ */
+address: string; total_balance: string }
 export type Balance = { wei: string; tokens: TokenBalance[] }
-export type BitcoinUnlock = { address: string; total_balance: string }
-export type Chain = "Bitcoin" | "Ethereum"
+export type BitcoinUnlockDto = { accounts: AccountIdDto[]; active_account: ActiveAccountDto }
+export type BlockChain = "Bitcoin" | "Ethereum"
 export type ChainInfo = { block_number: string; block_hash: string; base_fee_per_gas: string | null }
-export type ChainStatus = { height: number }
 export type CreationFlow = "Import" | "Generation"
-export type DerivedAddress = { label: string; address: string; deriv_path: string }
-export type EthereumUnlock = { address: string }
+export type DerivedAddressDto = { label: string; path: string; address: string }
+export type EthereumUnlockDto = { address: string }
 export type FeeMode = "Minimal" | "Standard" | "Increased"
 export type HeightUpdateStatus = "in progress" | "completed"
 export type PrepareTxReqReq = { token_address: string; amount: string; recipient: string; fee_mode: FeeMode }
 export type PrepareTxReqRes = { estimated_gas: string; max_fee_per_gas: string; fee_ceiling: string; fee_in_usd: number }
-export type PriceFeedMsg = { btc_usd: number; eth_usd: number }
+export type PriceFeedDto = { btc_usd: number; eth_usd: number }
 export type SyncHeightUpdateEvent = { status: HeightUpdateStatus; height: number }
 export type SyncNewUtxoEvent = { value: string; total: string }
 export type SyncProgressEvent = { progress: number }
 export type SyncWarningEvent = { msg: string }
 export type TokenBalance = { symbol: string; balance: string; decimals: number; address: string }
-export type TokenType = { chain: Chain; symbol: string; decimals: number }
+export type TokenType = { chain: BlockChain; symbol: string; decimals: number }
 export type UIConfig = { eth_anvil: boolean }
-export type UnlockMsg = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock; last_used_chain: Chain }
-export type Utxo = { utxo_id: UtxoId; value: string; deriv_path: string; address_label: string | null }
+export type UnlockDto = { ethereum: EthereumUnlockDto; bitcoin: BitcoinUnlockDto; last_used_chain: BlockChain }
+export type UtxoDto = { utxo_id: UtxoId; value: string; deriv_path: string; address_label: string | null }
 export type UtxoId = { tx_id: string; vout: string }
 
 /** tauri-specta globals **/

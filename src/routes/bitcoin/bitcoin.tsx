@@ -2,6 +2,7 @@ import { Card, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
+import { AccountSelector } from '../../components/account_selector'
 import { Navbar } from '../../components/navbar'
 import { route } from '../../routes'
 import { P, Row } from '../../shortcuts'
@@ -28,6 +29,7 @@ const Bitcoin = () => {
       <P level="h3" color="primary">
         Bitcoin
       </P>
+      <AccountSelector vm={btc.account_selector} />
       {addr && (
         <Card size="sm" variant="soft">
           <Stack>

@@ -1,8 +1,12 @@
 use std::{fmt::Display, str::FromStr};
 
-use bitcoin::{Network, bip32::DerivationPath};
+use bitcoin::{
+    Address, Network,
+    bip32::{DerivationPath, Xpriv},
+    key::{Keypair, Secp256k1},
+};
 
-use crate::chain_trait::AccountIndex;
+use crate::{chain_trait::AccountIndex, config::CONFIG};
 
 /// m / purpose' / coin_type' / account' / change / address_index
 pub type KeyDeriviationPathSlice = [u32; 5];
@@ -19,9 +23,14 @@ pub fn make_hardened(raw: KeyDeriviationPathSlice) -> KeyDeriviationPathSlice {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct LabeledDeriviationScheme {
+pub struct ChildKeyDeriviationScheme {
     pub label: String,
     pub path: KeyDerivationPath,
+}
+
+pub struct Child {
+    pub keypair: Keypair,
+    pub address: Address,
 }
 
 #[derive(Debug, Clone, PartialEq, Copy, Eq, Hash)]
@@ -125,21 +134,39 @@ impl KeyDerivationPath {
             index,
         })
     }
+
+    pub fn derive(&self, xpriv: &Xpriv) -> Result<Child, String> {
+        let secp = Secp256k1::new();
+        // derive child private key
+        let keypair = xpriv
+            .derive_priv(&secp, &self.to_path()?)
+            .map_err(|e| format!("Derivation error: {}", e))?
+            .to_keypair(&secp);
+
+        // x-only pubkey for taproot
+        let (internal_key, _parity) = keypair.x_only_public_key();
+
+        // Create taproot address (BIP341 tweak is done automatically by rust-bitcoin)
+        let address = Address::p2tr(
+            &secp,
+            internal_key,
+            None, // no script tree = BIP86 key-path spend
+            CONFIG.bitcoin.network(),
+        );
+        Ok(Child { address, keypair })
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct DerivedScript {
-    pub script: bitcoin::ScriptBuf,
     pub derive_path: KeyDerivationPath,
+    pub script: bitcoin::ScriptBuf,
 }
 
-impl DerivedScript {
-    pub fn new(script: bitcoin::ScriptBuf, derive_path: KeyDerivationPath) -> Self {
-        Self {
-            script,
-            derive_path,
-        }
-    }
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct DerivedAddress {
+    pub derive_path: KeyDerivationPath,
+    pub address: Address,
 }
 
 #[cfg(test)]

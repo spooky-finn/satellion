@@ -3,7 +3,7 @@ import {
   type Balance,
   type ChainInfo,
   commands,
-  type UnlockMsg,
+  type EthereumUnlockDto,
 } from '../../bindings'
 import { notifier } from '../../lib/notifier'
 import { Loader } from '../../stores/loader'
@@ -17,7 +17,7 @@ export class EthereumWallet {
     makeAutoObservable(this)
   }
 
-  init(unlock: UnlockMsg['ethereum']) {
+  init(unlock: EthereumUnlockDto) {
     this.address = unlock.address
     this.getChainInfo()
     this.getBalance()

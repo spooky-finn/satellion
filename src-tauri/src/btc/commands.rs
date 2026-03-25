@@ -4,8 +4,7 @@ use specta::{Type, specta};
 use crate::{
     btc::{
         ActiveAccountDto,
-        account::Account,
-        key_derivation::{self, Change},
+        key_derivation::{self, Change, ChildKeyDeriviationScheme},
     },
     chain_trait::{AccountIndex, SecureKey},
     session::SK,
@@ -40,14 +39,17 @@ pub async fn btc_derive_external_address(
     let wallet = sk.wallet()?;
     let prk = wallet.btc_prk()?;
 
-    let path = wallet.btc.new_deriviation_schema(Change::External, index)?;
+    let path = wallet.btc.new_deriviation_path(Change::External, index)?;
+    let deriviation_scheme = ChildKeyDeriviationScheme { label, path };
+
     let address = wallet.mutate_btc(|btc| {
         let account = btc.get_mut_active_account()?;
-        let (_, address) = account.add_child(&prk, label, path.clone())?;
-        Ok(address)
+        let child = deriviation_scheme.path.derive(prk.expose())?;
+        account.add_address(deriviation_scheme);
+        Ok(child.address.to_string())
     })?;
 
-    Ok(address.to_string())
+    Ok(address)
 }
 
 #[specta]
@@ -74,19 +76,19 @@ pub async fn btc_list_external_addresess(
     let wallet = sk.wallet()?;
     let prk = wallet.btc_prk()?;
 
-    let addresses = {
+    let child_keys = {
         let account = wallet.btc.active_account()?;
         account.get_external_addresess().collect::<Vec<_>>()
     };
 
-    Ok(addresses
+    Ok(child_keys
         .into_iter()
-        .map(|addr| {
-            let (_, address) = Account::derive_child(prk.expose(), &addr.path).unwrap();
+        .map(|scheme| {
+            let child = scheme.path.derive(prk.expose()).unwrap();
             DerivedAddressDto {
-                path: addr.path.to_string(),
-                label: addr.label.clone(),
-                address: address.to_string(),
+                path: scheme.path.to_string(),
+                label: scheme.label.clone(),
+                address: child.address.to_string(),
             }
         })
         .collect())
