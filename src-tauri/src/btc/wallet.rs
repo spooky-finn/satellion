@@ -158,7 +158,7 @@ impl ChainTrait for BitcoinWallet {
     ) -> Result<Self::AccountState, String> {
         Ok(BitcoinUnlockDto {
             accounts: self.list_all_accounts(),
-            active_account: self.active_account_info(&prk)?,
+            active_account: self.active_account_info(prk)?,
         })
     }
 }

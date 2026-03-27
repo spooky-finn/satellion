@@ -1,13 +1,16 @@
 use std::collections::{HashMap, HashSet};
 
+use bitcoin::{Address, address::NetworkChecked};
+
 use crate::{
     btc::{
+        Prk,
         key_derivation::{
             Change, ChildKeyDeriviationScheme, KeyDerivationPath, KeyDeriviationPathSlice, Proposal,
         },
         utxo::{Utxo, UtxoIdentifier},
     },
-    chain_trait::AccountIndex,
+    chain_trait::{AccountIndex, SecureKey},
     config::CONFIG,
 };
 
@@ -64,7 +67,9 @@ impl Account {
         self.addresses.push(child);
     }
 
-    pub fn add_utxos(&mut self, utxos: Vec<Utxo>) {
+    pub fn set_utxos(&mut self, utxos: Vec<Utxo>) {
+        self.utxos.clear();
+
         for utxo in utxos {
             self.utxos.insert(utxo.outpoint(), utxo);
         }
@@ -97,9 +102,23 @@ impl Account {
             .map(|e| (e.path.to_slice(), e.label.clone()))
             .collect()
     }
+
+    pub fn derive_address_path_map(&self, prk: &Prk) -> AddressPathMap {
+        self.addresses
+            .iter()
+            .filter_map(|schema| {
+                schema
+                    .path
+                    .derive(prk.expose())
+                    .ok()
+                    .map(|child| (child.address, schema.path.clone()))
+            })
+            .collect()
+    }
 }
 
 pub type KeyDerivationPathLabelMap = HashMap<KeyDeriviationPathSlice, String>;
+pub type AddressPathMap = HashMap<Address<NetworkChecked>, KeyDerivationPath>;
 
 pub mod persistence {
     use serde::{Deserialize, Serialize};

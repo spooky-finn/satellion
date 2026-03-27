@@ -7,8 +7,10 @@ use tokio::sync::OnceCell;
 use crate::{
     btc::{
         ActiveAccountDto,
-        key_derivation::{self, Change, ChildKeyDeriviationScheme, DerivedAddress},
+        account::KeyDerivationPathLabelMap,
+        key_derivation::{self, Change, ChildKeyDeriviationScheme},
         providers::electrum_adapter::ElectrumAdapter,
+        utxo::Utxo,
     },
     chain_trait::SecureKey,
     session::SK,
@@ -105,7 +107,7 @@ impl WalletService {
         let account = wallet.btc.active_account()?;
         let external_addresses: Vec<_> = account.get_external_addresess().collect();
 
-        Ok(external_addresses
+        external_addresses
             .into_iter()
             .map(|scheme| {
                 let child = scheme
@@ -118,27 +120,19 @@ impl WalletService {
                     address: child.address.to_string(),
                 })
             })
-            .collect::<Result<Vec<_>, String>>()?)
+            .collect::<Result<Vec<_>, String>>()
     }
 
     pub async fn list_utxos(&self) -> Result<Vec<UtxoDto>, String> {
         let mut sk = self.sk.lock().await;
         let wallet = sk.wallet()?;
         let account = wallet.btc.active_account()?;
-        let schema_label_map = account.derivepath_label_map();
+        let address_label_map = account.derivepath_label_map();
 
         let mut utxos: Vec<_> = account
             .utxos
             .values()
-            .map(|utxo| UtxoDto {
-                value: utxo.output.value.to_sat().to_string(),
-                utxo_id: UtxoId {
-                    tx_id: utxo.tx_id.to_string(),
-                    vout: utxo.vout.to_string(),
-                },
-                deriv_path: utxo.derivation.to_string(),
-                address_label: utxo.label(&schema_label_map),
-            })
+            .map(|utxo| utxo.to_dto(&address_label_map))
             .collect();
 
         utxos.sort_by(|a, b| {
@@ -153,70 +147,54 @@ impl WalletService {
     }
 
     pub async fn sync_utxos(&self) -> Result<Vec<UtxoDto>, String> {
-        let addresess = {
+        let address_path_map = {
             let mut sk = self.sk.lock().await;
             let wallet = sk.wallet()?;
-            let account = wallet.btc.active_account()?;
-
-            let addresses: Vec<DerivedAddress> = account
-                .addresses
-                .iter()
-                .filter(|a| a.path.change == Change::External)
-                .map(|scheme| {
-                    let prk = wallet.btc_prk()?;
-                    let child = scheme
-                        .path
-                        .derive(prk.expose())
-                        .map_err(|e| e.to_string())?;
-                    Ok::<_, String>(DerivedAddress {
-                        derive_path: scheme.path.clone(),
-                        address: child.address,
-                    })
-                })
-                .collect::<Result<Vec<_>, String>>()?;
-            addresses
+            let prk = wallet.btc_prk()?;
+            wallet.btc.active_account()?.derive_address_path_map(&prk)
         };
 
-        let utxos = self
+        let received_utxos = self
             .transport()
             .await?
-            .get_utxos(&addresess)
+            .get_utxos(address_path_map)
             .await
             .map_err(|e| e.to_string())?;
 
         let mut sk = self.sk.lock().await;
         let wallet = sk.wallet()?;
-        let result_utxos = {
-            let account = wallet.btc.get_mut_active_account()?;
-            account.utxos.clear();
-            account.add_utxos(utxos);
+        let account = wallet.btc.get_mut_active_account()?;
+        account.set_utxos(received_utxos);
 
-            let schema_label_map = account.derivepath_label_map();
-            account
-                .utxos
-                .values()
-                .map(|utxo| UtxoDto {
-                    value: utxo.output.value.to_sat().to_string(),
-                    utxo_id: UtxoId {
-                        tx_id: utxo.tx_id.to_string(),
-                        vout: utxo.vout.to_string(),
-                    },
-                    deriv_path: utxo.derivation.to_string(),
-                    address_label: utxo.label(&schema_label_map),
-                })
-                .collect::<Vec<_>>()
-        };
-        wallet.persist()?;
+        let address_label_map = account.derivepath_label_map();
+        let mut result = account
+            .utxos
+            .values()
+            .map(|utxo| utxo.to_dto(&address_label_map))
+            .collect::<Vec<_>>();
 
-        let mut result_utxos = result_utxos;
-        result_utxos.sort_by(|a, b| {
+        result.sort_by(|a, b| {
             b.value
                 .parse::<u64>()
                 .unwrap_or(0)
                 .cmp(&a.value.parse::<u64>().unwrap_or(0))
         });
 
-        const UTXO_DISPLAY_LIMIT: usize = 500;
-        Ok(result_utxos.into_iter().take(UTXO_DISPLAY_LIMIT).collect())
+        wallet.persist()?;
+        Ok(result)
+    }
+}
+
+impl Utxo {
+    fn to_dto(&self, address_label_map: &KeyDerivationPathLabelMap) -> UtxoDto {
+        UtxoDto {
+            value: self.output.value.to_sat().to_string(),
+            utxo_id: UtxoId {
+                tx_id: self.tx_id.to_string(),
+                vout: self.vout.to_string(),
+            },
+            deriv_path: self.derivation.to_string(),
+            address_label: self.label(address_label_map),
+        }
     }
 }
