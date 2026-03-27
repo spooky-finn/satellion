@@ -21,9 +21,9 @@ async createWallet(mnemonic: string, passphrase: string, name: string, creationT
     else return { status: "error", error: e  as any };
 }
 },
-async listWallets() : Promise<Result<string[], string>> {
+async getWallets() : Promise<Result<string[], string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("list_wallets") };
+    return { status: "ok", data: await TAURI_INVOKE("get_wallets") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -101,17 +101,25 @@ async btcUnoccupiedDeriviationIndex() : Promise<Result<number, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async btcListExternalAddresess() : Promise<Result<DerivedAddressDto[], string>> {
+async btcGetExternalAddresess() : Promise<Result<DerivedAddressDto[], string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("btc_list_external_addresess") };
+    return { status: "ok", data: await TAURI_INVOKE("btc_get_external_addresess") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async btcListUtxos() : Promise<Result<UtxoDto[], string>> {
+async btcGetUtxos() : Promise<Result<UtxoDto[], string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("btc_list_utxos") };
+    return { status: "ok", data: await TAURI_INVOKE("btc_get_utxos") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async btcSyncUtxos() : Promise<Result<UtxoDto[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("btc_sync_utxos") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -194,17 +202,6 @@ async ethAnvilSetInitialBalances(address: string) : Promise<Result<string, strin
 /** user-defined events **/
 
 
-export const events = __makeEvents__<{
-syncHeightUpdateEvent: SyncHeightUpdateEvent,
-syncNewUtxoEvent: SyncNewUtxoEvent,
-syncProgressEvent: SyncProgressEvent,
-syncWarningEvent: SyncWarningEvent
-}>({
-syncHeightUpdateEvent: "sync-height-update-event",
-syncNewUtxoEvent: "sync-new-utxo-event",
-syncProgressEvent: "sync-progress-event",
-syncWarningEvent: "sync-warning-event"
-})
 
 /** user-defined constants **/
 
@@ -226,14 +223,9 @@ export type CreationFlow = "Import" | "Generation"
 export type DerivedAddressDto = { label: string; path: string; address: string }
 export type EthereumUnlockDto = { address: string }
 export type FeeMode = "Minimal" | "Standard" | "Increased"
-export type HeightUpdateStatus = "in progress" | "completed"
 export type PrepareTxReqReq = { token_address: string; amount: string; recipient: string; fee_mode: FeeMode }
 export type PrepareTxReqRes = { estimated_gas: string; max_fee_per_gas: string; fee_ceiling: string; fee_in_usd: number }
 export type PriceFeedDto = { btc_usd: number; eth_usd: number }
-export type SyncHeightUpdateEvent = { status: HeightUpdateStatus; height: number }
-export type SyncNewUtxoEvent = { value: string; total: string }
-export type SyncProgressEvent = { progress: number }
-export type SyncWarningEvent = { msg: string }
 export type TokenBalance = { symbol: string; balance: string; decimals: number; address: string }
 export type TokenType = { chain: BlockChain; symbol: string; decimals: number }
 export type UIConfig = { eth_anvil: boolean }

@@ -24,7 +24,7 @@ class ChildAddressList {
 
   async fetch() {
     this.loader.start()
-    const res = await commands.btcListExternalAddresess()
+    const res = await commands.btcGetExternalAddresess()
     this.loader.stop()
     if (res.status === 'error') {
       notifier.err(res.error)

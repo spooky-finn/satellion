@@ -46,7 +46,7 @@ pub async fn create_wallet(
 
 #[specta]
 #[tauri::command]
-pub async fn list_wallets(
+pub async fn get_wallets(
     wallet_keeper: tauri::State<'_, WalletKeeper>,
 ) -> Result<Vec<String>, String> {
     wallet_keeper.ls().map_err(|e| e.to_string())

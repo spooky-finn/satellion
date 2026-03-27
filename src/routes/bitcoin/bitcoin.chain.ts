@@ -1,17 +1,11 @@
-import { type Event, listen } from '@tauri-apps/api/event'
 import { makeAutoObservable } from 'mobx'
 import {
   type BitcoinUnlockDto,
   type BlockChain,
   commands,
-  type SyncHeightUpdateEvent,
-  type SyncNewUtxoEvent,
-  type SyncProgressEvent,
-  type SyncWarningEvent,
 } from '../../bindings'
 import { AccountSelectorVM } from '../../components/account_selector'
 import { notifier } from '../../lib/notifier'
-import { sat2btc } from './utils/amount_formatters'
 
 export class BitcoinChain {
   readonly chain: BlockChain = 'Bitcoin'
@@ -21,21 +15,6 @@ export class BitcoinChain {
 
   constructor() {
     makeAutoObservable(this)
-
-    listen('btc_sync', (event: Event<SyncHeightUpdateEvent>) => {
-      this.setHeight(event.payload.height)
-      this.setStatus(event.payload.status)
-    })
-    listen('btc_sync_progress', (event: Event<SyncProgressEvent>) => {
-      this.setProgress(event.payload.progress)
-    })
-    listen('btc_sync_warning', (event: Event<SyncWarningEvent>) => {
-      this.setWarning(event.payload.msg)
-    })
-    listen('btc_sync_new_utxo', (event: Event<SyncNewUtxoEvent>) => {
-      this.set_total_balance_sat(event.payload.total)
-      notifier.ok(`Found new utxo ${sat2btc(event.payload.value)}`)
-    })
   }
 
   init(unlock: BitcoinUnlockDto) {
@@ -59,16 +38,6 @@ export class BitcoinChain {
   height?: number
   setHeight(h: number) {
     this.height = h
-    this.warning = undefined
-  }
-  progress: number = 0
-  setProgress(p: number) {
-    this.progress = p
-    this.warning = undefined
-  }
-  status?: SyncHeightUpdateEvent['status']
-  setStatus(s: SyncHeightUpdateEvent['status']) {
-    this.status = s
     this.warning = undefined
   }
 

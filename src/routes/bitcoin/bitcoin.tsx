@@ -58,10 +58,7 @@ const Bitcoin = () => {
       )}
       {btc.height && (
         <>
-          <P>
-            Blockchain sync {btc.status} - height {btc.height},{' '}
-            {btc.progress.toFixed(0)}%
-          </P>
+          <P level="body-xs">Blockchain head at {btc.height}</P>
         </>
       )}
       {btc.warning && (

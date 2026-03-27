@@ -22,7 +22,7 @@ use tauri::{Listener, Manager};
 use tokio::sync::Mutex;
 
 use crate::{
-    btc::{EventEmitter, EventEmitterTrait},
+    btc::{EventEmitter, EventEmitterTrait, service::WalletService},
     session::SessionKeeper,
     wallet_keeper::WalletKeeper,
 };
@@ -45,7 +45,7 @@ pub fn run() {
         .commands(tauri_specta::collect_commands![
             commands::generate_mnemonic,
             commands::create_wallet,
-            commands::list_wallets,
+            commands::get_wallets,
             commands::unlock_wallet,
             commands::forget_wallet,
             commands::get_config,
@@ -56,8 +56,9 @@ pub fn run() {
             // Bitcoin specific rpc
             btc::commands::btc_derive_external_address,
             btc::commands::btc_unoccupied_deriviation_index,
-            btc::commands::btc_list_external_addresess,
-            btc::commands::btc_list_utxos,
+            btc::commands::btc_get_external_addresess,
+            btc::commands::btc_get_utxos,
+            btc::commands::btc_sync_utxos,
             btc::commands::btc_account_info,
             // Ethereum specific rpc
             eth::commands::eth_chain_info,
@@ -91,8 +92,10 @@ pub fn run() {
         .setup(move |app| {
             let event_emitter = EventEmitter::new(app.handle().clone());
             let sk = SessionKeeper::new(Some(event_emitter.clone()), Some(Duration::from_mins(1)));
+            let btc_wallet_service = WalletService::new(sk.clone());
 
             app.manage(sk.clone());
+            app.manage(btc_wallet_service);
 
             system::session_monitor::init(app.handle());
             let app_handle = app.handle();

@@ -91,7 +91,7 @@ impl Account {
         }
     }
 
-    pub fn schema_label_map(&self) -> SchemaLabelMap {
+    pub fn derivepath_label_map(&self) -> KeyDerivationPathLabelMap {
         self.addresses
             .iter()
             .map(|e| (e.path.to_slice(), e.label.clone()))
@@ -99,7 +99,7 @@ impl Account {
     }
 }
 
-pub type SchemaLabelMap = HashMap<KeyDeriviationPathSlice, String>;
+pub type KeyDerivationPathLabelMap = HashMap<KeyDeriviationPathSlice, String>;
 
 pub mod persistence {
     use serde::{Deserialize, Serialize};

@@ -1,7 +1,7 @@
 use bitcoin::{BlockHash, TxOut, Txid};
 
 use crate::btc::{
-    account::SchemaLabelMap,
+    account::KeyDerivationPathLabelMap,
     key_derivation::{Change, KeyDerivationPath},
 };
 
@@ -28,7 +28,7 @@ impl Utxo {
         format!("{}{}", self.tx_id, self.vout)
     }
 
-    pub fn label(&self, schema_label_map: &SchemaLabelMap) -> Option<String> {
+    pub fn label(&self, schema_label_map: &KeyDerivationPathLabelMap) -> Option<String> {
         let label: Option<String> = match self.derivation.change {
             Change::Internal => Some("Change".to_string()),
             Change::External => schema_label_map.get(&self.derivation.to_slice()).cloned(),

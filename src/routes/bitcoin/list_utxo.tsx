@@ -24,7 +24,7 @@ class UtxoList {
 
   async fetch() {
     this.loader.start()
-    const res = await commands.btcListUtxos()
+    const res = await commands.btcGetUtxos()
     if (res.status === 'error') {
       notifier.err(res.error)
       throw new Error(res.error)
