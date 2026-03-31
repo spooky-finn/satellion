@@ -9,11 +9,9 @@ pub fn new() -> Result<String, String> {
 }
 
 pub fn validate(mnemonic: &str) -> Result<bool, String> {
-    let mnemonic = coins_bip39::Mnemonic::<English>::new_from_phrase(mnemonic);
-    match mnemonic {
-        Ok(_) => Ok(true),
-        Err(e) => Err(format!("Invalid mnemonic: {e}")),
-    }
+    coins_bip39::Mnemonic::<English>::new_from_phrase(mnemonic)
+        .map(|_| true)
+        .map_err(|e| format!("Invalid mnemonic: {e}"))
 }
 
 pub static TEST_MNEMONIC: &str =

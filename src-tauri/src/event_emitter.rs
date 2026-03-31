@@ -12,14 +12,6 @@ pub trait EventEmitterTrait: Send + Sync {
 
 pub const EVENT_SESSION_EXPIRED: &str = "session_expired";
 
-#[derive(Debug, Clone, Serialize, Type)]
-pub enum HeightUpdateStatus {
-    #[serde(rename = "in progress")]
-    Progress,
-    #[serde(rename = "completed")]
-    Completed,
-}
-
 pub fn list_events() -> Events {
     collect_events![]
 }
