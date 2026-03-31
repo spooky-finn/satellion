@@ -1,5 +1,9 @@
 import { makeAutoObservable } from 'mobx'
-import { type CreationFlow, commands, MIN_PASSPHRASE_LEN } from '../../bindings'
+import {
+  type CreationFlow,
+  commands,
+  MIN_PASSPHRASE_LEN,
+} from '../../bindings/index'
 import { notifier } from '../../lib/notifier/notifier'
 
 class PassphraseStore {

@@ -186,7 +186,7 @@ pub async fn btc_sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, St
 pub struct BtcBuildTx {
     auto_utxo_selection: bool,
     utxos: Option<Vec<UtxoOutpoint>>,
-    value: u64,
+    value: String,
     recipient: String,
 }
 

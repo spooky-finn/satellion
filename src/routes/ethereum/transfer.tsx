@@ -8,7 +8,7 @@ import {
 } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
-import type { FeeMode } from '../../bindings'
+import type { FeeMode } from '../../bindings/eth'
 import { Navbar } from '../../components/navbar'
 import { P, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'

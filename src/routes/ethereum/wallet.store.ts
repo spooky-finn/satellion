@@ -1,10 +1,6 @@
 import { makeAutoObservable } from 'mobx'
-import {
-  type Balance,
-  type ChainInfo,
-  commands,
-  type EthereumUnlockDto,
-} from '../../bindings'
+import { type EthereumUnlockDto } from '../../bindings'
+import { commands, type Balance, type ChainInfo } from '../../bindings/eth'
 import { notifier } from '../../lib/notifier'
 import { Loader } from '../../stores/loader'
 import { TransferStore } from './transfer.store'

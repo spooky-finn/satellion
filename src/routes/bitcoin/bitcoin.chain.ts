@@ -1,9 +1,6 @@
 import { makeAutoObservable } from 'mobx'
-import {
-  type BitcoinUnlockDto,
-  type BlockChain,
-  commands,
-} from '../../bindings'
+import type { BitcoinUnlockDto, BlockChain } from '../../bindings'
+import { commands } from '../../bindings/btc'
 import { AccountSelectorVM } from '../../components/account_selector'
 import { notifier } from '../../lib/notifier'
 
