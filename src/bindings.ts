@@ -133,6 +133,22 @@ async btcAccountInfo() : Promise<Result<ActiveAccountDto, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async btcBuildTx(req: BtcBuildTx) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("btc_build_tx", { req }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async btcSendTx(req: BtcSendTx) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("btc_send_tx", { req }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async ethChainInfo() : Promise<Result<ChainInfo, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("eth_chain_info") };
@@ -149,9 +165,9 @@ async ethGetBalance(address: string) : Promise<Result<Balance, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async ethPrepareSendTx(req: PrepareTxReqReq) : Promise<Result<PrepareTxReqRes, string>> {
+async ethBuildTransferTx(req: PrepareTxReqReq) : Promise<Result<PrepareTxReqRes, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("eth_prepare_send_tx", { req }) };
+    return { status: "ok", data: await TAURI_INVOKE("eth_build_transfer_tx", { req }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -218,6 +234,8 @@ address: string; total_balance: string }
 export type Balance = { wei: string; tokens: TokenBalance[] }
 export type BitcoinUnlockDto = { accounts: AccountIdDto[]; active_account: ActiveAccountDto }
 export type BlockChain = "Bitcoin" | "Ethereum"
+export type BtcBuildTx = Record<string, never>
+export type BtcSendTx = Record<string, never>
 export type ChainInfo = { block_number: string; block_hash: string; base_fee_per_gas: string | null }
 export type CreationFlow = "Import" | "Generation"
 export type DerivedAddressDto = { label: string; path: string; address: string }
@@ -230,8 +248,8 @@ export type TokenBalance = { symbol: string; balance: string; decimals: number; 
 export type TokenType = { chain: BlockChain; symbol: string; decimals: number }
 export type UIConfig = { eth_anvil: boolean }
 export type UnlockDto = { ethereum: EthereumUnlockDto; bitcoin: BitcoinUnlockDto; last_used_chain: BlockChain }
-export type UtxoDto = { utxo_id: UtxoId; value: string; deriv_path: string; address_label: string | null }
-export type UtxoId = { tx_id: string; vout: string }
+export type UtxoDto = { utxo_id: UtxoOutpoint; value: string; deriv_path: string; address_label: string | null }
+export type UtxoOutpoint = { tx_id: string; vout: string }
 
 /** tauri-specta globals **/
 

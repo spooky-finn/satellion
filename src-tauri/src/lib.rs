@@ -60,10 +60,12 @@ pub fn run() {
             btc::commands::btc_get_utxos,
             btc::commands::btc_sync_utxos,
             btc::commands::btc_account_info,
+            btc::commands::btc_build_tx,
+            btc::commands::btc_send_tx,
             // Ethereum specific rpc
             eth::commands::eth_chain_info,
             eth::commands::eth_get_balance,
-            eth::commands::eth_prepare_send_tx,
+            eth::commands::eth_build_transfer_tx,
             eth::commands::eth_sign_and_send_tx,
             eth::commands::eth_verify_address,
             eth::commands::eth_track_token,

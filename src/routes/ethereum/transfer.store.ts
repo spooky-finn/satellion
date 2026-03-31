@@ -66,7 +66,7 @@ export class TransferStore {
     if (!this.amount) throw Error('amount is not set')
     if (!this.selectedToken) throw Error('token symbol not set')
     this.setIsEstimating(true)
-    const r = await commands.ethPrepareSendTx({
+    const r = await commands.ethBuildTransferTx({
       amount: this.amount.toString(),
       fee_mode: this.feeMode ?? 'Standard',
       recipient: this.address,

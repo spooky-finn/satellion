@@ -136,7 +136,7 @@ pub struct PrepareTxReqRes {
 
 #[specta]
 #[tauri::command]
-pub async fn eth_prepare_send_tx(
+pub async fn eth_build_transfer_tx(
     req: PrepareTxReqReq,
     tx_builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
     sk: tauri::State<'_, SK>,

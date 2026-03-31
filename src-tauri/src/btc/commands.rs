@@ -11,27 +11,6 @@ use crate::{
     session::SK,
 };
 
-#[derive(Type, Serialize, Deserialize)]
-pub struct DerivedAddressDto {
-    pub label: String,
-    pub path: String,
-    pub address: String,
-}
-
-#[derive(Type, Serialize, Deserialize)]
-pub struct UtxoId {
-    tx_id: String,
-    vout: String,
-}
-
-#[derive(Type, Serialize)]
-pub struct UtxoDto {
-    pub utxo_id: UtxoId,
-    pub value: String,
-    pub deriv_path: String,
-    pub address_label: Option<String>,
-}
-
 #[specta]
 #[tauri::command]
 pub async fn btc_account_info(sk: tauri::State<'_, SK>) -> Result<ActiveAccountDto, String> {
@@ -75,6 +54,13 @@ pub async fn btc_unoccupied_deriviation_index(sk: tauri::State<'_, SK>) -> Resul
     let wallet = sk.wallet()?;
     let account = wallet.btc.active_account()?;
     Ok(account.unoccupied_deriviation_index(Change::External))
+}
+
+#[derive(Type, Serialize, Deserialize)]
+pub struct DerivedAddressDto {
+    pub label: String,
+    pub path: String,
+    pub address: String,
 }
 
 #[specta]
@@ -129,6 +115,37 @@ pub async fn btc_get_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, Str
     Ok(utxos.into_iter().take(UTXO_DISPLAY_LIMIT).collect())
 }
 
+#[derive(Type, Serialize, Deserialize)]
+pub struct UtxoOutpoint {
+    tx_id: String,
+    vout: String,
+}
+
+#[derive(Type, Serialize)]
+pub struct UtxoDto {
+    pub utxo_id: UtxoOutpoint,
+    pub value: String,
+    pub deriv_path: String,
+    pub address_label: Option<String>,
+}
+
+impl Utxo {
+    fn to_dto(
+        &self,
+        address_label_map: &crate::btc::account::KeyDerivationPathLabelMap,
+    ) -> UtxoDto {
+        UtxoDto {
+            value: self.output.value.to_sat().to_string(),
+            utxo_id: UtxoOutpoint {
+                tx_id: self.tx_id.to_string(),
+                vout: self.vout.to_string(),
+            },
+            deriv_path: self.derivation.to_string(),
+            address_label: self.label(address_label_map),
+        }
+    }
+}
+
 #[specta]
 #[tauri::command]
 pub async fn btc_sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String> {
@@ -165,19 +182,33 @@ pub async fn btc_sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, St
     Ok(result)
 }
 
-impl Utxo {
-    fn to_dto(
-        &self,
-        address_label_map: &crate::btc::account::KeyDerivationPathLabelMap,
-    ) -> UtxoDto {
-        UtxoDto {
-            value: self.output.value.to_sat().to_string(),
-            utxo_id: UtxoId {
-                tx_id: self.tx_id.to_string(),
-                vout: self.vout.to_string(),
-            },
-            deriv_path: self.derivation.to_string(),
-            address_label: self.label(address_label_map),
-        }
-    }
+#[derive(Type, Deserialize)]
+pub struct BtcBuildTx {
+    auto_utxo_selection: bool,
+    utxos: Option<Vec<UtxoOutpoint>>,
+    value: u64,
+    recipient: String,
+}
+
+#[specta]
+#[tauri::command]
+pub async fn btc_build_tx(req: BtcBuildTx, sk: tauri::State<'_, SK>) -> Result<(), String> {
+    let mut sk = sk.lock().await;
+    let wallet = sk.wallet()?;
+    let prk = wallet.btc_prk()?;
+
+    Ok(())
+}
+
+#[derive(Type, Deserialize)]
+pub struct BtcSendTx {}
+
+#[specta]
+#[tauri::command]
+pub async fn btc_send_tx(req: BtcSendTx, sk: tauri::State<'_, SK>) -> Result<(), String> {
+    let mut sk = sk.lock().await;
+    let wallet = sk.wallet()?;
+    let prk = wallet.btc_prk()?;
+
+    Ok(())
 }
