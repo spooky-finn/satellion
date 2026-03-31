@@ -1,7 +1,7 @@
 use diesel::{prelude::*, r2d2::ConnectionManager};
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 
-use crate::{config::Config, schema};
+use crate::config::Config;
 
 // Nice mapping of Diesel to Rust types:
 // https://kotiri.com/2018/01/31/postgresql-diesel-rust-types.html
@@ -41,20 +41,4 @@ pub fn connect() -> Pool {
         .max_size(4)
         .build(manager)
         .expect("Error creating DB pool")
-}
-
-#[derive(Insertable, Queryable, Debug, PartialEq, Clone)]
-#[diesel(table_name = schema::bitcoin_block_headers)]
-pub struct BlockHeader {
-    pub height: i32,
-    pub blockhash: String,
-    pub prev_blockhash: String,
-    pub time: i32,
-}
-
-#[derive(Insertable, Queryable, Debug, PartialEq, Clone)]
-#[diesel(table_name = schema::bitcoin_compact_filters)]
-pub struct CompactFilter {
-    pub blockhash: String,
-    pub filter_data: Vec<u8>,
 }

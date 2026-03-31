@@ -5,6 +5,7 @@ pub mod config;
 pub mod db;
 pub mod encryptor;
 pub mod eth;
+pub mod event_emitter;
 pub mod mnemonic;
 pub mod persistence;
 pub mod repository;
@@ -14,6 +15,7 @@ pub mod system;
 pub mod utils;
 pub mod wallet;
 pub mod wallet_keeper;
+
 pub use core::fmt;
 pub use std::{sync::Arc, time::Duration};
 
@@ -22,7 +24,7 @@ use tauri::{Listener, Manager};
 use tokio::sync::Mutex;
 
 use crate::{
-    btc::{EventEmitter, EventEmitterTrait},
+    event_emitter::{EventEmitter, EventEmitterTrait},
     session::SessionKeeper,
     wallet_keeper::WalletKeeper,
 };
@@ -73,7 +75,7 @@ pub fn run() {
             eth::commands::eth_anvil_set_initial_balances,
         ])
         .constant("MIN_PASSPHRASE_LEN", config::MIN_PASSPHRASE_LEN)
-        .events(btc::event_emitter::list_events());
+        .events(event_emitter::list_events());
 
     #[cfg(debug_assertions)]
     builder

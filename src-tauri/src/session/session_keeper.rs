@@ -4,9 +4,10 @@ use chrono::{DateTime, Utc};
 use tokio::sync::Mutex;
 
 use crate::{
-    btc::{EventEmitter, EventEmitterTrait},
+    event_emitter::{EventEmitter, EventEmitterTrait},
     wallet::Wallet,
 };
+
 pub struct Session {
     pub wallet: Wallet,
     pub activated_at: DateTime<Utc>,
