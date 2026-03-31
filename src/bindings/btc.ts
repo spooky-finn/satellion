@@ -3,82 +3,77 @@
 /** user-defined commands **/
 
 export const commands = {
-  async btcDeriveExternalAddress(
+  async deriveExternalAddress(
     label: string,
     index: number,
   ): Promise<Result<string, string>> {
     try {
       return {
         status: 'ok',
-        data: await TAURI_INVOKE('btc_derive_external_address', {
-          label,
-          index,
-        }),
+        data: await TAURI_INVOKE('derive_external_address', { label, index }),
       }
     } catch (e) {
       if (e instanceof Error) throw e
       else return { status: 'error', error: e as any }
     }
   },
-  async btcUnoccupiedDeriviationIndex(): Promise<Result<number, string>> {
+  async unoccupiedDeriviationIndex(): Promise<Result<number, string>> {
     try {
       return {
         status: 'ok',
-        data: await TAURI_INVOKE('btc_unoccupied_deriviation_index'),
+        data: await TAURI_INVOKE('unoccupied_deriviation_index'),
       }
     } catch (e) {
       if (e instanceof Error) throw e
       else return { status: 'error', error: e as any }
     }
   },
-  async btcGetExternalAddresess(): Promise<
-    Result<DerivedAddressDto[], string>
-  > {
+  async getExternalAddresess(): Promise<Result<DerivedAddressDto[], string>> {
     try {
       return {
         status: 'ok',
-        data: await TAURI_INVOKE('btc_get_external_addresess'),
+        data: await TAURI_INVOKE('get_external_addresess'),
       }
     } catch (e) {
       if (e instanceof Error) throw e
       else return { status: 'error', error: e as any }
     }
   },
-  async btcGetUtxos(): Promise<Result<UtxoDto[], string>> {
+  async getUtxos(): Promise<Result<UtxoDto[], string>> {
     try {
-      return { status: 'ok', data: await TAURI_INVOKE('btc_get_utxos') }
+      return { status: 'ok', data: await TAURI_INVOKE('get_utxos') }
     } catch (e) {
       if (e instanceof Error) throw e
       else return { status: 'error', error: e as any }
     }
   },
-  async btcSyncUtxos(): Promise<Result<UtxoDto[], string>> {
+  async syncUtxos(): Promise<Result<UtxoDto[], string>> {
     try {
-      return { status: 'ok', data: await TAURI_INVOKE('btc_sync_utxos') }
+      return { status: 'ok', data: await TAURI_INVOKE('sync_utxos') }
     } catch (e) {
       if (e instanceof Error) throw e
       else return { status: 'error', error: e as any }
     }
   },
-  async btcAccountInfo(): Promise<Result<ActiveAccountDto, string>> {
+  async accountInfo(): Promise<Result<ActiveAccountDto, string>> {
     try {
-      return { status: 'ok', data: await TAURI_INVOKE('btc_account_info') }
+      return { status: 'ok', data: await TAURI_INVOKE('account_info') }
     } catch (e) {
       if (e instanceof Error) throw e
       else return { status: 'error', error: e as any }
     }
   },
-  async btcBuildTx(req: BtcBuildTx): Promise<Result<null, string>> {
+  async buildTx(req: BtcBuildTx): Promise<Result<null, string>> {
     try {
-      return { status: 'ok', data: await TAURI_INVOKE('btc_build_tx', { req }) }
+      return { status: 'ok', data: await TAURI_INVOKE('build_tx', { req }) }
     } catch (e) {
       if (e instanceof Error) throw e
       else return { status: 'error', error: e as any }
     }
   },
-  async btcSendTx(req: BtcSendTx): Promise<Result<null, string>> {
+  async sendTx(req: BtcSendTx): Promise<Result<null, string>> {
     try {
-      return { status: 'ok', data: await TAURI_INVOKE('btc_send_tx', { req }) }
+      return { status: 'ok', data: await TAURI_INVOKE('send_tx', { req }) }
     } catch (e) {
       if (e instanceof Error) throw e
       else return { status: 'error', error: e as any }

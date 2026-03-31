@@ -36,7 +36,7 @@ class DeriveChild {
   address: string | null = null
 
   async getAvaiableIndex() {
-    const res = await commands.btcUnoccupiedDeriviationIndex()
+    const res = await commands.unoccupiedDeriviationIndex()
     if (res.status === 'error') {
       notifier.err(res.error)
       throw Error(res.error)
@@ -50,7 +50,7 @@ class DeriveChild {
 
     this.address = null
     this.loader.start()
-    const res = await commands.btcDeriveExternalAddress(this.label, this.index)
+    const res = await commands.deriveExternalAddress(this.label, this.index)
     this.loader.stop()
     if (res.status === 'error') {
       notifier.err(res.error)

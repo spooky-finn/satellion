@@ -25,28 +25,28 @@ pub fn handlers() -> tauri_specta::Builder {
 
     tauri_specta::Builder::<tauri::Wry>::new()
         .commands(tauri_specta::collect_commands![
-            btc::commands::btc_derive_external_address,
-            btc::commands::btc_unoccupied_deriviation_index,
-            btc::commands::btc_get_external_addresess,
-            btc::commands::btc_get_utxos,
-            btc::commands::btc_sync_utxos,
-            btc::commands::btc_account_info,
-            btc::commands::btc_build_tx,
-            btc::commands::btc_send_tx,
+            btc::commands::derive_external_address,
+            btc::commands::unoccupied_deriviation_index,
+            btc::commands::get_external_addresess,
+            btc::commands::get_utxos,
+            btc::commands::sync_utxos,
+            btc::commands::account_info,
+            btc::commands::build_tx,
+            btc::commands::send_tx,
         ])
         .export(lang.clone(), "../src/bindings/btc.ts")
         .expect("Failed to export TypeScript bindings");
 
     tauri_specta::Builder::<tauri::Wry>::new()
         .commands(tauri_specta::collect_commands![
-            eth::commands::eth_chain_info,
-            eth::commands::eth_get_balance,
-            eth::commands::eth_build_transfer_tx,
-            eth::commands::eth_sign_and_send_tx,
-            eth::commands::eth_verify_address,
-            eth::commands::eth_track_token,
-            eth::commands::eth_untrack_token,
-            eth::commands::eth_anvil_set_initial_balances,
+            eth::commands::get_network_status,
+            eth::commands::get_wallet_balance,
+            eth::commands::estimate_transfer,
+            eth::commands::execute_transfer,
+            eth::commands::verify_address,
+            eth::commands::track_token,
+            eth::commands::untrack_token,
+            eth::commands::anvil_set_initial_balances,
         ])
         .export(lang, "../src/bindings/eth.ts")
         .expect("Failed to export TypeScript bindings");
@@ -64,22 +64,22 @@ pub fn handlers() -> tauri_specta::Builder {
         commands::switch_blockchain,
         commands::price_feed,
         //
-        btc::commands::btc_derive_external_address,
-        btc::commands::btc_unoccupied_deriviation_index,
-        btc::commands::btc_get_external_addresess,
-        btc::commands::btc_get_utxos,
-        btc::commands::btc_sync_utxos,
-        btc::commands::btc_account_info,
-        btc::commands::btc_build_tx,
-        btc::commands::btc_send_tx,
+        btc::commands::derive_external_address,
+        btc::commands::unoccupied_deriviation_index,
+        btc::commands::get_external_addresess,
+        btc::commands::get_utxos,
+        btc::commands::sync_utxos,
+        btc::commands::account_info,
+        btc::commands::build_tx,
+        btc::commands::send_tx,
         //
-        eth::commands::eth_chain_info,
-        eth::commands::eth_get_balance,
-        eth::commands::eth_build_transfer_tx,
-        eth::commands::eth_sign_and_send_tx,
-        eth::commands::eth_verify_address,
-        eth::commands::eth_track_token,
-        eth::commands::eth_untrack_token,
-        eth::commands::eth_anvil_set_initial_balances,
+        eth::commands::get_network_status,
+        eth::commands::get_wallet_balance,
+        eth::commands::estimate_transfer,
+        eth::commands::execute_transfer,
+        eth::commands::verify_address,
+        eth::commands::track_token,
+        eth::commands::untrack_token,
+        eth::commands::anvil_set_initial_balances,
     ])
 }

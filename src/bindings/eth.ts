@@ -3,86 +3,88 @@
 /** user-defined commands **/
 
 export const commands = {
-  async ethChainInfo(): Promise<Result<ChainInfo, string>> {
+  async getNetworkStatus(): Promise<Result<NetworkStatus, string>> {
     try {
-      return { status: 'ok', data: await TAURI_INVOKE('eth_chain_info') }
+      return { status: 'ok', data: await TAURI_INVOKE('get_network_status') }
     } catch (e) {
       if (e instanceof Error) throw e
       else return { status: 'error', error: e as any }
     }
   },
-  async ethGetBalance(address: string): Promise<Result<Balance, string>> {
+  async getWalletBalance(
+    address: string,
+  ): Promise<Result<WalletBalance, string>> {
     try {
       return {
         status: 'ok',
-        data: await TAURI_INVOKE('eth_get_balance', { address }),
+        data: await TAURI_INVOKE('get_wallet_balance', { address }),
       }
     } catch (e) {
       if (e instanceof Error) throw e
       else return { status: 'error', error: e as any }
     }
   },
-  async ethBuildTransferTx(
-    req: PrepareTxReqReq,
-  ): Promise<Result<PrepareTxReqRes, string>> {
+  async estimateTransfer(
+    req: TransferRequest,
+  ): Promise<Result<TransferEstimation, string>> {
     try {
       return {
         status: 'ok',
-        data: await TAURI_INVOKE('eth_build_transfer_tx', { req }),
+        data: await TAURI_INVOKE('estimate_transfer', { req }),
       }
     } catch (e) {
       if (e instanceof Error) throw e
       else return { status: 'error', error: e as any }
     }
   },
-  async ethSignAndSendTx(): Promise<Result<string, string>> {
+  async executeTransfer(): Promise<Result<string, string>> {
     try {
-      return { status: 'ok', data: await TAURI_INVOKE('eth_sign_and_send_tx') }
+      return { status: 'ok', data: await TAURI_INVOKE('execute_transfer') }
     } catch (e) {
       if (e instanceof Error) throw e
       else return { status: 'error', error: e as any }
     }
   },
-  async ethVerifyAddress(address: string): Promise<Result<boolean, string>> {
+  async verifyAddress(address: string): Promise<Result<boolean, string>> {
     try {
       return {
         status: 'ok',
-        data: await TAURI_INVOKE('eth_verify_address', { address }),
+        data: await TAURI_INVOKE('verify_address', { address }),
       }
     } catch (e) {
       if (e instanceof Error) throw e
       else return { status: 'error', error: e as any }
     }
   },
-  async ethTrackToken(address: string): Promise<Result<TokenType, string>> {
+  async trackToken(address: string): Promise<Result<TrackedTokenInfo, string>> {
     try {
       return {
         status: 'ok',
-        data: await TAURI_INVOKE('eth_track_token', { address }),
+        data: await TAURI_INVOKE('track_token', { address }),
       }
     } catch (e) {
       if (e instanceof Error) throw e
       else return { status: 'error', error: e as any }
     }
   },
-  async ethUntrackToken(tokenAddress: string): Promise<Result<null, string>> {
+  async untrackToken(tokenAddress: string): Promise<Result<null, string>> {
     try {
       return {
         status: 'ok',
-        data: await TAURI_INVOKE('eth_untrack_token', { tokenAddress }),
+        data: await TAURI_INVOKE('untrack_token', { tokenAddress }),
       }
     } catch (e) {
       if (e instanceof Error) throw e
       else return { status: 'error', error: e as any }
     }
   },
-  async ethAnvilSetInitialBalances(
+  async anvilSetInitialBalances(
     address: string,
   ): Promise<Result<string, string>> {
     try {
       return {
         status: 'ok',
-        data: await TAURI_INVOKE('eth_anvil_set_initial_balances', { address }),
+        data: await TAURI_INVOKE('anvil_set_initial_balances', { address }),
       }
     } catch (e) {
       if (e instanceof Error) throw e
@@ -97,25 +99,12 @@ export const commands = {
 
 /** user-defined types **/
 
-export type Balance = { wei: string; tokens: TokenBalance[] }
 export type BlockChain = 'Bitcoin' | 'Ethereum'
-export type ChainInfo = {
+export type FeeMode = 'Minimal' | 'Standard' | 'Increased'
+export type NetworkStatus = {
   block_number: string
   block_hash: string
   base_fee_per_gas: string | null
-}
-export type FeeMode = 'Minimal' | 'Standard' | 'Increased'
-export type PrepareTxReqReq = {
-  token_address: string
-  amount: string
-  recipient: string
-  fee_mode: FeeMode
-}
-export type PrepareTxReqRes = {
-  estimated_gas: string
-  max_fee_per_gas: string
-  fee_ceiling: string
-  fee_in_usd: number
 }
 export type TokenBalance = {
   symbol: string
@@ -123,7 +112,24 @@ export type TokenBalance = {
   decimals: number
   address: string
 }
-export type TokenType = { chain: BlockChain; symbol: string; decimals: number }
+export type TrackedTokenInfo = {
+  chain: BlockChain
+  symbol: string
+  decimals: number
+}
+export type TransferEstimation = {
+  estimated_gas: string
+  max_fee_per_gas: string
+  fee_ceiling: string
+  fee_in_usd: number
+}
+export type TransferRequest = {
+  token_address: string
+  amount: string
+  recipient: string
+  fee_mode: FeeMode
+}
+export type WalletBalance = { wei: string; tokens: TokenBalance[] }
 
 /** tauri-specta globals **/
 

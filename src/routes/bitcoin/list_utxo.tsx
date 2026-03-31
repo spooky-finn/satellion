@@ -24,7 +24,7 @@ class UtxoList {
 
   async fetch() {
     this.loader.start()
-    const syncRes = await commands.btcSyncUtxos()
+    const syncRes = await commands.syncUtxos()
     if (syncRes.status === 'error') {
       notifier.err(syncRes.error)
       throw new Error(syncRes.error)

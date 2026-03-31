@@ -14,7 +14,11 @@ import {
 } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { type ChangeEvent, useState } from 'react'
-import { commands, type TokenBalance, type TokenType } from '../../bindings/eth'
+import {
+  commands,
+  type TokenBalance,
+  type TrackedTokenInfo,
+} from '../../bindings/eth'
 import { notifier } from '../../lib/notifier'
 import { P, Progress, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
@@ -46,7 +50,7 @@ const Balances = observer(() => {
   if (!tokens?.length) return <P color="neutral">Tokens not found</P>
 
   const handleUntrack = async (address: string) => {
-    await commands.ethUntrackToken(address)
+    await commands.untrackToken(address)
     eth.removeTokenFromBalance(address)
   }
 
@@ -113,7 +117,7 @@ const Token = ({
 const AnvilSetBalanceButton = observer(() => {
   const handleSetAnvilBalance = async () => {
     const address = root_store.wallet.eth.address
-    const res = await commands.ethAnvilSetInitialBalances(address)
+    const res = await commands.anvilSetInitialBalances(address)
     if (res.status === 'error') {
       notifier.err(res.error)
     } else {
@@ -137,7 +141,7 @@ const AnvilSetBalanceButton = observer(() => {
 
 const SpecifyTokenToTrack = observer(() => {
   const [open, setOpen] = useState(false)
-  const [data, setData] = useState<TokenType | null>(null)
+  const [data, setData] = useState<TrackedTokenInfo | null>(null)
 
   const handleAddressInput = async (e: ChangeEvent<HTMLInputElement>) => {
     const address = e.target.value
@@ -145,7 +149,7 @@ const SpecifyTokenToTrack = observer(() => {
       return
     }
 
-    const res = await commands.ethTrackToken(address)
+    const res = await commands.trackToken(address)
     if (res.status === 'error') {
       setOpen(false)
       notifier.err(res.error)

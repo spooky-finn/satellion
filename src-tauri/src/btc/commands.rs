@@ -13,7 +13,7 @@ use crate::{
 
 #[specta]
 #[tauri::command]
-pub async fn btc_account_info(sk: tauri::State<'_, SK>) -> Result<ActiveAccountDto, String> {
+pub async fn account_info(sk: tauri::State<'_, SK>) -> Result<ActiveAccountDto, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let prk = wallet.btc_prk()?;
@@ -22,7 +22,7 @@ pub async fn btc_account_info(sk: tauri::State<'_, SK>) -> Result<ActiveAccountD
 
 #[specta]
 #[tauri::command]
-pub async fn btc_derive_external_address(
+pub async fn derive_external_address(
     label: String,
     index: u32,
     sk: tauri::State<'_, SK>,
@@ -49,7 +49,7 @@ pub async fn btc_derive_external_address(
 
 #[specta]
 #[tauri::command]
-pub async fn btc_unoccupied_deriviation_index(sk: tauri::State<'_, SK>) -> Result<u32, String> {
+pub async fn unoccupied_deriviation_index(sk: tauri::State<'_, SK>) -> Result<u32, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let account = wallet.btc.active_account()?;
@@ -65,7 +65,7 @@ pub struct DerivedAddressDto {
 
 #[specta]
 #[tauri::command]
-pub async fn btc_get_external_addresess(
+pub async fn get_external_addresess(
     sk: tauri::State<'_, SK>,
 ) -> Result<Vec<DerivedAddressDto>, String> {
     let mut sk = sk.lock().await;
@@ -92,7 +92,7 @@ pub async fn btc_get_external_addresess(
 
 #[specta]
 #[tauri::command]
-pub async fn btc_get_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String> {
+pub async fn get_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let account = wallet.btc.active_account()?;
@@ -148,7 +148,7 @@ impl Utxo {
 
 #[specta]
 #[tauri::command]
-pub async fn btc_sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String> {
+pub async fn sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let prk = wallet.btc_prk()?;
@@ -192,7 +192,7 @@ pub struct BtcBuildTx {
 
 #[specta]
 #[tauri::command]
-pub async fn btc_build_tx(req: BtcBuildTx, sk: tauri::State<'_, SK>) -> Result<(), String> {
+pub async fn build_tx(req: BtcBuildTx, sk: tauri::State<'_, SK>) -> Result<(), String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let prk = wallet.btc_prk()?;
@@ -205,7 +205,7 @@ pub struct BtcSendTx {}
 
 #[specta]
 #[tauri::command]
-pub async fn btc_send_tx(req: BtcSendTx, sk: tauri::State<'_, SK>) -> Result<(), String> {
+pub async fn send_tx(req: BtcSendTx, sk: tauri::State<'_, SK>) -> Result<(), String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let prk = wallet.btc_prk()?;

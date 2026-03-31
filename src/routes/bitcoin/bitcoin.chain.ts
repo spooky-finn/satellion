@@ -44,7 +44,7 @@ export class BitcoinChain {
   }
 
   async load_account_info() {
-    const res = await commands.btcAccountInfo()
+    const res = await commands.accountInfo()
     if (res.status == 'error') {
       notifier.err(res.error)
       throw res.error

@@ -2,7 +2,7 @@ import { makeAutoObservable } from 'mobx'
 import {
   commands,
   type FeeMode,
-  type PrepareTxReqRes,
+  type TransferEstimation,
 } from '../../bindings/eth'
 import { notifier } from '../../lib/notifier'
 
@@ -31,8 +31,8 @@ export class TransferStore {
   setSelectedToken(token?: string) {
     this.selectedToken = token
   }
-  preconfirmInfo?: PrepareTxReqRes
-  setPreconfirmInfo(res?: PrepareTxReqRes) {
+  preconfirmInfo?: TransferEstimation
+  setPreconfirmInfo(res?: TransferEstimation) {
     this.preconfirmInfo = res
   }
   txHash?: string
@@ -58,7 +58,7 @@ export class TransferStore {
   }
 
   async verifyAddress() {
-    const r = await commands.ethVerifyAddress(this.address)
+    const r = await commands.verifyAddress(this.address)
     if (r.status === 'error') {
       this.setIsAddressValid(false)
       return
@@ -66,11 +66,11 @@ export class TransferStore {
     this.setIsAddressValid(true)
   }
 
-  async createTrasaction() {
+  async estimateTransfer() {
     if (!this.amount) throw Error('amount is not set')
     if (!this.selectedToken) throw Error('token symbol not set')
     this.setIsEstimating(true)
-    const r = await commands.ethBuildTransferTx({
+    const r = await commands.estimateTransfer({
       amount: this.amount.toString(),
       fee_mode: this.feeMode ?? 'Standard',
       recipient: this.address,
@@ -84,9 +84,9 @@ export class TransferStore {
     this.setPreconfirmInfo(r.data)
   }
 
-  async signAndSend() {
+  async executeTransfer() {
     this.setIsSending(true)
-    const r = await commands.ethSignAndSendTx()
+    const r = await commands.executeTransfer()
     this.setIsSending(false)
     if (r.status === 'error') {
       notifier.err(r.error)
