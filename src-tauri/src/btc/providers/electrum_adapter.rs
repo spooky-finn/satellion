@@ -2,11 +2,12 @@ use std::str::FromStr;
 
 use bitcoin::{TxOut, Txid};
 use rustywallet_electrum::{Balance, ElectrumClient, ElectrumError};
+use tokio::sync::OnceCell;
 
 use crate::btc::{account::AddressPathMap, utxo::Utxo};
 
 pub struct ElectrumAdapter {
-    transport: ElectrumClient,
+    connection: OnceCell<ElectrumClient>,
 }
 
 /// DNS seeds for discovering Electrum servers.
@@ -22,22 +23,34 @@ const DNS_SEEDS: &[&str] = &[
 ];
 
 impl ElectrumAdapter {
-    pub async fn new() -> Result<Self, String> {
-        let client = ElectrumClient::new(DNS_SEEDS[0])
-            .await
-            .map_err(|e| format!("fail to connect to electum server {}", e))?;
-        Ok(Self { transport: client })
+    pub fn new() -> Self {
+        Self {
+            connection: OnceCell::new(),
+        }
     }
 
+    /// Ensure the connection is initialized before use
+    async fn get_conn(&self) -> Result<&ElectrumClient, ElectrumError> {
+        self.connection
+            .get_or_try_init(|| async {
+                // Pick the first seed for now; you might want a retry loop here
+                ElectrumClient::new(DNS_SEEDS[0])
+                    .await
+                    .map_err(|_| ElectrumError::Disconnected)
+            })
+            .await
+    }
     pub async fn get_balances(&self, addresses: &[&str]) -> Result<Vec<Balance>, ElectrumError> {
-        self.transport.get_balances(addresses).await
+        let conn = self.get_conn().await?;
+        conn.get_balances(addresses).await
     }
 
     pub async fn get_utxos(
         &self,
         address_path_map: AddressPathMap,
     ) -> Result<Vec<Utxo>, ElectrumError> {
-        let batch = rustywallet_electrum::BatchRequest::new(&self.transport)
+        let conn = self.get_conn().await?;
+        let batch = rustywallet_electrum::BatchRequest::new(conn)
             .utxos(address_path_map.keys().map(|s| s.to_string()));
 
         let result = batch.execute().await?;
@@ -98,7 +111,7 @@ mod test {
 
     #[tokio::test]
     async fn get_balances() {
-        let client = ElectrumAdapter::new().await.unwrap();
+        let client = ElectrumAdapter::new();
         let address = derive_address_from_test_mnemonic(0, Change::External);
 
         let balances = client
@@ -110,7 +123,7 @@ mod test {
 
     #[tokio::test]
     async fn get_utxos() {
-        let client = ElectrumAdapter::new().await.unwrap();
+        let client = ElectrumAdapter::new();
         let addr0 = derive_address_from_test_mnemonic(0, Change::External);
         let addr1 = derive_address_from_test_mnemonic(1, Change::External);
         let addresses = HashMap::from([

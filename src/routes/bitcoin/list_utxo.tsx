@@ -24,12 +24,12 @@ class UtxoList {
 
   async fetch() {
     this.loader.start()
-    const res = await commands.btcGetUtxos()
-    if (res.status === 'error') {
-      notifier.err(res.error)
-      throw new Error(res.error)
+    const syncRes = await commands.btcSyncUtxos()
+    if (syncRes.status === 'error') {
+      notifier.err(syncRes.error)
+      throw new Error(syncRes.error)
     }
-    this.utxos = res.data
+    this.utxos = syncRes.data
     this.loader.stop()
   }
 

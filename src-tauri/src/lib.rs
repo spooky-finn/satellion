@@ -22,7 +22,7 @@ use tauri::{Listener, Manager};
 use tokio::sync::Mutex;
 
 use crate::{
-    btc::{EventEmitter, EventEmitterTrait, service::WalletService},
+    btc::{EventEmitter, EventEmitterTrait},
     session::SessionKeeper,
     wallet_keeper::WalletKeeper,
 };
@@ -92,10 +92,7 @@ pub fn run() {
         .setup(move |app| {
             let event_emitter = EventEmitter::new(app.handle().clone());
             let sk = SessionKeeper::new(Some(event_emitter.clone()), Some(Duration::from_mins(1)));
-            let btc_wallet_service = WalletService::new(sk.clone());
-
             app.manage(sk.clone());
-            app.manage(btc_wallet_service);
 
             system::session_monitor::init(app.handle());
             let app_handle = app.handle();

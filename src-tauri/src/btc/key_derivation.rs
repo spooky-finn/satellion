@@ -80,14 +80,14 @@ const HARDENED: u32 = 0x80000000;
 
 impl Display for KeyDerivationPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let coin_type = match self.network {
+        let network = match self.network {
             Network::Bitcoin => 0,
             _ => 1,
         };
         write!(
             f,
             "m/{}'/{}'/{}'/{}/{}",
-            self.purpose as u32, coin_type, self.account, self.change as i32, self.index
+            self.purpose as u32, network, self.account, self.change as i32, self.index
         )
     }
 }

@@ -6,9 +6,10 @@ use bitcoin::bip32::{self, Xpriv};
 use crate::{
     btc::{
         account::Account,
-        key_derivation::{Change, ChildKeyDeriviationScheme, KeyDerivationPath},
+        key_derivation::{Change, KeyDerivationPath},
+        providers::electrum_adapter::ElectrumAdapter,
     },
-    chain_trait::{AccountIndex, AssetTracker, ChainTrait, SecureKey},
+    chain_trait::{AccountIndex, ChainTrait, SecureKey},
     config::CONFIG,
 };
 
@@ -33,6 +34,7 @@ impl SecureKey for Prk {
 pub struct BitcoinWallet {
     pub active_account: AccountIndex,
     pub accounts: Vec<Account>,
+    pub server: ElectrumAdapter,
 }
 
 impl Default for BitcoinWallet {
@@ -42,6 +44,7 @@ impl Default for BitcoinWallet {
         BitcoinWallet {
             active_account,
             accounts: vec![account],
+            server: ElectrumAdapter::new(),
         }
     }
 }
@@ -163,38 +166,11 @@ impl ChainTrait for BitcoinWallet {
     }
 }
 
-impl AssetTracker<ChildKeyDeriviationScheme> for BitcoinWallet {
-    fn track(&mut self, address: ChildKeyDeriviationScheme) -> Result<(), String> {
-        let account = self.get_mut_active_account()?;
-
-        // Check if an address with the same purpose and index already exists
-        if account.addresses.iter().any(|a| a.path == address.path) {
-            return Err(format!(
-                "Address with change {:?} and index {} already tracked",
-                address.path.change, address.path.index
-            ));
-        }
-        account.addresses.push(address);
-        Ok(())
-    }
-
-    fn untrack(&mut self, address: ChildKeyDeriviationScheme) -> Result<(), String> {
-        let account = self.get_mut_active_account()?;
-
-        let len_before = account.addresses.len();
-        account.addresses.retain(|a| a.path != address.path);
-        if account.addresses.len() == len_before {
-            return Err("Address not tracked".to_string());
-        }
-        Ok(())
-    }
-}
-
 pub mod persistence {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        btc::{BitcoinWallet, account::persistence},
+        btc::{BitcoinWallet, account::persistence, providers::electrum_adapter::ElectrumAdapter},
         chain_trait::AccountIndex,
     };
 
@@ -226,6 +202,7 @@ pub mod persistence {
                     .map(|each| each.deserialize().unwrap())
                     .collect(),
                 active_account: self.active_account,
+                server: ElectrumAdapter::new(),
             })
         }
     }
