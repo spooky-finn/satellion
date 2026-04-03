@@ -42,14 +42,15 @@ r2d2 = "0.8"
 argon2 = "0.5.3"
 aes-gcm = "0.10.3"
 # Ethereum
-alloy = "1.7.3"
-alloy-provider = { version = "1.7.3", features = ["anvil-node"] }
-alloy-signer-local = { version = "1.7.3", features = ["mnemonic"] }
+alloy = "1.8.3"
+alloy-provider = { version = "1.8.3", features = ["anvil-node"] }
+alloy-signer-local = { version = "1.8.3", features = ["mnemonic"] }
 # Bitcoin
 bitcoin = "0.32.8"
 bip39 = "2.2.2"
 esplora-client = "0.12.3"
 rustywallet-electrum = "0.2.0"
+rustywallet-psbt = "0.1.0"
 # Codegen
 specta = "=2.0.0-rc.22"
 specta-typescript = "0.0.9"
@@ -62,7 +63,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3.0", features = ["fmt", "env-filter"] }
 # Mac os system
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2 = "0.6.3"
+objc2 = "0.6.4"
 objc2-foundation = "0.3.2"
 objc2-app-kit = "0.3.2"
 block2 = "0.6.2"
