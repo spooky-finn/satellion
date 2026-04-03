@@ -214,7 +214,7 @@ pub async fn build_tx(req: BuildTx, sk: tauri::State<'_, SK>) -> Result<BuildTxR
             recipient,
             utxo_selection_method: req.utxo_selection_method,
         },
-        &account,
+        account,
         xpriv,
     )
 }

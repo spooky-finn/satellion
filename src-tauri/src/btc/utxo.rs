@@ -47,9 +47,9 @@ pub struct OutPointDto {
     pub vout: String,
 }
 
-impl OutPointDto {
-    pub fn to_string(&self) -> String {
-        format!("{}{}", self.tx_id, self.vout)
+impl std::fmt::Display for OutPointDto {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.tx_id, self.vout)
     }
 }
 

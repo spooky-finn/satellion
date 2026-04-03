@@ -6,6 +6,7 @@ use tokio::sync::OnceCell;
 
 use crate::btc::{account::AddressPathMap, utxo::Utxo};
 
+#[derive(Default)]
 pub struct ElectrumAdapter {
     connection: OnceCell<ElectrumClient>,
 }
@@ -24,9 +25,7 @@ const DNS_SEEDS: &[&str] = &[
 
 impl ElectrumAdapter {
     pub fn new() -> Self {
-        Self {
-            connection: OnceCell::new(),
-        }
+        ElectrumAdapter::default()
     }
 
     /// Ensure the connection is initialized before use

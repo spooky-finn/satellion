@@ -135,13 +135,13 @@ impl Account {
 
     fn automatic_utxo_selection(&self, _min_value: u64) -> Vec<&Utxo> {
         // TODO: implement
-        return vec![];
+        vec![]
     }
 
     fn manual_utxo_select(&self, selected_outpoints: Vec<utxo::OutPointDto>) -> Vec<&Utxo> {
         selected_outpoints
             .iter()
-            .filter_map(|outpoint| self.utxos.get(&outpoint))
+            .filter_map(|outpoint| self.utxos.get(outpoint))
             .collect()
     }
 }
