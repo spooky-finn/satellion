@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use bitcoin::{Address, address::NetworkChecked};
+use serde::Deserialize;
+use specta::Type;
 
 use crate::{
     btc::{
@@ -8,7 +10,7 @@ use crate::{
         key_derivation::{
             Change, ChildKeyDeriviationScheme, KeyDerivationPath, KeyDeriviationPathSlice, Proposal,
         },
-        utxo::{Utxo, UtxoIdentifier},
+        utxo::{self, OutPointDto, Utxo},
     },
     chain_trait::{AccountIndex, SecureKey},
     config::CONFIG,
@@ -21,7 +23,13 @@ pub struct Account {
     pub index: AccountIndex,
     pub name: String,
     pub addresses: AccountAddresses,
-    pub utxos: HashMap<UtxoIdentifier, Utxo>,
+    pub utxos: HashMap<OutPointDto, Utxo>,
+}
+
+#[derive(Clone, Type, Deserialize)]
+pub enum UtxoSelectionMethod {
+    Manual(Vec<OutPointDto>),
+    Automatic(u32),
 }
 
 impl Account {
@@ -47,7 +55,7 @@ impl Account {
         !self.addresses.iter().any(|a| a.path == path)
     }
 
-    pub fn unoccupied_deriviation_index(&self, change: Change) -> u32 {
+    pub fn unoccupied_address(&self, change: Change) -> u32 {
         let occupied: HashSet<u32> = self
             .addresses
             .iter()
@@ -115,6 +123,27 @@ impl Account {
             })
             .collect()
     }
+
+    pub fn select_utxo_for_tx(&self, method: UtxoSelectionMethod) -> Vec<&Utxo> {
+        match method {
+            UtxoSelectionMethod::Manual(out_point_dtos) => self.manual_utxo_select(out_point_dtos),
+            UtxoSelectionMethod::Automatic(min_value) => {
+                self.automatic_utxo_selection(min_value as u64)
+            }
+        }
+    }
+
+    fn automatic_utxo_selection(&self, _min_value: u64) -> Vec<&Utxo> {
+        // TODO: implement
+        return vec![];
+    }
+
+    fn manual_utxo_select(&self, selected_outpoints: Vec<utxo::OutPointDto>) -> Vec<&Utxo> {
+        selected_outpoints
+            .iter()
+            .filter_map(|outpoint| self.utxos.get(&outpoint))
+            .collect()
+    }
 }
 
 pub type KeyDerivationPathLabelMap = HashMap<KeyDeriviationPathSlice, String>;
@@ -127,8 +156,7 @@ pub mod persistence {
     use crate::btc::{
         account::{Account, AccountIndex},
         key_derivation::{ChildKeyDeriviationScheme, KeyDerivationPath, KeyDeriviationPathSlice},
-        utxo::Utxo,
-        utxo::persistence::UtxoData,
+        utxo::{OutPointDto, Utxo, persistence::UtxoData},
     };
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -180,7 +208,8 @@ pub mod persistence {
                     })
                 })
                 .collect::<Result<Vec<ChildKeyDeriviationScheme>, String>>()?;
-            let utxos: HashMap<String, Utxo> = self
+
+            let utxos: HashMap<OutPointDto, Utxo> = self
                 .utxos
                 .iter()
                 .map(|utxo| {
@@ -188,6 +217,7 @@ pub mod persistence {
                     Ok((utxo.outpoint(), utxo))
                 })
                 .collect::<Result<_, String>>()?;
+
             Ok(Account {
                 name: self.name.clone(),
                 index: self.index,

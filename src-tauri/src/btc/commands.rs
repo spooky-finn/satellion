@@ -1,13 +1,19 @@
+use std::str::FromStr;
+
+use bitcoin::Address;
 use serde::{Deserialize, Serialize};
 use specta::{Type, specta};
 
 use crate::{
     btc::{
         ActiveAccountDto,
+        account::UtxoSelectionMethod,
         key_derivation::{Change, ChildKeyDeriviationScheme},
-        utxo::Utxo,
+        tx_builder::{BuildPsbtParams, BuildTxResult, build_psbt},
+        utxo::{self, Utxo},
     },
     chain_trait::SecureKey,
+    config::CONFIG,
     session::SK,
 };
 
@@ -53,7 +59,7 @@ pub async fn unoccupied_deriviation_index(sk: tauri::State<'_, SK>) -> Result<u3
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let account = wallet.btc.active_account()?;
-    Ok(account.unoccupied_deriviation_index(Change::External))
+    Ok(account.unoccupied_address(Change::External))
 }
 
 #[derive(Type, Serialize, Deserialize)]
@@ -115,15 +121,9 @@ pub async fn get_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String>
     Ok(utxos.into_iter().take(UTXO_DISPLAY_LIMIT).collect())
 }
 
-#[derive(Type, Serialize, Deserialize)]
-pub struct UtxoOutpoint {
-    tx_id: String,
-    vout: String,
-}
-
 #[derive(Type, Serialize)]
 pub struct UtxoDto {
-    pub utxo_id: UtxoOutpoint,
+    pub utxo_id: utxo::OutPointDto,
     pub value: String,
     pub deriv_path: String,
     pub address_label: Option<String>,
@@ -136,10 +136,7 @@ impl Utxo {
     ) -> UtxoDto {
         UtxoDto {
             value: self.output.value.to_sat().to_string(),
-            utxo_id: UtxoOutpoint {
-                tx_id: self.tx_id.to_string(),
-                vout: self.vout.to_string(),
-            },
+            utxo_id: self.outpoint(),
             deriv_path: self.derivation.to_string(),
             address_label: self.label(address_label_map),
         }
@@ -183,21 +180,43 @@ pub async fn sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String
 }
 
 #[derive(Type, Deserialize)]
-pub struct BtcBuildTx {
-    auto_utxo_selection: bool,
-    utxos: Option<Vec<UtxoOutpoint>>,
-    value: String,
-    recipient: String,
+pub struct BuildTx {
+    #[serde(default)]
+    pub utxo_auto_selection: bool,
+    pub selected_utxos: Option<Vec<utxo::OutPointDto>>,
+    pub value: String,
+    pub recipient: String,
+    pub utxo_selection_method: UtxoSelectionMethod,
 }
 
 #[specta]
 #[tauri::command]
-pub async fn build_tx(req: BtcBuildTx, sk: tauri::State<'_, SK>) -> Result<(), String> {
+pub async fn build_tx(req: BuildTx, sk: tauri::State<'_, SK>) -> Result<BuildTxResult, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
+    let account = wallet.btc.active_account()?;
     let prk = wallet.btc_prk()?;
+    let xpriv = prk.expose();
 
-    Ok(())
+    let recipient: Address = Address::from_str(&req.recipient)
+        .map_err(|e| format!("invalid recipient address: {e}"))?
+        .require_network(CONFIG.bitcoin.network())
+        .map_err(|e| format!("recipient address network mismatch: {e}"))?;
+
+    let send_value_sat = req
+        .value
+        .parse::<u64>()
+        .map_err(|e| format!("invalid value: {e}"))?;
+
+    build_psbt(
+        &BuildPsbtParams {
+            send_value_sat,
+            recipient,
+            utxo_selection_method: req.utxo_selection_method,
+        },
+        &account,
+        xpriv,
+    )
 }
 
 #[derive(Type, Deserialize)]
@@ -205,10 +224,10 @@ pub struct BtcSendTx {}
 
 #[specta]
 #[tauri::command]
-pub async fn send_tx(req: BtcSendTx, sk: tauri::State<'_, SK>) -> Result<(), String> {
+pub async fn send_tx(_req: BtcSendTx, sk: tauri::State<'_, SK>) -> Result<(), String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
-    let prk = wallet.btc_prk()?;
+    let _prk = wallet.btc_prk()?;
 
     Ok(())
 }

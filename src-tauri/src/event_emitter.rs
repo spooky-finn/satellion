@@ -1,5 +1,4 @@
 use serde::Serialize;
-use specta::Type;
 use tauri::{AppHandle, Emitter};
 use tauri_specta::{Events, collect_events};
 

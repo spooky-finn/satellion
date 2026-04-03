@@ -3,7 +3,7 @@ use specta_typescript::Typescript;
 use crate::{btc, commands, config, eth, event_emitter};
 
 pub fn handlers() -> tauri_specta::Builder {
-    let lang = Typescript::default().formatter(specta_typescript::formatter::prettier);
+    let lang = Typescript::default().formatter(specta_typescript::formatter::biome);
 
     tauri_specta::Builder::<tauri::Wry>::new()
         .commands(tauri_specta::collect_commands![

@@ -63,7 +63,7 @@ export const commands = {
       else return { status: 'error', error: e as any }
     }
   },
-  async buildTx(req: BtcBuildTx): Promise<Result<null, string>> {
+  async buildTx(req: BuildTx): Promise<Result<BuildTxResult, string>> {
     try {
       return { status: 'ok', data: await TAURI_INVOKE('build_tx', { req }) }
     } catch (e) {
@@ -94,21 +94,31 @@ export type ActiveAccountDto = {
   address: string
   total_balance: string
 }
-export type BtcBuildTx = {
-  auto_utxo_selection: boolean
-  utxos: UtxoOutpoint[] | null
+export type BtcSendTx = Record<string, never>
+export type BuildTx = {
+  utxo_auto_selection?: boolean
+  selected_utxos: OutPointDto[] | null
   value: string
   recipient: string
+  utxo_selection_method: UtxoSelectionMethod
 }
-export type BtcSendTx = Record<string, never>
+export type BuildTxResult = {
+  psbt_base64: string
+  fee_sat: string
+  total_input_sat: string
+  total_output_sat: string
+}
 export type DerivedAddressDto = { label: string; path: string; address: string }
+export type OutPointDto = { tx_id: string; vout: string }
 export type UtxoDto = {
-  utxo_id: UtxoOutpoint
+  utxo_id: OutPointDto
   value: string
   deriv_path: string
   address_label: string | null
 }
-export type UtxoOutpoint = { tx_id: string; vout: string }
+export type UtxoSelectionMethod =
+  | { Manual: OutPointDto[] }
+  | { Automatic: number }
 
 /** tauri-specta globals **/
 

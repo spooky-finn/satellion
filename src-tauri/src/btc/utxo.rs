@@ -1,4 +1,6 @@
 use bitcoin::{BlockHash, TxOut, Txid};
+use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use crate::btc::{
     account::KeyDerivationPathLabelMap,
@@ -11,8 +13,6 @@ pub struct BlockHeader {
     pub height: u32,
 }
 
-pub type UtxoIdentifier = String;
-
 /// Unspent transaction output domain model
 #[derive(Debug, Clone)]
 pub struct Utxo {
@@ -24,8 +24,11 @@ pub struct Utxo {
 }
 
 impl Utxo {
-    pub fn outpoint(&self) -> UtxoIdentifier {
-        format!("{}{}", self.tx_id, self.vout)
+    pub fn outpoint(&self) -> OutPointDto {
+        OutPointDto {
+            tx_id: self.tx_id.to_string(),
+            vout: self.vout.to_string(),
+        }
     }
 
     pub fn label(&self, schema_label_map: &KeyDerivationPathLabelMap) -> Option<String> {
@@ -35,6 +38,18 @@ impl Utxo {
         };
 
         label
+    }
+}
+
+#[derive(Type, Deserialize, Serialize, Clone, Hash, PartialEq, Eq)]
+pub struct OutPointDto {
+    pub tx_id: String,
+    pub vout: String,
+}
+
+impl OutPointDto {
+    pub fn to_string(&self) -> String {
+        format!("{}{}", self.tx_id, self.vout)
     }
 }
 
