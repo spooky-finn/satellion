@@ -124,7 +124,7 @@ impl Account {
             .collect()
     }
 
-    pub fn select_utxo_for_tx(&self, method: UtxoSelectionMethod) -> Vec<&Utxo> {
+    pub fn choose_utxo(&self, method: UtxoSelectionMethod) -> Vec<&Utxo> {
         match method {
             UtxoSelectionMethod::Manual(out_point_dtos) => self.manual_utxo_select(out_point_dtos),
             UtxoSelectionMethod::Automatic(min_value) => {

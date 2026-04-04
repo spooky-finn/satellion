@@ -213,6 +213,7 @@ pub async fn build_tx(req: BuildTx, sk: tauri::State<'_, SK>) -> Result<BuildTxR
             send_value_sat,
             recipient,
             utxo_selection_method: req.utxo_selection_method,
+            miner_fee_vbytes: 100,
         },
         account,
         xpriv,

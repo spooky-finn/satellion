@@ -9,19 +9,17 @@ use crate::btc::{
     key_derivation::Change,
 };
 
+const UTXO_DUST_VALUE: u64 = 330;
+
 pub struct BuildPsbtParams {
     pub send_value_sat: u64,
     pub recipient: Address<NetworkChecked>,
     pub utxo_selection_method: UtxoSelectionMethod,
+    pub miner_fee_vbytes: u64,
 }
 
 #[derive(Type, Serialize)]
-pub struct BuildTxResult {
-    // pub psbt_base64: String,
-    // pub fee_sat: String,
-    // pub total_input_sat: String,
-    // pub total_output_sat: String,
-}
+pub struct BuildTxResult {}
 
 /// The PSBT has two outputs:
 /// - Output 0: change returned to the wallet's next unused **internal** address
@@ -31,26 +29,42 @@ pub fn build_psbt(
     account: &Account,
     xpriv: &bitcoin::bip32::Xpriv,
 ) -> Result<BuildTxResult, String> {
-    let utxos = account.select_utxo_for_tx(params.utxo_selection_method.clone());
+    let utxos = account.choose_utxo(params.utxo_selection_method.clone());
     if utxos.is_empty() {
         return Err("no utxos selected for transaction".to_string());
     }
-
+    let input_count = utxos.len();
+    let output_count = 2;
     let total_input: u64 = utxos.iter().map(|u| u.output.value.to_sat()).sum();
 
-    // Change = total input - send amount. The remainder is the miner fee.
-    let change_value = total_input.checked_sub(params.send_value_sat).ok_or(
-        "total input value is less than send value, cannot cover transaction fee".to_string(),
-    )?;
+    // 1. Estimate the fee assuming we WILL have a change output (2 outputs total)
+    let estimated_vbytes = estimate_taproot_vbytes(input_count, output_count);
+    let required_fee = estimated_vbytes * params.miner_fee_vbytes;
 
-    // Create PSBT v2: N inputs, 2 outputs
-    let mut psbt = Psbt::new_v2(utxos.len(), 2);
+    // 2. Check if the inputs can cover the send amount + fee
+    let total_required = params
+        .send_value_sat
+        .checked_add(required_fee)
+        .ok_or("overflow calculating required amount")?;
+
+    let potential_change = total_input
+        .checked_sub(total_required)
+        .ok_or("insufficient funds to cover send amount and miner fee")?;
+
+    // 3. The Dust Check
+    let has_change = potential_change >= UTXO_DUST_VALUE;
+    let output_count = if has_change {
+        output_count
+    } else {
+        output_count - 1
+    };
+
+    let mut psbt = Psbt::new_v2(input_count, output_count);
 
     // Global fields
     let secp = Secp256k1::new();
     let master_fingerprint = xpriv.fingerprint(&secp).to_bytes();
 
-    // ── Populate inputs ──────────────────────────────────────────────────
     for (i, utxo) in utxos.iter().enumerate() {
         // PSBT v2 required fields
         psbt.inputs[i].previous_txid = Some(utxo.tx_id.to_byte_array());
@@ -84,28 +98,39 @@ pub fn build_psbt(
     }
 
     {
-        // Output 0: change
-        let change_index = account.unoccupied_address(Change::Internal);
-        let change_path =
-            Account::new_deriviation_path(account.index, Change::Internal, change_index);
-        let change_child_key = change_path
-            .derive(xpriv)
-            .map_err(|e| format!("failed to derive change key: {e}"))?;
-        let change_xonly_pubkey = change_child_key.keypair.x_only_public_key().0.serialize();
-        let change_derivation_path: Vec<u32> = change_path.to_slice().to_vec();
-        let change_key_source = KeySource::new(master_fingerprint, change_derivation_path);
+        // We use a mutable index because the recipient output might be at index 0 or 1
+        let mut current_out_idx = 0;
 
-        psbt.outputs[0].script = Some(change_child_key.address.script_pubkey().to_bytes());
-        psbt.outputs[0].amount = Some(change_value);
-        psbt.update_output_with_bip32(0, change_xonly_pubkey.to_vec(), change_key_source)
-            .map_err(|e| format!("fail to update output bip32: {e}"))?;
-    }
+        if has_change {
+            // Create the change output
+            let change_index = account.unoccupied_address(Change::Internal);
+            let change_path =
+                Account::new_deriviation_path(account.index, Change::Internal, change_index);
+            let change_child_key = change_path
+                .derive(xpriv)
+                .map_err(|e| format!("failed to derive change key: {e}"))?;
 
-    {
-        // Output 1: recipient
-        psbt.outputs[1].script = Some(params.recipient.script_pubkey().to_bytes());
-        psbt.outputs[1].amount = Some(params.send_value_sat);
+            psbt.outputs[current_out_idx].script =
+                Some(change_child_key.address.script_pubkey().to_bytes());
+            psbt.outputs[current_out_idx].amount = Some(potential_change);
+
+            current_out_idx += 1;
+        }
+
+        // Create the recipient output
+        psbt.outputs[current_out_idx].script = Some(params.recipient.script_pubkey().to_bytes());
+        psbt.outputs[current_out_idx].amount = Some(params.send_value_sat);
     }
 
     Ok(BuildTxResult {})
+}
+
+pub fn estimate_taproot_vbytes(input_count: usize, output_count: usize) -> u64 {
+    // 10.5 (overhead) + 57.25 per input + 43 per output
+    // We multiply by 4 to work in Weight Units (integers) and divide at the end
+    // to avoid floating point math inaccuracies.
+    let weight_units = 42 + (229 * input_count as u64) + (172 * output_count as u64);
+
+    // vBytes is Weight / 4, rounded up to the nearest integer
+    (weight_units + 3) / 4
 }
