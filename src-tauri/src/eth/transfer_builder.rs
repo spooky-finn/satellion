@@ -437,12 +437,20 @@ impl BalanceChecker for TokenTransferBuilder {
 mod tests {
     use super::*;
     use crate::eth::{
+        config::EthereumConfig,
         constants::{ETH, USDT},
         new_provider_anvil,
     };
     use alloy::signers::k256::ecdsa::SigningKey;
     use alloy_provider::{PendingTransactionConfig, ext::AnvilApi};
     use alloy_signer_local::LocalSigner;
+
+    fn get_config() -> EthereumConfig {
+        EthereumConfig {
+            rpc_url: "".to_string(),
+            anvil: true,
+        }
+    }
 
     fn get_estimator() -> Eip1559Estimation {
         Eip1559Estimation {
@@ -462,7 +470,7 @@ mod tests {
     }
 
     async fn test_context(alice_balance: &str) -> TestContext {
-        let provider = new_provider_anvil();
+        let provider = new_provider_anvil(get_config());
         let ctx = TransferContext {
             provider: provider.clone(),
             nonce: 0,

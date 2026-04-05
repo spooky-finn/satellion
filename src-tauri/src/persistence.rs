@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 use shush_rs::{ExposeSecret, SecretBox};
 
 use crate::{
-    chain_trait::Persistable,
     config::{Config, constants::BlockChain},
     encryptor::{self, Envelope},
     wallet::Wallet,
@@ -23,17 +22,25 @@ pub struct SerializedWallet {
 }
 
 impl SerializedWallet {
-    pub fn to_model(&self, passphrase: SecretBox<String>) -> Result<Wallet, String> {
+    pub fn to_model(
+        &self,
+        config: Config,
+        passphrase: SecretBox<String>,
+    ) -> Result<Wallet, String> {
         Ok(Wallet {
             keeper: WalletKeeper::default(),
             name: self.name.clone(),
             mnemonic: SecretBox::new(Box::new(self.mnemonic.clone())),
             passphrase,
-            btc: self.bitcoin_data.deserialize()?,
-            eth: crate::eth::EthereumWallet::deserialize(self.ethereum_data.clone())?,
+            btc: self.bitcoin_data.deserialize(config.clone())?,
+            eth: crate::eth::EthereumWallet::deserialize(
+                self.ethereum_data.clone(),
+                config.clone(),
+            )?,
             last_used_chain: BlockChain::from(self.last_used_chain),
             birth_date: self.birth_date,
             version: self.version,
+            config,
         })
     }
 
@@ -64,14 +71,18 @@ impl Repository {
         FsRepository.ls()
     }
 
-    pub fn load(&self, wallet_name: &str, passphrase: SecretBox<String>) -> Result<Wallet, String> {
+    pub fn load(
+        &self,
+        wallet_name: &str,
+        passphrase: &SecretBox<String>,
+    ) -> Result<SerializedWallet, String> {
         let data = FsRepository
             .get(wallet_name)
             .map_err(|e| format!("fail to load wallet from dist: {}", e))?;
         let decrypted_json = encryptor::decrypt(&data, passphrase.expose_secret().as_bytes())?;
         let persisted_wallet = serde_json::from_slice::<SerializedWallet>(&decrypted_json)
             .map_err(|e| format!("fail to parse json wallet into struct {}", e))?;
-        persisted_wallet.to_model(passphrase)
+        Ok(persisted_wallet)
     }
 
     pub fn store(&self, wallet: &Wallet) -> Result<(), String> {
@@ -184,6 +195,7 @@ mod tests {
         let repository = Repository;
         let name = "Wallet 1".to_string();
         let passphrase = SecretBox::new(Box::new("1111".to_string()));
+        let config = Config::new();
 
         let persisted_wallet = SerializedWallet {
             name: name.clone(),
@@ -205,18 +217,20 @@ mod tests {
             },
         };
 
-        let wallet = persisted_wallet.to_model(passphrase.clone()).unwrap();
+        let wallet = persisted_wallet
+            .to_model(config, passphrase.clone())
+            .unwrap();
         repository.store(&wallet).unwrap();
 
         let listed = repository.ls().unwrap();
         assert!(listed.contains(&FsRepository.sanitize_filename(&name)));
 
         let saved_wallet = repository
-            .load(&name, passphrase)
+            .load(&name, &passphrase)
             .expect("fail to load wallet");
         assert_eq!(
             wallet.mnemonic.expose_secret().to_string(),
-            saved_wallet.mnemonic.expose_secret().to_string()
+            saved_wallet.mnemonic.to_string()
         )
     }
 }

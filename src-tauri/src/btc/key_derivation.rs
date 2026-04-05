@@ -6,7 +6,7 @@ use bitcoin::{
     key::{Keypair, Secp256k1},
 };
 
-use crate::{chain_trait::AccountIndex, config::CONFIG};
+use crate::chain_trait::AccountIndex;
 
 /// m / purpose' / coin_type' / account' / change / address_index
 pub type KeyDeriviationPathSlice = [u32; 5];
@@ -93,6 +93,16 @@ impl Display for KeyDerivationPath {
 }
 
 impl KeyDerivationPath {
+    pub fn new_bip86(network: Network, account: AccountIndex, change: Change, index: u32) -> Self {
+        Self {
+            purpose: Proposal::Bip86,
+            network,
+            account,
+            change,
+            index,
+        }
+    }
+
     pub fn to_path(&self) -> Result<DerivationPath, String> {
         let str = self.to_string();
         DerivationPath::from_str(&str).map_err(|e| format!("fail to derive bip86_path: {e}"))
@@ -151,7 +161,7 @@ impl KeyDerivationPath {
             &secp,
             internal_key,
             None, // no script tree = BIP86 key-path spend
-            CONFIG.bitcoin.network(),
+            self.network,
         );
         Ok(Child { address, keypair })
     }

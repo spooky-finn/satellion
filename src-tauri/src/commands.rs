@@ -5,7 +5,7 @@ use zeroize::Zeroize;
 use crate::{
     btc::{self},
     chain_trait::{AccountIndex, ChainTrait},
-    config::{BlockChain, CONFIG, constants},
+    config::{BlockChain, Config, constants},
     eth::{
         self, PriceFeed,
         constants::{BTC_USD_PRICE_FEED, ETH_USD_PRICE_FEED},
@@ -29,6 +29,7 @@ pub async fn create_wallet(
     name: String,
     creation_type: CreationFlow,
     wallet_keeper: tauri::State<'_, WalletKeeper>,
+    config: tauri::State<'_, Config>,
 ) -> Result<bool, String> {
     if creation_type == CreationFlow::Generation && passphrase.len() < constants::MIN_PASSPHRASE_LEN
     {
@@ -37,7 +38,13 @@ pub async fn create_wallet(
             constants::MIN_PASSPHRASE_LEN
         ));
     }
-    wallet_keeper.create(&mnemonic, &passphrase, &name, creation_type)?;
+    wallet_keeper.create(
+        config.inner().clone(),
+        &mnemonic,
+        &passphrase,
+        &name,
+        creation_type,
+    )?;
 
     mnemonic.zeroize();
     passphrase.zeroize();
@@ -134,8 +141,9 @@ pub async fn unlock_wallet(
     passphrase: String,
     wallet_keeper: tauri::State<'_, WalletKeeper>,
     sk: tauri::State<'_, SK>,
+    config: tauri::State<'_, Config>,
 ) -> Result<UnlockDto, String> {
-    let mut wallet = wallet_keeper.load(&wallet_name, &passphrase)?;
+    let mut wallet = wallet_keeper.load(config.inner().clone(), &wallet_name, &passphrase)?;
 
     let (eth_prk, btc_prk, last_used_chain) = {
         let eth_prk = wallet.eth_prk()?;
@@ -149,7 +157,7 @@ pub async fn unlock_wallet(
         wallet.btc.unlock((), &btc_prk)?,
     );
 
-    let session = Session::new(wallet).with_inactivity_timeout(CONFIG.session_inactivity_timeout());
+    let session = Session::new(wallet).with_inactivity_timeout(config.session_inactivity_timeout());
     sk.lock().await.set(session);
 
     Ok(UnlockDto {
@@ -180,8 +188,8 @@ pub struct UIConfig {
 
 #[specta]
 #[tauri::command]
-pub async fn get_config() -> Result<UIConfig, String> {
+pub async fn get_config(config: tauri::State<'_, Config>) -> Result<UIConfig, String> {
     Ok(UIConfig {
-        eth_anvil: CONFIG.ethereum.anvil,
+        eth_anvil: config.ethereum.anvil,
     })
 }

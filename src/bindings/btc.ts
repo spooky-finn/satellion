@@ -102,12 +102,7 @@ export type BuildTx = {
   recipient: string
   utxo_selection_method: UtxoSelectionMethod
 }
-export type BuildTxResult = {
-  psbt_base64: string
-  fee_sat: string
-  total_input_sat: string
-  total_output_sat: string
-}
+export type BuildTxResult = Record<string, never>
 export type DerivedAddressDto = { label: string; path: string; address: string }
 export type OutPointDto = { tx_id: string; vout: string }
 export type UtxoDto = {

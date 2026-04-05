@@ -24,6 +24,7 @@ use tauri::{Listener, Manager};
 use tokio::sync::Mutex;
 
 use crate::{
+    config::Config,
     event_emitter::{EventEmitter, EventEmitterTrait},
     session::SessionKeeper,
     wallet_keeper::WalletKeeper,
@@ -36,8 +37,8 @@ pub fn run() {
 
     let db = db::connect();
     let wallet_keeper = WalletKeeper::default();
-
-    let eth_provider = eth::select_provider();
+    let config = Config::new();
+    let eth_provider = eth::select_provider(config.ethereum.clone());
     let eth_batch_provider = eth::new_provider_batched(eth_provider.clone());
     let erc20_retriever = eth::Erc20Retriever::new(eth_provider.clone());
     let tx_builder = eth::TxBuilder::new(eth_batch_provider);
@@ -50,6 +51,7 @@ pub fn run() {
         .manage(eth_provider.clone())
         .manage(erc20_retriever)
         .manage(price_feed)
+        .manage(config)
         .manage(Mutex::new(tx_builder))
         .setup(move |app| {
             let event_emitter = EventEmitter::new(app.handle().clone());

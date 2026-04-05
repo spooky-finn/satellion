@@ -13,7 +13,6 @@ use crate::{
         utxo::{self, Utxo},
     },
     chain_trait::SecureKey,
-    config::CONFIG,
     session::SK,
 };
 
@@ -102,7 +101,7 @@ pub async fn get_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String>
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let account = wallet.btc.active_account()?;
-    let address_label_map = account.derivepath_label_map();
+    let address_label_map = account.derive_path_label_map();
 
     let mut utxos: Vec<_> = account
         .utxos
@@ -161,7 +160,7 @@ pub async fn sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String
     let account = wallet.btc.get_mut_active_account()?;
     account.set_utxos(received_utxos);
 
-    let address_label_map = account.derivepath_label_map();
+    let address_label_map = account.derive_path_label_map();
     let mut result = account
         .utxos
         .values()
@@ -200,7 +199,7 @@ pub async fn build_tx(req: BuildTx, sk: tauri::State<'_, SK>) -> Result<BuildTxR
 
     let recipient: Address = Address::from_str(&req.recipient)
         .map_err(|e| format!("invalid recipient address: {e}"))?
-        .require_network(CONFIG.bitcoin.network())
+        .require_network(wallet.config.bitcoin.network())
         .map_err(|e| format!("recipient address network mismatch: {e}"))?;
 
     let send_value_sat = req
@@ -214,6 +213,7 @@ pub async fn build_tx(req: BuildTx, sk: tauri::State<'_, SK>) -> Result<BuildTxR
             recipient,
             utxo_selection_method: req.utxo_selection_method,
             miner_fee_vbytes: 100,
+            config: wallet.config.bitcoin.clone(),
         },
         account,
         xpriv,

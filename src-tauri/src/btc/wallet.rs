@@ -10,7 +10,7 @@ use crate::{
         providers::electrum_adapter::ElectrumAdapter,
     },
     chain_trait::{AccountIndex, ChainTrait, SecureKey},
-    config::CONFIG,
+    config::Config,
 };
 
 pub struct Prk {
@@ -35,27 +35,27 @@ pub struct BitcoinWallet {
     pub active_account: AccountIndex,
     pub accounts: Vec<Account>,
     pub server: ElectrumAdapter,
+    pub config: Config,
 }
 
-impl Default for BitcoinWallet {
-    fn default() -> BitcoinWallet {
+impl BitcoinWallet {
+    pub fn new(config: Config) -> BitcoinWallet {
         let active_account = 0;
-        let account = Account::new(active_account, "main".to_string());
+        let account = Account::new(config.bitcoin.network(), active_account, "main".to_string());
         BitcoinWallet {
+            config,
             active_account,
             accounts: vec![account],
             server: ElectrumAdapter::new(),
         }
     }
-}
 
-impl BitcoinWallet {
     pub fn build_prk(&self, mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
-        let network = CONFIG.bitcoin.network();
         let mnemonic = bip39::Mnemonic::parse_in_normalized(Language::English, mnemonic)
             .map_err(|e| e.to_string())?;
-        let seed = mnemonic.to_seed(CONFIG.xprk_passphrase(passphrase));
-        let xpriv = bip32::Xpriv::new_master(network, &seed).map_err(|e| e.to_string())?;
+        let seed = mnemonic.to_seed(self.config.xprk_passphrase(passphrase));
+        let xpriv = bip32::Xpriv::new_master(self.config.bitcoin.network(), &seed)
+            .map_err(|e| e.to_string())?;
         Ok(Prk { xpriv })
     }
 
@@ -74,7 +74,7 @@ impl BitcoinWallet {
             .max()
             .map(|i| i + 1)
             .unwrap_or(0);
-        let account = Account::new(next_index, label);
+        let account = Account::new(self.config.bitcoin.network(), next_index, label);
         self.accounts.push(account);
         next_index
     }
@@ -89,8 +89,13 @@ impl BitcoinWallet {
         index: u32,
     ) -> Result<KeyDerivationPath, String> {
         let account = self.active_account()?;
-        let path = Account::new_deriviation_path(account.index, change, index);
-        if !account.deriviation_schema_available(path.clone()) {
+        let path = KeyDerivationPath::new_bip86(
+            self.config.bitcoin.network(),
+            account.index,
+            change,
+            index,
+        );
+        if !account.is_deriviation_path_available(path.clone()) {
             return Err(format!("Derivation index {} already occupied", index));
         }
         Ok(path)
@@ -106,7 +111,12 @@ impl BitcoinWallet {
 
     pub fn active_account_info(&self, prk: &Prk) -> Result<ActiveAccountDto, String> {
         let account = self.active_account()?;
-        let main_key_path = Account::new_deriviation_path(account.index, Change::External, 0);
+        let main_key_path = KeyDerivationPath::new_bip86(
+            self.config.bitcoin.network(),
+            account.index,
+            Change::External,
+            0,
+        );
         let mainkey = main_key_path
             .derive(prk.expose())
             .map_err(|e| e.to_string())?;
@@ -172,6 +182,7 @@ pub mod persistence {
     use crate::{
         btc::{BitcoinWallet, account::persistence, providers::electrum_adapter::ElectrumAdapter},
         chain_trait::AccountIndex,
+        config::Config,
     };
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -194,7 +205,7 @@ pub mod persistence {
     }
 
     impl WalletData {
-        pub fn deserialize(&self) -> Result<BitcoinWallet, String> {
+        pub fn deserialize(&self, config: Config) -> Result<BitcoinWallet, String> {
             Ok(BitcoinWallet {
                 accounts: self
                     .accounts
@@ -203,6 +214,7 @@ pub mod persistence {
                     .collect(),
                 active_account: self.active_account,
                 server: ElectrumAdapter::new(),
+                config,
             })
         }
     }

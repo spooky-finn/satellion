@@ -120,6 +120,8 @@ impl SessionKeeper {
 
 #[cfg(test)]
 mod tests {
+    use crate::config::Config;
+
     use super::*;
     use shush_rs::SecretBox;
     use std::sync::Mutex as StdMutex;
@@ -130,7 +132,9 @@ mod tests {
 
     fn new_wallet() -> Wallet {
         let name = "test_wallet";
+        let config = Config::new();
         let wallet = Wallet::new(
+            config,
             name.to_string(),
             MNEMONIC.to_string(),
             SecretBox::new(Box::new("333".to_string())),

@@ -94,6 +94,7 @@ impl Erc20Retriever {
 mod tests {
     use super::*;
     use crate::eth::{
+        config::EthereumConfig,
         constants::{USDC, USDT},
         select_provider,
     };
@@ -101,12 +102,19 @@ mod tests {
     use once_cell::sync::Lazy;
     use std::str::FromStr;
 
+    fn get_config() -> EthereumConfig {
+        EthereumConfig {
+            rpc_url: "".to_string(),
+            anvil: true,
+        }
+    }
+
     #[tokio::test]
     async fn test_get_balance() {
         let tokens: Lazy<Vec<Token>> = Lazy::<Vec<Token>>::new(|| vec![USDC.clone(), USDT.clone()]);
         let address = Address::from_str("d8da6bf26964af9d7eed9e03e53415d37aa96045").unwrap();
 
-        let retriver = Erc20Retriever::new(select_provider());
+        let retriver = Erc20Retriever::new(select_provider(get_config()));
         let result = retriver.balances(address, tokens.to_vec()).await;
         assert!(result.is_ok(), "get_balances should not error");
         println!("res {:?}", result);
@@ -130,7 +138,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_token_info() {
-        let retriver = Erc20Retriever::new(select_provider());
+        let retriver = Erc20Retriever::new(select_provider(get_config()));
         let result = retriver.token_info(USDC.address).await;
         if result.is_ok() {
             let token = result.unwrap();

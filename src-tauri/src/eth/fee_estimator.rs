@@ -148,7 +148,14 @@ impl FeeEstimator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::eth::{new_provider, new_provider_anvil};
+    use crate::eth::{config::EthereumConfig, new_provider, new_provider_anvil};
+
+    fn get_config() -> EthereumConfig {
+        EthereumConfig {
+            rpc_url: "".to_string(),
+            anvil: true,
+        }
+    }
 
     fn setup() -> (FeeEstimator, FeeHistory) {
         let fee_history = FeeHistory {
@@ -165,7 +172,7 @@ mod tests {
             ]),
             oldest_block: 100,
         };
-        let estimator = FeeEstimator::new(new_provider_anvil());
+        let estimator = FeeEstimator::new(new_provider_anvil(get_config()));
         (estimator, fee_history)
     }
 
@@ -224,7 +231,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_calculate_all_fees() {
-        let provider = new_provider();
+        let provider = new_provider(get_config());
         let estimator = FeeEstimator::new(provider.clone());
         let all_fees = estimator.calc_fees().await.unwrap();
         let minimal_fee = all_fees.get(FeeMode::Minimal);

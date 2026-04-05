@@ -1,6 +1,11 @@
 use shush_rs::{ExposeSecret, SecretBox};
 
-use crate::{btc, config::constants::BlockChain, eth, mnemonic, wallet_keeper::WalletKeeper};
+use crate::{
+    btc,
+    config::{Config, constants::BlockChain},
+    eth, mnemonic,
+    wallet_keeper::WalletKeeper,
+};
 
 pub struct Wallet {
     pub name: String,
@@ -14,10 +19,12 @@ pub struct Wallet {
     pub eth: eth::EthereumWallet,
 
     pub keeper: WalletKeeper,
+    pub config: Config,
 }
 
 impl Wallet {
     pub fn new(
+        config: Config,
         name: String,
         mnemonic: String,
         passphrase: SecretBox<String>,
@@ -31,9 +38,10 @@ impl Wallet {
             last_used_chain: BlockChain::Bitcoin,
             birth_date,
             version: 1,
-            btc: btc::BitcoinWallet::default(),
-            eth: eth::EthereumWallet::default(),
+            btc: btc::BitcoinWallet::new(config.clone()),
+            eth: eth::EthereumWallet::new(config.clone()),
             keeper: WalletKeeper::default(),
+            config,
         })
     }
 

@@ -1,6 +1,5 @@
 use std::{fs, path::PathBuf, time::Duration};
 
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
 use crate::{btc::config::BitcoinConfig, eth::config::EthereumConfig};
@@ -97,5 +96,3 @@ impl Config {
         }
     }
 }
-
-pub static CONFIG: Lazy<Config> = Lazy::new(Config::new);

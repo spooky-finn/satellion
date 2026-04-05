@@ -6,7 +6,8 @@ use rustywallet_psbt::{KeySource, Psbt, TxOut};
 
 use crate::btc::{
     account::{Account, UtxoSelectionMethod},
-    key_derivation::Change,
+    config::BitcoinConfig,
+    key_derivation::{Change, KeyDerivationPath},
 };
 
 const UTXO_DUST_VALUE: u64 = 330;
@@ -16,6 +17,7 @@ pub struct BuildPsbtParams {
     pub recipient: Address<NetworkChecked>,
     pub utxo_selection_method: UtxoSelectionMethod,
     pub miner_fee_vbytes: u64,
+    pub config: BitcoinConfig,
 }
 
 #[derive(Type, Serialize)]
@@ -104,8 +106,12 @@ pub fn build_psbt(
         if has_change {
             // Create the change output
             let change_index = account.unoccupied_address(Change::Internal);
-            let change_path =
-                Account::new_deriviation_path(account.index, Change::Internal, change_index);
+            let change_path = KeyDerivationPath::new_bip86(
+                params.config.network(),
+                account.index,
+                Change::Internal,
+                change_index,
+            );
             let change_child_key = change_path
                 .derive(xpriv)
                 .map_err(|e| format!("failed to derive change key: {e}"))?;

@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use bitcoin::{Address, address::NetworkChecked};
+use bitcoin::{Address, Network, address::NetworkChecked};
 use serde::Deserialize;
 use specta::Type;
 
@@ -8,12 +8,11 @@ use crate::{
     btc::{
         Prk,
         key_derivation::{
-            Change, ChildKeyDeriviationScheme, KeyDerivationPath, KeyDeriviationPathSlice, Proposal,
+            Change, ChildKeyDeriviationScheme, KeyDerivationPath, KeyDeriviationPathSlice,
         },
         utxo::{self, OutPointDto, Utxo},
     },
     chain_trait::{AccountIndex, SecureKey},
-    config::CONFIG,
 };
 
 type AccountAddresses = Vec<ChildKeyDeriviationScheme>;
@@ -33,25 +32,25 @@ pub enum UtxoSelectionMethod {
 }
 
 impl Account {
-    pub fn new(account: AccountIndex, name: String) -> Self {
+    pub fn new(network: Network, account: AccountIndex, name: String) -> Self {
         Self {
             index: account,
             name,
             addresses: vec![
                 ChildKeyDeriviationScheme {
                     label: "main".to_string(),
-                    path: Account::new_deriviation_path(account, Change::External, 0),
+                    path: KeyDerivationPath::new_bip86(network, account, Change::External, 0),
                 },
                 ChildKeyDeriviationScheme {
                     label: "main_change".to_string(),
-                    path: Account::new_deriviation_path(account, Change::Internal, 0),
+                    path: KeyDerivationPath::new_bip86(network, account, Change::Internal, 0),
                 },
             ],
             utxos: HashMap::new(),
         }
     }
 
-    pub fn deriviation_schema_available(&self, path: KeyDerivationPath) -> bool {
+    pub fn is_deriviation_path_available(&self, path: KeyDerivationPath) -> bool {
         !self.addresses.iter().any(|a| a.path == path)
     }
 
@@ -90,21 +89,7 @@ impl Account {
             .sum()
     }
 
-    pub fn new_deriviation_path(
-        account: AccountIndex,
-        change: Change,
-        index: u32,
-    ) -> KeyDerivationPath {
-        KeyDerivationPath {
-            purpose: Proposal::Bip86,
-            network: CONFIG.bitcoin.network(),
-            account,
-            change,
-            index,
-        }
-    }
-
-    pub fn derivepath_label_map(&self) -> KeyDerivationPathLabelMap {
+    pub fn derive_path_label_map(&self) -> KeyDerivationPathLabelMap {
         self.addresses
             .iter()
             .map(|e| (e.path.to_slice(), e.label.clone()))
