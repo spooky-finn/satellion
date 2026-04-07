@@ -6,8 +6,7 @@ use specta::{Type, specta};
 
 use crate::{
     btc::{
-        ActiveAccountDto,
-        account::UtxoSelectionMethod,
+        account::{ActiveAccountDto, UtxoSelectionMethod},
         key_derivation::{Change, ChildKeyDeriviationScheme},
         tx_builder::{BuildPsbtParams, BuildTxResult, build_psbt},
         utxo::{self, Utxo},
@@ -22,7 +21,8 @@ pub async fn account_info(sk: tauri::State<'_, SK>) -> Result<ActiveAccountDto, 
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let prk = wallet.btc_prk()?;
-    wallet.btc.active_account_info(&prk)
+    let account = wallet.btc.active_account()?;
+    account.info(&prk, wallet.config.btc.network())
 }
 
 #[specta]
@@ -199,7 +199,7 @@ pub async fn build_tx(req: BuildTx, sk: tauri::State<'_, SK>) -> Result<BuildTxR
 
     let recipient: Address = Address::from_str(&req.recipient)
         .map_err(|e| format!("invalid recipient address: {e}"))?
-        .require_network(wallet.config.bitcoin.network())
+        .require_network(wallet.config.btc.network())
         .map_err(|e| format!("recipient address network mismatch: {e}"))?;
 
     let send_value_sat = req
@@ -207,17 +207,15 @@ pub async fn build_tx(req: BuildTx, sk: tauri::State<'_, SK>) -> Result<BuildTxR
         .parse::<u64>()
         .map_err(|e| format!("invalid value: {e}"))?;
 
-    build_psbt(
-        &BuildPsbtParams {
-            send_value_sat,
-            recipient,
-            utxo_selection_method: req.utxo_selection_method,
-            miner_fee_vbytes: 100,
-            config: wallet.config.bitcoin.clone(),
-        },
+    build_psbt(&BuildPsbtParams {
+        send_value_sat,
+        recipient,
+        utxo_selection_method: req.utxo_selection_method,
+        miner_fee_vbytes: 100,
+        config: wallet.config.btc.clone(),
         account,
         xpriv,
-    )
+    })
 }
 
 #[derive(Type, Deserialize)]

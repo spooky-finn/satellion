@@ -7,8 +7,8 @@ use crate::{btc::config::BitcoinConfig, eth::config::EthereumConfig};
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
-    pub ethereum: EthereumConfig,
-    pub bitcoin: BitcoinConfig,
+    pub eth: EthereumConfig,
+    pub btc: BitcoinConfig,
     /// Require a passphrase when generating private keys
     pub omit_passphrase_on_private_key: bool,
 }

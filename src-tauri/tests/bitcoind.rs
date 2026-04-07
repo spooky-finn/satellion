@@ -2,6 +2,40 @@ use std::{fs, str::FromStr, thread, time::Duration};
 
 use corepc_client::{bitcoin::Address, client_sync::Error};
 use corepc_node::{Client, Conf, Node, client::bitcoin::Amount};
+use serde::Deserialize;
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ScannedUtxo {
+    pub amount: f64,
+    pub blockhash: String,
+    pub coinbase: bool,
+    pub confirmations: u64,
+    pub desc: String,
+    pub height: u64,
+    #[serde(rename = "scriptPubKey")]
+    pub script_pub_key: String,
+    pub txid: String,
+    pub vout: u64,
+}
+
+impl ScannedUtxo {
+    pub fn outpoint(&self) -> String {
+        format!("{}:{}", self.txid, self.vout)
+    }
+}
+
+/// Parse scantxoutset result into a Vec of ScannedUtxo
+pub fn parse_scan_result(
+    scan_result: serde_json::Value,
+) -> Result<Vec<ScannedUtxo>, Box<dyn std::error::Error>> {
+    let utxos = scan_result["unspents"]
+        .as_array()
+        .ok_or("expected unspents array")?
+        .iter()
+        .filter_map(|utxo| serde_json::from_value(utxo.clone()).ok())
+        .collect();
+    Ok(utxos)
+}
 
 pub struct BitcoindHarness {
     pub node: Node,

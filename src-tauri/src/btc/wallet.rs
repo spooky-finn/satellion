@@ -5,7 +5,7 @@ use bitcoin::bip32::{self, Xpriv};
 
 use crate::{
     btc::{
-        account::Account,
+        account::{Account, ActiveAccountDto},
         key_derivation::{Change, KeyDerivationPath},
         providers::electrum_adapter::ElectrumAdapter,
     },
@@ -41,7 +41,7 @@ pub struct BitcoinWallet {
 impl BitcoinWallet {
     pub fn new(config: Config) -> BitcoinWallet {
         let active_account = 0;
-        let account = Account::new(config.bitcoin.network(), active_account, "main".to_string());
+        let account = Account::new(config.btc.network(), active_account, "main".to_string());
         BitcoinWallet {
             config,
             active_account,
@@ -54,9 +54,16 @@ impl BitcoinWallet {
         let mnemonic = bip39::Mnemonic::parse_in_normalized(Language::English, mnemonic)
             .map_err(|e| e.to_string())?;
         let seed = mnemonic.to_seed(self.config.xprk_passphrase(passphrase));
-        let xpriv = bip32::Xpriv::new_master(self.config.bitcoin.network(), &seed)
+        let xpriv = bip32::Xpriv::new_master(self.config.btc.network(), &seed)
             .map_err(|e| e.to_string())?;
         Ok(Prk { xpriv })
+    }
+
+    pub fn get_account(&self, index: u32) -> Result<&Account, String> {
+        self.accounts
+            .iter()
+            .find(|each| each.index == index)
+            .ok_or("account not found".to_string())
     }
 
     pub fn active_account(&self) -> Result<&Account, String> {
@@ -74,7 +81,7 @@ impl BitcoinWallet {
             .max()
             .map(|i| i + 1)
             .unwrap_or(0);
-        let account = Account::new(self.config.bitcoin.network(), next_index, label);
+        let account = Account::new(self.config.btc.network(), next_index, label);
         self.accounts.push(account);
         next_index
     }
@@ -89,12 +96,8 @@ impl BitcoinWallet {
         index: u32,
     ) -> Result<KeyDerivationPath, String> {
         let account = self.active_account()?;
-        let path = KeyDerivationPath::new_bip86(
-            self.config.bitcoin.network(),
-            account.index,
-            change,
-            index,
-        );
+        let path =
+            KeyDerivationPath::new_bip86(self.config.btc.network(), account.index, change, index);
         if !account.is_deriviation_path_available(path.clone()) {
             return Err(format!("Derivation index {} already occupied", index));
         }
@@ -109,24 +112,6 @@ impl BitcoinWallet {
             .ok_or("account not found".to_string())
     }
 
-    pub fn active_account_info(&self, prk: &Prk) -> Result<ActiveAccountDto, String> {
-        let account = self.active_account()?;
-        let main_key_path = KeyDerivationPath::new_bip86(
-            self.config.bitcoin.network(),
-            account.index,
-            Change::External,
-            0,
-        );
-        let mainkey = main_key_path
-            .derive(prk.expose())
-            .map_err(|e| e.to_string())?;
-
-        Ok(ActiveAccountDto {
-            address: mainkey.address.to_string(),
-            total_balance: account.total_balance().to_string(),
-        })
-    }
-
     fn list_all_accounts(&self) -> Vec<AccountIdDto> {
         self.accounts
             .iter()
@@ -136,13 +121,6 @@ impl BitcoinWallet {
             })
             .collect()
     }
-}
-
-#[derive(Serialize, specta::Type)]
-pub struct ActiveAccountDto {
-    /** main external address to accept payments */
-    pub address: String,
-    pub total_balance: String,
 }
 
 #[derive(Serialize, specta::Type)]
@@ -169,9 +147,10 @@ impl ChainTrait for BitcoinWallet {
         _: Self::UnlockContext,
         prk: &Self::Prk,
     ) -> Result<Self::AccountState, String> {
+        let account = self.active_account()?;
         Ok(BitcoinUnlockDto {
             accounts: self.list_all_accounts(),
-            active_account: self.active_account_info(prk)?,
+            active_account: account.info(prk, self.config.btc.network())?,
         })
     }
 }

@@ -190,6 +190,6 @@ pub struct UIConfig {
 #[tauri::command]
 pub async fn get_config(config: tauri::State<'_, Config>) -> Result<UIConfig, String> {
     Ok(UIConfig {
-        eth_anvil: config.ethereum.anvil,
+        eth_anvil: config.eth.anvil,
     })
 }

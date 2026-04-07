@@ -12,26 +12,24 @@ use crate::btc::{
 
 const UTXO_DUST_VALUE: u64 = 330;
 
-pub struct BuildPsbtParams {
+pub struct BuildPsbtParams<'a> {
     pub send_value_sat: u64,
     pub recipient: Address<NetworkChecked>,
     pub utxo_selection_method: UtxoSelectionMethod,
     pub miner_fee_vbytes: u64,
     pub config: BitcoinConfig,
+    pub account: &'a Account,
+    pub xpriv: &'a bitcoin::bip32::Xpriv,
 }
 
-#[derive(Type, Serialize)]
+#[derive(Type, Serialize, Debug)]
 pub struct BuildTxResult {}
 
 /// The PSBT has two outputs:
 /// - Output 0: change returned to the wallet's next unused **internal** address
 /// - Output 1: recipient payment
-pub fn build_psbt(
-    params: &BuildPsbtParams,
-    account: &Account,
-    xpriv: &bitcoin::bip32::Xpriv,
-) -> Result<BuildTxResult, String> {
-    let utxos = account.choose_utxo(params.utxo_selection_method.clone());
+pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
+    let utxos = p.account.choose_utxo(p.utxo_selection_method.clone());
     if utxos.is_empty() {
         return Err("no utxos selected for transaction".to_string());
     }
@@ -41,10 +39,10 @@ pub fn build_psbt(
 
     // 1. Estimate the fee assuming we WILL have a change output (2 outputs total)
     let estimated_vbytes = estimate_taproot_vbytes(input_count, output_count);
-    let required_fee = estimated_vbytes * params.miner_fee_vbytes;
+    let required_fee = estimated_vbytes * p.miner_fee_vbytes;
 
     // 2. Check if the inputs can cover the send amount + fee
-    let total_required = params
+    let total_required = p
         .send_value_sat
         .checked_add(required_fee)
         .ok_or("overflow calculating required amount")?;
@@ -65,7 +63,7 @@ pub fn build_psbt(
 
     // Global fields
     let secp = Secp256k1::new();
-    let master_fingerprint = xpriv.fingerprint(&secp).to_bytes();
+    let master_fingerprint = p.xpriv.fingerprint(&secp).to_bytes();
 
     for (i, utxo) in utxos.iter().enumerate() {
         // PSBT v2 required fields
@@ -86,7 +84,7 @@ pub fn build_psbt(
         // Derive key and add BIP32 derivation info for hardware wallet compatibility
         let child = utxo
             .derivation
-            .derive(xpriv)
+            .derive(p.xpriv)
             .map_err(|e| format!("failed to derive child key: {e}"))?;
         let xonly_pubkey = child.keypair.x_only_public_key().0.serialize();
 
@@ -105,15 +103,15 @@ pub fn build_psbt(
 
         if has_change {
             // Create the change output
-            let change_index = account.unoccupied_address(Change::Internal);
+            let change_index = p.account.unoccupied_address(Change::Internal);
             let change_path = KeyDerivationPath::new_bip86(
-                params.config.network(),
-                account.index,
+                p.config.network(),
+                p.account.index,
                 Change::Internal,
                 change_index,
             );
             let change_child_key = change_path
-                .derive(xpriv)
+                .derive(p.xpriv)
                 .map_err(|e| format!("failed to derive change key: {e}"))?;
 
             psbt.outputs[current_out_idx].script =
@@ -124,8 +122,8 @@ pub fn build_psbt(
         }
 
         // Create the recipient output
-        psbt.outputs[current_out_idx].script = Some(params.recipient.script_pubkey().to_bytes());
-        psbt.outputs[current_out_idx].amount = Some(params.send_value_sat);
+        psbt.outputs[current_out_idx].script = Some(p.recipient.script_pubkey().to_bytes());
+        psbt.outputs[current_out_idx].amount = Some(p.send_value_sat);
     }
 
     Ok(BuildTxResult {})

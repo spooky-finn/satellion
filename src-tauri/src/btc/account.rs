@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use bitcoin::{Address, Network, address::NetworkChecked};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use crate::{
@@ -31,6 +31,13 @@ pub enum UtxoSelectionMethod {
     Automatic(u32),
 }
 
+#[derive(Serialize, specta::Type)]
+pub struct ActiveAccountDto {
+    /** main external address to accept payments */
+    pub address: String,
+    pub total_balance: String,
+}
+
 impl Account {
     pub fn new(network: Network, account: AccountIndex, name: String) -> Self {
         Self {
@@ -48,6 +55,18 @@ impl Account {
             ],
             utxos: HashMap::new(),
         }
+    }
+
+    pub fn info(&self, prk: &Prk, network: Network) -> Result<ActiveAccountDto, String> {
+        let main_key_path = KeyDerivationPath::new_bip86(network, self.index, Change::External, 0);
+        let mainkey = main_key_path
+            .derive(prk.expose())
+            .map_err(|e| e.to_string())?;
+
+        Ok(ActiveAccountDto {
+            address: mainkey.address.to_string(),
+            total_balance: self.total_balance().to_string(),
+        })
     }
 
     pub fn is_deriviation_path_available(&self, path: KeyDerivationPath) -> bool {
