@@ -93,7 +93,7 @@ impl std::error::Error for TransferBuilderError {}
 const ETH_CHAIN_ID: u64 = 1;
 
 #[derive(Debug, Clone)]
-pub struct TransferRequest {
+pub struct TransferPayload {
     pub token: Token,
     pub raw_amount: String,
     pub sender: Address,
@@ -135,7 +135,7 @@ impl TxBuilder {
     /// Method creates transafer transaction for Ether or ERC20 tokens and store it in the session
     pub async fn create_transfer(
         &mut self,
-        req: TransferRequest,
+        req: TransferPayload,
     ) -> Result<TransactionMetadata, TransferBuilderError> {
         let nonce = self.get_tx_count(req.sender).await?;
         let ctx = TransferContext {
@@ -233,7 +233,7 @@ pub struct TransferContext {
 pub trait TransferBuilder {
     fn build_transaction(
         &self,
-        req: &TransferRequest,
+        req: &TransferPayload,
         ctx: &TransferContext,
     ) -> impl Future<Output = Result<TransactionRequest, TransferBuilderError>> + Send;
 }
@@ -251,7 +251,7 @@ pub trait BalanceChecker {
     /// validation logic depends on the asset type being transferred.
     fn check_balance(
         &self,
-        _req: &TransferRequest,
+        _req: &TransferPayload,
         _ctx: &TransferContext,
         _estimated_gas: u64,
         _estimator: Eip1559Estimation,
@@ -268,7 +268,7 @@ pub enum TransferBuilderType {
 impl TransferBuilder for TransferBuilderType {
     async fn build_transaction(
         &self,
-        req: &TransferRequest,
+        req: &TransferPayload,
         ctx: &TransferContext,
     ) -> Result<TransactionRequest, TransferBuilderError> {
         match self {
@@ -281,7 +281,7 @@ impl TransferBuilder for TransferBuilderType {
 impl BalanceChecker for TransferBuilderType {
     async fn check_balance(
         &self,
-        req: &TransferRequest,
+        req: &TransferPayload,
         ctx: &TransferContext,
         estimated_gas: u64,
         estimator: Eip1559Estimation,
@@ -313,7 +313,7 @@ pub struct EtherTransferBuilder;
 impl TransferBuilder for EtherTransferBuilder {
     async fn build_transaction(
         &self,
-        req: &TransferRequest,
+        req: &TransferPayload,
         ctx: &TransferContext,
     ) -> Result<TransactionRequest, TransferBuilderError> {
         let value = parse_ether(&req.raw_amount)
@@ -340,7 +340,7 @@ impl BalanceChecker for EtherTransferBuilder {
     /// with the maximum amount that can be sent.
     async fn check_balance(
         &self,
-        req: &TransferRequest,
+        req: &TransferPayload,
         ctx: &TransferContext,
         estimated_gas: u64,
         estimator: Eip1559Estimation,
@@ -373,7 +373,7 @@ pub struct TokenTransferBuilder;
 impl TransferBuilder for TokenTransferBuilder {
     async fn build_transaction(
         &self,
-        req: &TransferRequest,
+        req: &TransferPayload,
         ctx: &TransferContext,
     ) -> Result<TransactionRequest, TransferBuilderError> {
         let value = parse_units(&req.raw_amount, req.token.decimals)
@@ -397,7 +397,7 @@ impl BalanceChecker for TokenTransferBuilder {
     /// If the user has insufficient tokens, it returns `InsufficientTokens`.
     async fn check_balance(
         &self,
-        req: &TransferRequest,
+        req: &TransferPayload,
         ctx: &TransferContext,
         estimated_gas: u64,
         estimator: Eip1559Estimation,
@@ -437,12 +437,20 @@ impl BalanceChecker for TokenTransferBuilder {
 mod tests {
     use super::*;
     use crate::eth::{
+        config::EthereumConfig,
         constants::{ETH, USDT},
         new_provider_anvil,
     };
     use alloy::signers::k256::ecdsa::SigningKey;
     use alloy_provider::{PendingTransactionConfig, ext::AnvilApi};
     use alloy_signer_local::LocalSigner;
+
+    fn get_config() -> EthereumConfig {
+        EthereumConfig {
+            rpc_url: "".to_string(),
+            anvil: true,
+        }
+    }
 
     fn get_estimator() -> Eip1559Estimation {
         Eip1559Estimation {
@@ -462,7 +470,7 @@ mod tests {
     }
 
     async fn test_context(alice_balance: &str) -> TestContext {
-        let provider = new_provider_anvil();
+        let provider = new_provider_anvil(get_config());
         let ctx = TransferContext {
             provider: provider.clone(),
             nonce: 0,
@@ -497,7 +505,7 @@ mod tests {
         } = test_context("1").await;
         let raw_amount = "0.01".to_string(); // 0.01 ETH
         builder
-            .create_transfer(TransferRequest {
+            .create_transfer(TransferPayload {
                 token: ETH.clone(),
                 raw_amount,
                 sender: alice.address(),
@@ -542,7 +550,7 @@ mod tests {
             .await
             .unwrap();
         builder
-            .create_transfer(TransferRequest {
+            .create_transfer(TransferPayload {
                 token: USDT.clone(),
                 raw_amount: amount.to_string(),
                 sender: alice.address(),
@@ -590,7 +598,7 @@ mod tests {
             )
             .await
             .unwrap();
-        let req = TransferRequest {
+        let req = TransferPayload {
             token: token.clone(),
             raw_amount: transfer_amount.to_string(),
             sender: alice.address(),
@@ -633,7 +641,7 @@ mod tests {
             )
             .await
             .unwrap();
-        let req = TransferRequest {
+        let req = TransferPayload {
             token: token.clone(),
             raw_amount: transfer_amount.to_string(),
             sender: alice.address(),
@@ -670,7 +678,7 @@ mod tests {
         let TestContext {
             ctx, alice, bob, ..
         } = test_context("0.5").await;
-        let req = TransferRequest {
+        let req = TransferPayload {
             token: ETH.clone(),
             raw_amount: "1.0".to_string(), // 1 ETH transfer
             sender: alice.address(),

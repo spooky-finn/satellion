@@ -1,6 +1,11 @@
-use bitcoin::{BlockHash, TxOut, Wtxid};
+use bitcoin::{BlockHash, TxOut, Txid};
+use serde::{Deserialize, Serialize};
+use specta::Type;
 
-use crate::btc::address::DerivePath;
+use crate::btc::{
+    account::KeyDerivationPathLabelMap,
+    key_derivation::{Change, KeyDerivationPath},
+};
 
 #[derive(Debug, Clone)]
 pub struct BlockHeader {
@@ -11,15 +16,91 @@ pub struct BlockHeader {
 /// Unspent transaction output domain model
 #[derive(Debug, Clone)]
 pub struct Utxo {
-    pub tx_id: Wtxid,
+    pub tx_id: Txid,
     pub vout: usize,
     pub output: TxOut,
-    pub derive_path: DerivePath,
-    pub block: BlockHeader,
+    pub derivation: KeyDerivationPath,
+    pub height: u32,
 }
 
 impl Utxo {
-    pub fn id(&self) -> String {
-        format!("{}{}", self.tx_id, self.vout)
+    pub fn outpoint(&self) -> OutPointDto {
+        OutPointDto {
+            tx_id: self.tx_id.to_string(),
+            vout: self.vout.to_string(),
+        }
+    }
+
+    pub fn label(&self, schema_label_map: &KeyDerivationPathLabelMap) -> Option<String> {
+        let label: Option<String> = match self.derivation.change {
+            Change::Internal => Some("Change".to_string()),
+            Change::External => schema_label_map.get(&self.derivation.to_slice()).cloned(),
+        };
+
+        label
+    }
+}
+
+#[derive(Type, Deserialize, Serialize, Clone, Hash, PartialEq, Eq)]
+pub struct OutPointDto {
+    pub tx_id: String,
+    pub vout: String,
+}
+
+impl std::fmt::Display for OutPointDto {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.tx_id, self.vout)
+    }
+}
+
+pub mod persistence {
+    use crate::btc::{
+        key_derivation::{KeyDerivationPath, KeyDeriviationPathSlice},
+        utxo::Utxo,
+    };
+    use bitcoin::{Txid, hashes::Hash};
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    pub struct UtxoData {
+        /// Transaction hash (32 bytes)
+        pub txid: [u8; 32],
+        /// Output index within the transaction
+        pub vout: usize,
+        /// Value in satoshis
+        pub value: u64,
+        /// ScriptPubKey (raw hex)
+        pub script_pubkey: Vec<u8>,
+        /// BIP-84 path to derive priv key from xpriv key
+        pub derivation: KeyDeriviationPathSlice,
+        pub height: u32,
+    }
+
+    impl Utxo {
+        pub fn serialize(&self) -> Result<UtxoData, String> {
+            Ok(UtxoData {
+                height: self.height,
+                derivation: self.derivation.to_slice(),
+                script_pubkey: self.output.script_pubkey.to_bytes(),
+                txid: self.tx_id.to_byte_array(),
+                value: self.output.value.to_sat(),
+                vout: self.vout,
+            })
+        }
+    }
+
+    impl UtxoData {
+        pub fn deserialize(&self) -> Result<Utxo, String> {
+            Ok(Utxo {
+                tx_id: Txid::from_byte_array(self.txid),
+                height: self.height,
+                vout: self.vout,
+                derivation: KeyDerivationPath::from_slice(self.derivation)?,
+                output: bitcoin::TxOut {
+                    script_pubkey: bitcoin::ScriptBuf::from_bytes(self.script_pubkey.clone()),
+                    value: bitcoin::Amount::from_sat(self.value),
+                },
+            })
+        }
     }
 }

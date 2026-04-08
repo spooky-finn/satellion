@@ -1,7 +1,7 @@
 //! Generic envelope encryption module for secure data storage.
 //!
 //! This module implements envelope encryption (key wrapping) for any sensitive data.
-//! The encryption scheme uses:
+//! The encryption schema uses:
 //! - AES-256-GCM for authenticated encryption
 //! - Argon2 for password-based key derivation
 //! - Two-layer encryption: DEK (Data Encryption Key) encrypts plaintext,
@@ -53,6 +53,7 @@ pub fn encrypt(plaintext: &[u8], passphrase: &[u8]) -> Result<Envelope, String> 
         kdf_salt: kdf_salt.to_vec(),
     })
 }
+
 pub fn decrypt(encrypted: &Envelope, passphrase: &[u8]) -> Result<Vec<u8>, String> {
     let mut kek = derive_kek_from_passphrase(passphrase, &encrypted.kdf_salt)?;
     if encrypted.wrapped_key.len() < NONCE_SIZE {

@@ -4,8 +4,8 @@ use alloy::primitives::Address;
 use alloy_signer_local::{MnemonicBuilder, PrivateKeySigner, coins_bip39::English};
 
 use crate::{
-    chain_trait::{AssetTracker, ChainTrait, Persistable, SecureKey},
-    config::CONFIG,
+    chain_trait::{AccountIndex, AssetTracker, ChainTrait, SecureKey},
+    config::Config,
     eth::{
         constants::{self},
         token::Token,
@@ -13,11 +13,13 @@ use crate::{
 };
 
 pub struct EthereumWallet {
+    pub config: Config,
+    pub active_account: AccountIndex,
     pub tracked_tokens: Vec<Token>,
 }
 
 #[derive(serde::Serialize, specta::Type)]
-pub struct EthereumUnlock {
+pub struct EthereumUnlockDto {
     pub address: String,
 }
 pub struct Prk {
@@ -34,24 +36,22 @@ impl SecureKey for Prk {
 impl ChainTrait for EthereumWallet {
     type Prk = Prk;
     type UnlockContext = ();
-    type UnlockResult = EthereumUnlock;
+    type AccountState = EthereumUnlockDto;
 
-    async fn unlock(
+    fn unlock(
         &mut self,
         _: Self::UnlockContext,
         prk: &Self::Prk,
-    ) -> Result<Self::UnlockResult, String> {
-        Ok(EthereumUnlock {
+    ) -> Result<Self::AccountState, String> {
+        Ok(EthereumUnlockDto {
             address: prk.expose().address().to_string(),
         })
     }
 }
 
-impl Persistable for EthereumWallet {
-    type Serialized = persistence::Wallet;
-
-    fn serialize(&self) -> Result<Self::Serialized, String> {
-        Ok(persistence::Wallet {
+impl EthereumWallet {
+    pub fn serialize(&self) -> Result<persistence::WalletData, String> {
+        Ok(persistence::WalletData {
             tracked_tokens: self
                 .tracked_tokens
                 .iter()
@@ -64,7 +64,7 @@ impl Persistable for EthereumWallet {
         })
     }
 
-    fn deserialize(data: Self::Serialized) -> Result<Self, String> {
+    pub fn deserialize(data: persistence::WalletData, config: Config) -> Result<Self, String> {
         let mut tracked_tokens = Vec::new();
         for token in data.tracked_tokens {
             let address = parse_addres(&token.address)?;
@@ -74,7 +74,11 @@ impl Persistable for EthereumWallet {
                 decimals: token.decimals,
             });
         }
-        Ok(Self { tracked_tokens })
+        Ok(Self {
+            config,
+            tracked_tokens,
+            active_account: 0,
+        })
     }
 }
 
@@ -103,7 +107,7 @@ impl EthereumWallet {
             .phrase(mnemonic)
             .derivation_path("m/44'/60'/0'/0/0")
             .unwrap()
-            .password(CONFIG.xprk_passphrase(passphrase))
+            .password(self.config.xprk_passphrase(passphrase))
             .build()
             .map_err(|e| format!("fail to derive eth signer: {}", e))
             .map(|signer| Prk { signer })
@@ -116,10 +120,12 @@ impl EthereumWallet {
     }
 }
 
-impl Default for EthereumWallet {
-    fn default() -> Self {
+impl EthereumWallet {
+    pub fn new(config: Config) -> Self {
         Self {
+            config,
             tracked_tokens: constants::default_tokens(),
+            active_account: 0,
         }
     }
 }
@@ -139,7 +145,7 @@ pub mod persistence {
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct Wallet {
+    pub struct WalletData {
         pub tracked_tokens: Vec<Token>,
     }
 }

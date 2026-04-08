@@ -8,8 +8,6 @@ use serde::{Deserialize, Serialize};
 pub struct BitcoinConfig {
     pub regtest: bool,
     regtest_peer_socket: String,
-
-    pub min_peers: u8,
 }
 
 impl BitcoinConfig {
@@ -31,7 +29,6 @@ impl Default for BitcoinConfig {
     fn default() -> Self {
         Self {
             regtest: false,
-            min_peers: 3,
             regtest_peer_socket: "127.0.0.1:18444".to_string(),
         }
     }

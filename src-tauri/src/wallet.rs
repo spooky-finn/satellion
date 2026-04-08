@@ -1,12 +1,17 @@
 use shush_rs::{ExposeSecret, SecretBox};
 
-use crate::{btc, config::constants::Chain, eth, mnemonic, wallet_keeper::WalletKeeper};
+use crate::{
+    btc,
+    config::{Config, constants::BlockChain},
+    eth, mnemonic,
+    wallet_keeper::WalletKeeper,
+};
 
 pub struct Wallet {
     pub name: String,
     pub mnemonic: SecretBox<String>,
     pub passphrase: SecretBox<String>,
-    pub last_used_chain: Chain,
+    pub last_used_chain: BlockChain,
     pub birth_date: Option<u64>,
     pub version: u8,
 
@@ -14,10 +19,12 @@ pub struct Wallet {
     pub eth: eth::EthereumWallet,
 
     pub keeper: WalletKeeper,
+    pub config: Config,
 }
 
 impl Wallet {
     pub fn new(
+        config: Config,
         name: String,
         mnemonic: String,
         passphrase: SecretBox<String>,
@@ -28,12 +35,13 @@ impl Wallet {
             name,
             mnemonic: SecretBox::new(Box::new(mnemonic)),
             passphrase,
-            last_used_chain: Chain::Bitcoin,
+            last_used_chain: BlockChain::Bitcoin,
             birth_date,
             version: 1,
-            btc: btc::BitcoinWallet::default(),
-            eth: eth::EthereumWallet::default(),
-            keeper: WalletKeeper::new(),
+            btc: btc::BitcoinWallet::new(config.clone()),
+            eth: eth::EthereumWallet::new(config.clone()),
+            keeper: WalletKeeper::default(),
+            config,
         })
     }
 
@@ -55,12 +63,13 @@ impl Wallet {
         self.keeper.save(self)
     }
 
-    pub fn mutate_btc<F>(&mut self, f: F) -> Result<(), String>
+    pub fn mutate_btc<F, T>(&mut self, f: F) -> Result<T, String>
     where
-        F: FnOnce(&mut btc::BitcoinWallet) -> Result<(), String>,
+        F: FnOnce(&mut btc::BitcoinWallet) -> Result<T, String>,
     {
-        f(&mut self.btc)?;
-        self.persist()
+        let res = f(&mut self.btc)?;
+        self.persist()?;
+        Ok(res)
     }
 
     pub fn mutate_eth<F>(&mut self, f: F) -> Result<(), String>

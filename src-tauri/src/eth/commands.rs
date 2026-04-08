@@ -7,39 +7,34 @@ use alloy::{
 };
 use alloy_provider::{DynProvider, ext::AnvilApi};
 use serde::{Deserialize, Serialize};
-use shush_rs::ExposeSecret;
 use specta::{Type, specta};
 
 use crate::{
     chain_trait::{AssetTracker, SecureKey},
-    config::Chain,
+    config::BlockChain,
     eth::{
-        self, PriceFeed, Prk,
+        self, PriceFeed,
         constants::{ETH, ETH_USD_PRICE_FEED},
         erc20_retriver::Erc20Retriever,
         fee_estimator::FeeMode,
-        transfer_builder::TransferRequest,
+        transfer_builder::TransferPayload,
         wallet::parse_addres,
     },
     session::SK,
-    wallet::Wallet,
 };
 
 #[derive(Serialize, Type)]
-pub struct ChainInfo {
+pub struct NetworkStatus {
     block_number: String,
     block_hash: String,
     base_fee_per_gas: Option<String>,
 }
 
-fn build_prk(w: &Wallet) -> Result<Prk, String> {
-    w.eth
-        .build_prk(&w.mnemonic.expose_secret(), &w.passphrase.expose_secret())
-}
-
 #[specta]
 #[tauri::command]
-pub async fn eth_chain_info(provider: tauri::State<'_, DynProvider>) -> Result<ChainInfo, String> {
+pub async fn get_network_status(
+    provider: tauri::State<'_, DynProvider>,
+) -> Result<NetworkStatus, String> {
     let block = provider
         .get_block(BlockId::Number(BlockNumberOrTag::Latest))
         .await
@@ -48,7 +43,7 @@ pub async fn eth_chain_info(provider: tauri::State<'_, DynProvider>) -> Result<C
         return Err("Block not found".to_string());
     }
     let block = block.unwrap();
-    Ok(ChainInfo {
+    Ok(NetworkStatus {
         block_number: block.header.number.to_string(),
         block_hash: block.header.hash.to_string(),
         base_fee_per_gas: block.header.base_fee_per_gas.map(|fee| fee.to_string()),
@@ -64,19 +59,19 @@ pub struct TokenBalance {
 }
 
 #[derive(Type, Serialize)]
-pub struct Balance {
+pub struct WalletBalance {
     wei: String,
     tokens: Vec<TokenBalance>,
 }
 
 #[specta]
 #[tauri::command]
-pub async fn eth_get_balance(
+pub async fn get_wallet_balance(
     address: String,
     provider: tauri::State<'_, DynProvider>,
     erc20_retriever: tauri::State<'_, Erc20Retriever>,
     sk: tauri::State<'_, SK>,
-) -> Result<Balance, String> {
+) -> Result<WalletBalance, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
 
@@ -112,14 +107,14 @@ pub async fn eth_get_balance(
     });
 
     wallet.persist()?;
-    Ok(Balance {
+    Ok(WalletBalance {
         wei: wei_balance.to_string(),
         tokens: token_balances,
     })
 }
 
 #[derive(Type, Deserialize, Debug, PartialEq)]
-pub struct PrepareTxReqReq {
+pub struct TransferRequest {
     token_address: String,
     amount: String,
     recipient: String,
@@ -127,7 +122,7 @@ pub struct PrepareTxReqReq {
 }
 
 #[derive(Type, Serialize, Debug, PartialEq)]
-pub struct PrepareTxReqRes {
+pub struct TransferEstimation {
     estimated_gas: String,
     max_fee_per_gas: String,
     fee_ceiling: String,
@@ -136,13 +131,13 @@ pub struct PrepareTxReqRes {
 
 #[specta]
 #[tauri::command]
-pub async fn eth_prepare_send_tx(
-    req: PrepareTxReqReq,
+pub async fn estimate_transfer(
+    req: TransferRequest,
     tx_builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
     sk: tauri::State<'_, SK>,
     price_feed: tauri::State<'_, PriceFeed>,
-) -> Result<PrepareTxReqRes, String> {
-    let PrepareTxReqReq {
+) -> Result<TransferEstimation, String> {
+    let TransferRequest {
         amount,
         fee_mode,
         recipient,
@@ -150,7 +145,7 @@ pub async fn eth_prepare_send_tx(
     } = req;
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
-    let prk = build_prk(wallet)?;
+    let prk = wallet.eth_prk()?;
     let sender = prk.expose().address();
     let recipient = parse_addres(&recipient)?;
     let token_address = parse_addres(&token_address)?;
@@ -171,7 +166,7 @@ pub async fn eth_prepare_send_tx(
 
     let mut builder = tx_builder.try_lock().map_err(|e| e.to_string())?;
     let res = builder
-        .create_transfer(TransferRequest {
+        .create_transfer(TransferPayload {
             token,
             raw_amount: amount,
             sender,
@@ -193,7 +188,7 @@ pub async fn eth_prepare_send_tx(
     let fee_in_usd = eth_price_f64 * fee_in_eth_f64;
 
     let fee_ceiling_u64 = res.fee_ceiling.saturating_to::<u64>() / 10u64.pow(9);
-    Ok(PrepareTxReqRes {
+    Ok(TransferEstimation {
         estimated_gas: res.estimated_gas.to_string(),
         max_fee_per_gas: res.estimator.max_fee_per_gas.to_string(),
         fee_ceiling: fee_ceiling_u64.to_string(),
@@ -203,39 +198,39 @@ pub async fn eth_prepare_send_tx(
 
 #[specta]
 #[tauri::command]
-pub async fn eth_sign_and_send_tx(
+pub async fn execute_transfer(
     builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
     sk: tauri::State<'_, SK>,
 ) -> Result<String, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let mut builder = builder.try_lock().map_err(|e| e.to_string())?;
-    let prk = build_prk(wallet)?;
+    let prk = wallet.eth_prk()?;
     let hash = builder.sign_and_send_tx(prk.expose()).await?;
     Ok(hash.to_string())
 }
 
 #[specta]
 #[tauri::command]
-pub async fn eth_verify_address(address: String) -> Result<bool, String> {
+pub async fn verify_address(address: String) -> Result<bool, String> {
     Address::from_str(&address).map_err(|e| e.to_string())?;
     Ok(true)
 }
 
 #[derive(Type, Serialize)]
-pub struct TokenType {
-    chain: Chain,
+pub struct TrackedTokenInfo {
+    chain: BlockChain,
     symbol: String,
     decimals: i32,
 }
 
 #[specta]
 #[tauri::command]
-pub async fn eth_track_token(
+pub async fn track_token(
     address: String,
     erc20_retriever: tauri::State<'_, Erc20Retriever>,
     sk: tauri::State<'_, SK>,
-) -> Result<TokenType, String> {
+) -> Result<TrackedTokenInfo, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
 
@@ -254,8 +249,8 @@ pub async fn eth_track_token(
         Ok(())
     })?;
 
-    Ok(TokenType {
-        chain: Chain::Ethereum,
+    Ok(TrackedTokenInfo {
+        chain: BlockChain::Ethereum,
         symbol: token_info.symbol,
         decimals: token_info.decimals as i32,
     })
@@ -263,10 +258,7 @@ pub async fn eth_track_token(
 
 #[specta]
 #[tauri::command]
-pub async fn eth_untrack_token(
-    token_address: String,
-    sk: tauri::State<'_, SK>,
-) -> Result<(), String> {
+pub async fn untrack_token(token_address: String, sk: tauri::State<'_, SK>) -> Result<(), String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
 
@@ -286,7 +278,7 @@ pub async fn eth_untrack_token(
 
 #[specta]
 #[tauri::command]
-pub async fn eth_anvil_set_initial_balances(
+pub async fn anvil_set_initial_balances(
     address: String,
     provider: tauri::State<'_, DynProvider>,
 ) -> Result<String, String> {

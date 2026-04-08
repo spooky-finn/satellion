@@ -1,33 +1,33 @@
 import { makeAutoObservable } from 'mobx'
+import { type EthereumUnlockDto } from '../../bindings'
 import {
-  type Balance,
-  type ChainInfo,
   commands,
-  type UnlockMsg,
-} from '../../bindings'
+  type NetworkStatus,
+  type WalletBalance,
+} from '../../bindings/eth'
 import { notifier } from '../../lib/notifier'
 import { Loader } from '../../stores/loader'
 import { TransferStore } from './transfer.store'
 
 export class EthereumWallet {
   readonly send = new TransferStore()
-  readonly balance = new Loader<Balance>()
+  readonly balance = new Loader<WalletBalance>()
 
   constructor() {
     makeAutoObservable(this)
   }
 
-  init(unlock: UnlockMsg['ethereum']) {
+  init(unlock: EthereumUnlockDto) {
     this.address = unlock.address
     this.getChainInfo()
     this.getBalance()
   }
 
   address!: string
-  chainInfo!: ChainInfo
+  chainInfo!: NetworkStatus
   usd_price = 0
 
-  setChainInfo(c: ChainInfo) {
+  setChainInfo(c: NetworkStatus) {
     this.chainInfo = c
   }
 
@@ -36,7 +36,7 @@ export class EthereumWallet {
   }
 
   async getChainInfo() {
-    const r = await commands.ethChainInfo()
+    const r = await commands.getNetworkStatus()
     if (r.status === 'error') {
       notifier.err(r.error)
       return
@@ -46,7 +46,7 @@ export class EthereumWallet {
 
   async getBalance() {
     this.balance.start()
-    const r = await commands.ethGetBalance(this.address)
+    const r = await commands.getWalletBalance(this.address)
     if (r.status === 'error') {
       notifier.err(r.error)
       return

@@ -1,156 +1,112 @@
+use std::str::FromStr;
+
+use bitcoin::Address;
 use serde::{Deserialize, Serialize};
-use shush_rs::ExposeSecret;
 use specta::{Type, specta};
 
 use crate::{
     btc::{
-        DerivedScript, Prk,
-        address::{self, DerivePathSlice},
+        account::{ActiveAccountDto, UtxoSelectionMethod},
+        key_derivation::{Change, ChildKeyDeriviationScheme},
+        tx_builder::{BuildPsbtParams, build_psbt},
+        utxo::{self, Utxo},
     },
     chain_trait::SecureKey,
-    config::CONFIG,
     session::SK,
-    wallet::Wallet,
 };
 
-fn build_prk(w: &Wallet) -> Result<Prk, String> {
-    w.btc
-        .build_prk(&w.mnemonic.expose_secret(), &w.passphrase.expose_secret())
+#[specta]
+#[tauri::command]
+pub async fn account_info(sk: tauri::State<'_, SK>) -> Result<ActiveAccountDto, String> {
+    let mut sk = sk.lock().await;
+    let wallet = sk.wallet()?;
+    let prk = wallet.btc_prk()?;
+    let account = wallet.btc.active_account()?;
+    account.info(&prk, wallet.config.btc.network())
 }
 
 #[specta]
 #[tauri::command]
-pub async fn btc_derive_address(
+pub async fn derive_external_address(
     label: String,
     index: u32,
     sk: tauri::State<'_, SK>,
 ) -> Result<String, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
-    let derive_path = address::DerivePath {
-        change: address::Change::External,
-        index,
-        account: 0,
-        network: CONFIG.bitcoin.network(),
-        purpose: address::Purpose::Bip86,
-    };
-    if !wallet.btc.is_deriviation_path_free(derive_path.clone()) {
-        return Err(format!("Deriviation index {} already occupied", index));
-    }
+    let prk = wallet.btc_prk()?;
 
-    let prk = build_prk(wallet)?;
-    let (_, address) =
-        wallet
-            .btc
-            .derive_child(prk.expose(), CONFIG.bitcoin.network(), &derive_path)?;
+    let path = wallet.btc.new_deriviation_path(Change::External, index)?;
+    let derivation_scheme = ChildKeyDeriviationScheme { label, path };
 
-    wallet.mutate_btc(|chain| {
-        chain.add_child(label, derive_path.clone());
-        let script = DerivedScript::new(address.script_pubkey(), derive_path);
-        chain.add_script_of_interes(script);
-        Ok(())
-    })?;
+    let child = derivation_scheme
+        .path
+        .derive(prk.expose())
+        .map_err(|e| e.to_string())?;
 
-    Ok(address.to_string())
+    wallet
+        .btc
+        .get_mut_active_account()?
+        .add_address(derivation_scheme);
+
+    Ok(child.address.to_string())
 }
 
 #[specta]
 #[tauri::command]
-pub async fn btc_unoccupied_deriviation_index(sk: tauri::State<'_, SK>) -> Result<u32, String> {
+pub async fn unoccupied_deriviation_index(sk: tauri::State<'_, SK>) -> Result<u32, String> {
     let mut sk = sk.lock().await;
-    Ok(sk
-        .wallet()?
-        .btc
-        .unoccupied_deriviation_index(address::Change::External))
+    let wallet = sk.wallet()?;
+    let account = wallet.btc.active_account()?;
+    Ok(account.unoccupied_address(Change::External))
 }
 
 #[derive(Type, Serialize, Deserialize)]
-pub struct DerivedAddress {
+pub struct DerivedAddressDto {
     pub label: String,
+    pub path: String,
     pub address: String,
-    pub deriv_path: String,
 }
 
 #[specta]
 #[tauri::command]
-pub async fn btc_list_derived_addresess(
+pub async fn get_external_addresess(
     sk: tauri::State<'_, SK>,
-) -> Result<Vec<DerivedAddress>, String> {
+) -> Result<Vec<DerivedAddressDto>, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
-    let prk = build_prk(wallet)?;
-    Ok(wallet
-        .btc
-        .list_external_addresess()
-        .map(|addr| {
-            let (_, address) = wallet
-                .btc
-                .derive_child(
-                    prk.expose(),
-                    CONFIG.bitcoin.network(),
-                    &addr.derive_path.clone(),
-                )
-                .unwrap();
-            DerivedAddress {
-                deriv_path: addr.derive_path.to_string(),
-                label: addr.label.clone(),
-                address: address.to_string(),
-            }
+    let prk = wallet.btc_prk()?;
+    let account = wallet.btc.active_account()?;
+    let external_addresses: Vec<_> = account.get_external_addresess().collect();
+
+    external_addresses
+        .into_iter()
+        .map(|scheme| {
+            let child = scheme
+                .path
+                .derive(prk.expose())
+                .map_err(|e| e.to_string())?;
+            Ok(DerivedAddressDto {
+                path: scheme.path.to_string(),
+                label: scheme.label.clone(),
+                address: child.address.to_string(),
+            })
         })
-        .collect())
+        .collect::<Result<Vec<_>, String>>()
 }
-
-#[derive(specta::Type, Serialize, Deserialize)]
-
-pub struct UtxoId {
-    tx_id: String,
-    vout: String,
-}
-
-#[derive(specta::Type, Serialize)]
-pub struct Utxo {
-    utxo_id: UtxoId,
-    value: String,
-    deriv_path: String,
-    address_label: Option<String>,
-}
-
-const UTXO_DISPLAY_LIMIT: usize = 500;
 
 #[specta]
 #[tauri::command]
-pub async fn btc_list_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<Utxo>, String> {
+pub async fn get_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
+    let account = wallet.btc.active_account()?;
+    let address_label_map = account.derive_path_label_map();
 
-    let derivepath_label_map: std::collections::HashMap<DerivePathSlice, String> = wallet
-        .btc
-        .derived_addresses
-        .iter()
-        .map(|e| (e.derive_path.to_slice(), e.label.clone()))
-        .collect();
-
-    let mut utxos: Vec<_> = wallet
-        .btc
+    let mut utxos: Vec<_> = account
         .utxos
         .values()
-        .map(|utxo| {
-            let label: Option<String> = match utxo.derive_path.change {
-                address::Change::Internal => Some("Change".to_string()),
-                address::Change::External => derivepath_label_map
-                    .get(&utxo.derive_path.to_slice())
-                    .cloned(),
-            };
-            Utxo {
-                value: utxo.output.value.to_sat().to_string(),
-                utxo_id: UtxoId {
-                    tx_id: utxo.tx_id.to_string(),
-                    vout: utxo.vout.to_string(),
-                },
-                deriv_path: utxo.derive_path.to_string(),
-                address_label: label,
-            }
-        })
+        .map(|utxo| utxo.to_dto(&address_label_map))
         .collect();
 
     utxos.sort_by(|a, b| {
@@ -160,5 +116,123 @@ pub async fn btc_list_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<Utxo>, Strin
             .cmp(&a.value.parse::<u64>().unwrap_or(0))
     });
 
+    const UTXO_DISPLAY_LIMIT: usize = 500;
     Ok(utxos.into_iter().take(UTXO_DISPLAY_LIMIT).collect())
+}
+
+#[derive(Type, Serialize)]
+pub struct UtxoDto {
+    pub utxo_id: utxo::OutPointDto,
+    pub value: String,
+    pub deriv_path: String,
+    pub address_label: Option<String>,
+}
+
+impl Utxo {
+    fn to_dto(
+        &self,
+        address_label_map: &crate::btc::account::KeyDerivationPathLabelMap,
+    ) -> UtxoDto {
+        UtxoDto {
+            value: self.output.value.to_sat().to_string(),
+            utxo_id: self.outpoint(),
+            deriv_path: self.derivation.to_string(),
+            address_label: self.label(address_label_map),
+        }
+    }
+}
+
+#[specta]
+#[tauri::command]
+pub async fn sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String> {
+    let mut sk = sk.lock().await;
+    let wallet = sk.wallet()?;
+    let prk = wallet.btc_prk()?;
+    let address_path_map = wallet.btc.active_account()?.derive_address_path_map(&prk);
+
+    let received_utxos = wallet
+        .btc
+        .server
+        .get_utxos(address_path_map)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let account = wallet.btc.get_mut_active_account()?;
+    account.set_utxos(received_utxos);
+
+    let address_label_map = account.derive_path_label_map();
+    let mut result = account
+        .utxos
+        .values()
+        .map(|utxo| utxo.to_dto(&address_label_map))
+        .collect::<Vec<_>>();
+
+    result.sort_by(|a, b| {
+        b.value
+            .parse::<u64>()
+            .unwrap_or(0)
+            .cmp(&a.value.parse::<u64>().unwrap_or(0))
+    });
+
+    wallet.persist()?;
+    Ok(result)
+}
+
+#[derive(Type, Deserialize)]
+pub struct BuildTx {
+    #[serde(default)]
+    pub utxo_auto_selection: bool,
+    pub selected_utxos: Option<Vec<utxo::OutPointDto>>,
+    pub value: String,
+    pub recipient: String,
+    pub utxo_selection_method: UtxoSelectionMethod,
+}
+
+#[derive(Type, Serialize)]
+pub struct BuildTxResult {}
+
+#[specta]
+#[tauri::command]
+pub async fn build_tx(req: BuildTx, sk: tauri::State<'_, SK>) -> Result<BuildTxResult, String> {
+    let mut sk = sk.lock().await;
+    let wallet = sk.wallet()?;
+    let account = wallet.btc.active_account()?;
+    let prk = wallet.btc_prk()?;
+    let xpriv = prk.expose();
+
+    let recipient: Address = Address::from_str(&req.recipient)
+        .map_err(|e| format!("invalid recipient address: {e}"))?
+        .require_network(wallet.config.btc.network())
+        .map_err(|e| format!("recipient address network mismatch: {e}"))?;
+
+    let send_value_sat = req
+        .value
+        .parse::<u64>()
+        .map_err(|e| format!("invalid value: {e}"))?;
+
+    let _build_res = build_psbt(&BuildPsbtParams {
+        send_value_sat,
+        recipient,
+        utxo_selection_method: req.utxo_selection_method,
+        miner_fee_vbytes: 100,
+        config: wallet.config.btc.clone(),
+        account,
+        xpriv,
+    })
+    .map_err(|e| format!("failed to build PSBT: {e}"))?;
+
+    Ok(BuildTxResult {})
+}
+
+#[derive(Type, Deserialize)]
+pub struct BtcSendTx {}
+
+#[specta]
+#[tauri::command]
+pub async fn send_tx(_req: BtcSendTx, sk: tauri::State<'_, SK>) -> Result<(), String> {
+    let mut sk = sk.lock().await;
+    let wallet = sk.wallet()?;
+    let _prk = wallet.btc_prk()?;
+
+    Ok(())
 }

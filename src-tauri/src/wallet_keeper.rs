@@ -2,7 +2,7 @@ use serde::Deserialize;
 use shush_rs::SecretBox;
 use specta::Type;
 
-use crate::{persistence, utils, wallet::Wallet};
+use crate::{config::Config, persistence, utils, wallet::Wallet};
 
 #[derive(Type, PartialEq, Deserialize)]
 pub enum CreationFlow {
@@ -14,19 +14,22 @@ pub struct WalletKeeper {
     repository: persistence::Repository,
 }
 
-impl WalletKeeper {
-    pub fn new() -> Self {
+impl Default for WalletKeeper {
+    fn default() -> Self {
         Self {
             repository: persistence::Repository,
         }
     }
+}
 
+impl WalletKeeper {
     pub fn ls(&self) -> Result<Vec<String>, std::io::Error> {
         self.repository.ls()
     }
 
     pub fn create(
         &self,
+        config: Config,
         mnemonic: &str,
         passphrase: &str,
         name: &str,
@@ -42,6 +45,7 @@ impl WalletKeeper {
             CreationFlow::Generation => Some(utils::now()),
         };
         let wallet = Wallet::new(
+            config,
             name,
             mnemonic.to_string(),
             SecretBox::new(Box::new(passphrase.to_string())),
@@ -51,11 +55,15 @@ impl WalletKeeper {
         Ok(wallet)
     }
 
-    pub fn load(&self, wallet_name: &str, passphrase: &str) -> Result<Wallet, String> {
-        self.repository.load(
-            wallet_name,
-            SecretBox::new(Box::new(passphrase.to_string())),
-        )
+    pub fn load(
+        &self,
+        config: Config,
+        wallet_name: &str,
+        pasphrase: &str,
+    ) -> Result<Wallet, String> {
+        let pasphrase = SecretBox::new(Box::new(pasphrase.to_string()));
+        let raw_wallet = self.repository.load(wallet_name, &pasphrase)?;
+        raw_wallet.to_model(config, pasphrase)
     }
 
     pub fn save(&self, wallet: &Wallet) -> Result<(), String> {

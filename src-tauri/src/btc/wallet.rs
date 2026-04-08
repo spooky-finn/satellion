@@ -1,31 +1,17 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use serde::Serialize;
 
 use bip39::Language;
-pub use bitcoin::network::Network;
-use bitcoin::{
-    Address, BlockHash,
-    bip32::{self, Xpriv},
-    hashes::Hash,
-    key::{Keypair, Secp256k1},
-};
-use tokio::sync::RwLock;
+use bitcoin::bip32::{self, Xpriv};
 
 use crate::{
     btc::{
-        address::{Change, DerivePath, LabeledDerivationPath, Purpose, ScriptHolder},
-        utxo::Utxo,
+        account::{Account, ActiveAccountDto},
+        key_derivation::{Change, KeyDerivationPath},
+        providers::electrum_adapter::ElectrumAdapter,
     },
-    chain_trait::{AssetTracker, ChainTrait, Persistable, SecureKey},
-    config::CONFIG,
+    chain_trait::{AccountIndex, ChainTrait, SecureKey},
+    config::Config,
 };
-
-#[derive(Default)]
-pub struct RuntimeData {
-    pub script_holder: Arc<RwLock<ScriptHolder>>,
-}
 
 pub struct Prk {
     xpriv: Xpriv,
@@ -45,388 +31,170 @@ impl SecureKey for Prk {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct DerivedScript {
-    pub script: bitcoin::ScriptBuf,
-    pub derive_path: DerivePath,
-}
-
-impl DerivedScript {
-    pub fn new(script: bitcoin::ScriptBuf, derive_path: DerivePath) -> Self {
-        Self {
-            script,
-            derive_path,
-        }
-    }
-}
-
 pub struct BitcoinWallet {
-    pub derived_addresses: Vec<LabeledDerivationPath>,
-    pub utxos: HashMap<String, Utxo>,
-    pub runtime: RuntimeData,
+    pub active_account: AccountIndex,
+    pub accounts: Vec<Account>,
+    pub server: ElectrumAdapter,
+    pub config: Config,
 }
 
 impl BitcoinWallet {
-    pub fn default() -> BitcoinWallet {
+    pub fn new(config: Config) -> BitcoinWallet {
+        let active_account = 0;
+        let account = Account::new(config.btc.network(), active_account, "main".to_string());
         BitcoinWallet {
-            derived_addresses: Vec::new(),
-            utxos: HashMap::new(),
-            runtime: RuntimeData::default(),
+            config,
+            active_account,
+            accounts: vec![account],
+            server: ElectrumAdapter::new(),
         }
     }
 
     pub fn build_prk(&self, mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
-        let network = CONFIG.bitcoin.network();
         let mnemonic = bip39::Mnemonic::parse_in_normalized(Language::English, mnemonic)
             .map_err(|e| e.to_string())?;
-        let seed = mnemonic.to_seed(CONFIG.xprk_passphrase(passphrase));
-        let xpriv = bip32::Xpriv::new_master(network, &seed).map_err(|e| e.to_string())?;
+        let seed = mnemonic.to_seed(self.config.xprk_passphrase(passphrase));
+        let xpriv = bip32::Xpriv::new_master(self.config.btc.network(), &seed)
+            .map_err(|e| e.to_string())?;
         Ok(Prk { xpriv })
     }
 
-    pub fn main_derive_path(&self) -> DerivePath {
-        DerivePath {
-            purpose: Purpose::Bip86,
-            account: 0,
-            network: CONFIG.bitcoin.network(),
-            change: Change::External,
-            index: 0,
-        }
+    pub fn get_account(&self, index: u32) -> Result<&Account, String> {
+        self.accounts
+            .iter()
+            .find(|each| each.index == index)
+            .ok_or("account not found".to_string())
     }
 
-    pub fn derive_scripts_of_interes(
+    pub fn active_account(&self) -> Result<&Account, String> {
+        self.accounts
+            .iter()
+            .find(|each| each.index == self.active_account)
+            .ok_or("account not found".to_string())
+    }
+
+    pub fn add_account(&mut self, label: String) -> AccountIndex {
+        let next_index = self
+            .accounts
+            .iter()
+            .map(|a| a.index)
+            .max()
+            .map(|i| i + 1)
+            .unwrap_or(0);
+        let account = Account::new(self.config.btc.network(), next_index, label);
+        self.accounts.push(account);
+        next_index
+    }
+
+    pub fn switch_account(&mut self, account: AccountIndex) {
+        self.active_account = account;
+    }
+
+    pub fn new_deriviation_path(
         &self,
-        xpriv: &Xpriv,
-    ) -> Result<HashSet<DerivedScript>, String> {
-        let mut scripts_of_interes: HashSet<DerivedScript> = HashSet::new();
-        let network = CONFIG.bitcoin.network();
-
-        {
-            // Derive script for main receive script pubkey
-            let derive_path = self.main_derive_path();
-            let (_, address) = self.derive_child(xpriv, network, &derive_path)?;
-            scripts_of_interes.insert(DerivedScript::new(address.script_pubkey(), derive_path));
+        change: Change,
+        index: u32,
+    ) -> Result<KeyDerivationPath, String> {
+        let account = self.active_account()?;
+        let path =
+            KeyDerivationPath::new_bip86(self.config.btc.network(), account.index, change, index);
+        if !account.is_deriviation_path_available(path.clone()) {
+            return Err(format!("Derivation index {} already occupied", index));
         }
-
-        for labled_derive_path in self.derived_addresses.iter() {
-            let derive_path = labled_derive_path.derive_path.clone();
-            let (_, address) = self
-                .derive_child(xpriv, network, &derive_path)
-                .map_err(|e| format!("derived bitcoin address corrupted {e}"))?;
-            scripts_of_interes.insert(DerivedScript::new(address.script_pubkey(), derive_path));
-        }
-
-        Ok(scripts_of_interes)
+        Ok(path)
     }
 
-    pub fn derive_child(
-        &self,
-        xpriv: &Xpriv,
-        network: Network,
-        derive_path: &DerivePath,
-    ) -> Result<(Keypair, Address), String> {
-        let secp = Secp256k1::new();
-        // derive child private key
-        let keypair = xpriv
-            .derive_priv(&secp, &derive_path.to_path()?)
-            .map_err(|e| format!("Derivation error: {}", e))?
-            .to_keypair(&secp);
-
-        // x-only pubkey for taproot
-        let (xonly_pk, _parity) = keypair.x_only_public_key();
-
-        // Create taproot address (BIP341 tweak is done automatically by rust-bitcoin)
-        let address = Address::p2tr(
-            &secp, xonly_pk, None, // no script tree = BIP86 key-path spend
-            network,
-        );
-
-        Ok((keypair, address))
+    pub fn get_mut_active_account(&mut self) -> Result<&mut Account, String> {
+        let active_index = self.active_account;
+        self.accounts
+            .iter_mut()
+            .find(|each| each.index == active_index)
+            .ok_or("account not found".to_string())
     }
 
-    pub fn is_deriviation_path_free(&self, derive_path: DerivePath) -> bool {
-        !self
-            .derived_addresses
+    fn list_all_accounts(&self) -> Vec<AccountIdDto> {
+        self.accounts
             .iter()
-            .any(|a| a.derive_path == derive_path)
-    }
-
-    pub fn unoccupied_deriviation_index(&self, change: Change) -> u32 {
-        let occupied: HashSet<u32> = self
-            .derived_addresses
-            .iter()
-            .filter(|a| a.derive_path.change == change)
-            .map(|a| a.derive_path.index)
-            .collect();
-        (1..).find(|i| !occupied.contains(i)).unwrap_or(1)
-    }
-
-    pub fn add_child(&mut self, label: String, derive_path: DerivePath) {
-        self.derived_addresses
-            .push(LabeledDerivationPath { label, derive_path });
-    }
-
-    pub fn list_external_addresess(&self) -> impl Iterator<Item = &LabeledDerivationPath> {
-        self.derived_addresses
-            .iter()
-            .filter(|a| a.derive_path.change == Change::External)
-    }
-
-    pub fn insert_utxos(&mut self, utxos: Vec<Utxo>) {
-        for utxo in utxos {
-            self.utxos.insert(utxo.id(), utxo);
-        }
-    }
-
-    pub fn total_balance(&self) -> u64 {
-        self.utxos
-            .iter()
-            .map(|utxo| utxo.1.output.value.to_sat())
-            .sum()
-    }
-
-    pub fn add_script_of_interes(&mut self, script: DerivedScript) {
-        let mut script_holder = self.runtime.script_holder.blocking_write();
-        script_holder.add(script);
+            .map(|e| AccountIdDto {
+                index: e.index,
+                name: e.name.clone(),
+            })
+            .collect()
     }
 }
 
-#[derive(serde::Serialize, specta::Type)]
-pub struct BitcoinUnlock {
-    pub address: String,
-    pub total_balance: String,
+#[derive(Serialize, specta::Type)]
+pub struct AccountIdDto {
+    pub index: AccountIndex,
+    pub name: String,
+}
+
+#[derive(Serialize, specta::Type)]
+pub struct BitcoinUnlockDto {
+    pub accounts: Vec<AccountIdDto>,
+    pub active_account: ActiveAccountDto,
 }
 
 pub struct UnlockCtx {}
 
 impl ChainTrait for BitcoinWallet {
     type Prk = Prk;
-    type UnlockResult = BitcoinUnlock;
+    type AccountState = BitcoinUnlockDto;
     type UnlockContext = ();
 
-    async fn unlock(
+    fn unlock(
         &mut self,
         _: Self::UnlockContext,
         prk: &Self::Prk,
-    ) -> Result<Self::UnlockResult, String> {
-        let scripts = self.derive_scripts_of_interes(prk.expose())?;
-        {
-            let mut script_holder = self.runtime.script_holder.write().await;
-            for script in scripts {
-                script_holder.add(script);
-            }
-        }
-
-        let (_, btc_main_address) = self
-            .derive_child(
-                prk.expose(),
-                CONFIG.bitcoin.network(),
-                &self.main_derive_path(),
-            )
-            .map_err(|e| e.to_string())?;
-
-        Ok(BitcoinUnlock {
-            address: btc_main_address.to_string(),
-            total_balance: self.total_balance().to_string(),
+    ) -> Result<Self::AccountState, String> {
+        let account = self.active_account()?;
+        Ok(BitcoinUnlockDto {
+            accounts: self.list_all_accounts(),
+            active_account: account.info(prk, self.config.btc.network())?,
         })
-    }
-}
-
-impl AssetTracker<LabeledDerivationPath> for BitcoinWallet {
-    fn track(&mut self, address: LabeledDerivationPath) -> Result<(), String> {
-        // Check if an address with the same purpose and index already exists
-        if self
-            .derived_addresses
-            .iter()
-            .any(|a| a.derive_path == address.derive_path)
-        {
-            return Err(format!(
-                "Address with change {:?} and index {} already tracked",
-                address.derive_path.change, address.derive_path.index
-            ));
-        }
-        self.derived_addresses.push(address);
-        Ok(())
-    }
-
-    fn untrack(&mut self, address: LabeledDerivationPath) -> Result<(), String> {
-        let len_before = self.derived_addresses.len();
-        self.derived_addresses
-            .retain(|a| a.derive_path != address.derive_path);
-        if self.derived_addresses.len() == len_before {
-            return Err("Address not tracked".to_string());
-        }
-        Ok(())
     }
 }
 
 pub mod persistence {
     use serde::{Deserialize, Serialize};
 
-    use crate::btc::address::DerivePathSlice;
+    use crate::{
+        btc::{BitcoinWallet, account::persistence, providers::electrum_adapter::ElectrumAdapter},
+        chain_trait::AccountIndex,
+        config::Config,
+    };
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct ChildAddress {
-        pub label: String,
-        pub devive_path: DerivePathSlice,
+    pub struct WalletData {
+        pub active_account: AccountIndex,
+        pub accounts: Vec<persistence::AccountSnapshot>,
     }
 
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct Utxo {
-        /// Transaction hash (32 bytes)
-        pub txid: [u8; 32],
-        /// Output index within the transaction
-        pub vout: usize,
-        /// Value in satoshis
-        pub value: u64,
-        /// ScriptPubKey (raw hex)
-        pub script_pubkey: Vec<u8>,
-        /// BIP-84 path to derive priv key from xpriv key
-        pub deriviation_path: DerivePathSlice,
-        /// Block height where this UTXO was created
-        pub block_height: u32,
-        /// Block hash for additional integrity
-        pub block_hash: [u8; 32],
-    }
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct Wallet {
-        pub childs: Vec<ChildAddress>,
-        pub utxos: Vec<Utxo>,
-    }
-}
-
-impl Persistable for BitcoinWallet {
-    type Serialized = persistence::Wallet;
-
-    fn serialize(&self) -> Result<Self::Serialized, String> {
-        Ok(persistence::Wallet {
-            childs: self
-                .derived_addresses
-                .iter()
-                .map(|addr| {
-                    let path = addr.derive_path.to_slice();
-                    Ok(persistence::ChildAddress {
-                        label: addr.label.clone(),
-                        devive_path: path,
-                    })
-                })
-                .collect::<Result<Vec<_>, String>>()?,
-            utxos: self
-                .utxos
-                .values()
-                .map(|utxo| persistence::Utxo {
-                    block_hash: utxo.block.hash.to_byte_array(),
-                    block_height: utxo.block.height,
-                    deriviation_path: utxo.derive_path.to_slice(),
-                    script_pubkey: utxo.output.script_pubkey.to_bytes(),
-                    txid: utxo.tx_id.to_byte_array(),
-                    value: utxo.output.value.to_sat(),
-                    vout: utxo.vout,
-                })
-                .collect(),
-        })
-    }
-
-    fn deserialize(data: Self::Serialized) -> Result<Self, String> {
-        let derived_addresses = data
-            .childs
-            .into_iter()
-            .map(|addr| {
-                let derive_path = DerivePath::from_slice(addr.devive_path)?;
-                Ok(LabeledDerivationPath {
-                    label: addr.label,
-                    derive_path,
-                })
+    impl BitcoinWallet {
+        pub fn serialize(&self) -> Result<WalletData, String> {
+            Ok(WalletData {
+                active_account: self.active_account,
+                accounts: self
+                    .accounts
+                    .iter()
+                    .map(|each| each.serialize().unwrap())
+                    .collect(),
             })
-            .collect::<Result<Vec<LabeledDerivationPath>, String>>()?;
-        let utxos: HashMap<String, Utxo> = data
-            .utxos
-            .iter()
-            .map(|utxo| {
-                let derive_path = DerivePath::from_slice(utxo.deriviation_path)?;
-                let utxo = Utxo {
-                    tx_id: Hash::from_byte_array(utxo.txid),
-                    block: crate::btc::utxo::BlockHeader {
-                        hash: BlockHash::from_byte_array(utxo.block_hash),
-                        height: utxo.block_height,
-                    },
-                    vout: utxo.vout,
-                    derive_path,
-                    output: bitcoin::TxOut {
-                        script_pubkey: bitcoin::ScriptBuf::from_bytes(utxo.script_pubkey.clone()),
-                        value: bitcoin::Amount::from_sat(utxo.value),
-                    },
-                };
-                Ok((utxo.id(), utxo))
-            })
-            .collect::<Result<_, String>>()?;
-        Ok(Self {
-            derived_addresses,
-            utxos,
-            runtime: RuntimeData::default(),
-        })
+        }
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use crate::btc::address::Purpose;
-
-    use super::*;
-
-    #[test]
-    fn test_unoccupied_deriviation_index() {
-        let network = CONFIG.bitcoin.network();
-        let purpose = Purpose::Bip86;
-        let wallet = BitcoinWallet {
-            utxos: HashMap::new(),
-            runtime: RuntimeData::default(),
-            derived_addresses: vec![
-                LabeledDerivationPath {
-                    label: "addr1".to_string(),
-                    derive_path: DerivePath {
-                        purpose,
-                        account: 0,
-                        network,
-                        change: Change::External,
-                        index: 1,
-                    },
-                },
-                LabeledDerivationPath {
-                    label: "addr2".to_string(),
-                    derive_path: DerivePath {
-                        purpose,
-                        account: 0,
-                        network,
-                        change: Change::External,
-                        index: 2,
-                    },
-                },
-                LabeledDerivationPath {
-                    label: "addr3".to_string(),
-                    derive_path: DerivePath {
-                        purpose,
-                        account: 0,
-                        network,
-                        change: Change::External,
-                        index: 19,
-                    },
-                },
-                LabeledDerivationPath {
-                    label: "change1".to_string(),
-                    derive_path: DerivePath {
-                        purpose,
-                        account: 0,
-                        network,
-                        change: Change::Internal,
-                        index: 0,
-                    },
-                },
-            ],
-        };
-
-        assert_eq!(wallet.unoccupied_deriviation_index(Change::External), 3);
-        assert_eq!(wallet.unoccupied_deriviation_index(Change::Internal), 1);
+    impl WalletData {
+        pub fn deserialize(&self, config: Config) -> Result<BitcoinWallet, String> {
+            Ok(BitcoinWallet {
+                accounts: self
+                    .accounts
+                    .iter()
+                    .map(|each| each.deserialize().unwrap())
+                    .collect(),
+                active_account: self.active_account,
+                server: ElectrumAdapter::new(),
+                config,
+            })
+        }
     }
 }

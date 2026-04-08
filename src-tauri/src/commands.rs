@@ -4,8 +4,8 @@ use zeroize::Zeroize;
 
 use crate::{
     btc::{self},
-    chain_trait::ChainTrait,
-    config::{CONFIG, Chain, constants},
+    chain_trait::{AccountIndex, ChainTrait},
+    config::{BlockChain, Config, constants},
     eth::{
         self, PriceFeed,
         constants::{BTC_USD_PRICE_FEED, ETH_USD_PRICE_FEED},
@@ -14,11 +14,6 @@ use crate::{
     session::{SK, Session},
     wallet_keeper::{CreationFlow, WalletKeeper},
 };
-
-#[derive(Type, Serialize)]
-pub struct ChainStatus {
-    pub height: u32,
-}
 
 #[specta]
 #[tauri::command]
@@ -34,6 +29,7 @@ pub async fn create_wallet(
     name: String,
     creation_type: CreationFlow,
     wallet_keeper: tauri::State<'_, WalletKeeper>,
+    config: tauri::State<'_, Config>,
 ) -> Result<bool, String> {
     if creation_type == CreationFlow::Generation && passphrase.len() < constants::MIN_PASSPHRASE_LEN
     {
@@ -42,7 +38,13 @@ pub async fn create_wallet(
             constants::MIN_PASSPHRASE_LEN
         ));
     }
-    wallet_keeper.create(&mnemonic, &passphrase, &name, creation_type)?;
+    wallet_keeper.create(
+        config.inner().clone(),
+        &mnemonic,
+        &passphrase,
+        &name,
+        creation_type,
+    )?;
 
     mnemonic.zeroize();
     passphrase.zeroize();
@@ -51,7 +53,7 @@ pub async fn create_wallet(
 
 #[specta]
 #[tauri::command]
-pub async fn list_wallets(
+pub async fn get_wallets(
     wallet_keeper: tauri::State<'_, WalletKeeper>,
 ) -> Result<Vec<String>, String> {
     wallet_keeper.ls().map_err(|e| e.to_string())
@@ -59,7 +61,7 @@ pub async fn list_wallets(
 
 #[specta]
 #[tauri::command]
-pub async fn chain_switch_event(chain: Chain, sk: tauri::State<'_, SK>) -> Result<(), String> {
+pub async fn switch_blockchain(chain: BlockChain, sk: tauri::State<'_, SK>) -> Result<(), String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     wallet.last_used_chain = chain;
@@ -67,22 +69,56 @@ pub async fn chain_switch_event(chain: Chain, sk: tauri::State<'_, SK>) -> Resul
     Ok(())
 }
 
-#[derive(Type, Serialize)]
-pub struct UnlockMsg {
-    ethereum: eth::wallet::EthereumUnlock,
-    bitcoin: btc::wallet::BitcoinUnlock,
-    last_used_chain: Chain,
+#[specta]
+#[tauri::command]
+pub async fn add_account(
+    chain: BlockChain,
+    label: String,
+    sk: tauri::State<'_, SK>,
+) -> Result<u32, String> {
+    let mut sk = sk.lock().await;
+    let wallet = sk.wallet()?;
+    let account_index = match chain {
+        BlockChain::Bitcoin => wallet.btc.add_account(label),
+        BlockChain::Ethereum => todo!(),
+    };
+    wallet.persist()?;
+    Ok(account_index)
+}
+
+#[specta]
+#[tauri::command]
+pub async fn switch_account(
+    chain: BlockChain,
+    account: AccountIndex,
+    sk: tauri::State<'_, SK>,
+) -> Result<(), String> {
+    let mut sk = sk.lock().await;
+    let wallet = sk.wallet()?;
+    match chain {
+        BlockChain::Bitcoin => wallet.btc.active_account = account,
+        BlockChain::Ethereum => wallet.eth.active_account = account,
+    }
+    wallet.persist()?;
+    Ok(())
 }
 
 #[derive(Type, Serialize)]
-pub struct PriceFeedMsg {
+pub struct UnlockDto {
+    ethereum: eth::wallet::EthereumUnlockDto,
+    bitcoin: btc::wallet::BitcoinUnlockDto,
+    last_used_chain: BlockChain,
+}
+
+#[derive(Type, Serialize)]
+pub struct PriceFeedDto {
     btc_usd: u32,
     eth_usd: u32,
 }
 
 #[specta]
 #[tauri::command]
-pub async fn price_feed(price_feed: tauri::State<'_, PriceFeed>) -> Result<PriceFeedMsg, String> {
+pub async fn price_feed(price_feed: tauri::State<'_, PriceFeed>) -> Result<PriceFeedDto, String> {
     let btc_usd = price_feed.get_price(BTC_USD_PRICE_FEED).await?;
     let eth_usd = price_feed.get_price(ETH_USD_PRICE_FEED).await?;
 
@@ -92,7 +128,7 @@ pub async fn price_feed(price_feed: tauri::State<'_, PriceFeed>) -> Result<Price
             .map_err(|_| format!("Failed to parse price: {}", raw))
     };
 
-    Ok(PriceFeedMsg {
+    Ok(PriceFeedDto {
         btc_usd: clean_price(btc_usd)?,
         eth_usd: clean_price(eth_usd)?,
     })
@@ -105,24 +141,26 @@ pub async fn unlock_wallet(
     passphrase: String,
     wallet_keeper: tauri::State<'_, WalletKeeper>,
     sk: tauri::State<'_, SK>,
-) -> Result<UnlockMsg, String> {
-    let mut wallet = wallet_keeper.load(&wallet_name, &passphrase)?;
+    config: tauri::State<'_, Config>,
+) -> Result<UnlockDto, String> {
+    let mut wallet = wallet_keeper.load(config.inner().clone(), &wallet_name, &passphrase)?;
 
-    let eth_prk = wallet.eth_prk()?;
-    let btc_prk = wallet.btc_prk()?;
+    let (eth_prk, btc_prk, last_used_chain) = {
+        let eth_prk = wallet.eth_prk()?;
+        let btc_prk = wallet.btc_prk()?;
+        let last_used_chain = wallet.last_used_chain;
+        (eth_prk, btc_prk, last_used_chain)
+    };
 
-    let (ethereum, bitcoin) = tokio::try_join!(
-        wallet.eth.unlock((), &eth_prk),
-        wallet.btc.unlock((), &btc_prk)
-    )?;
+    let (ethereum, bitcoin) = (
+        wallet.eth.unlock((), &eth_prk)?,
+        wallet.btc.unlock((), &btc_prk)?,
+    );
 
-    let last_used_chain = wallet.last_used_chain;
+    let session = Session::new(wallet).with_inactivity_timeout(config.session_inactivity_timeout());
+    sk.lock().await.set(session);
 
-    sk.lock()
-        .await
-        .set(Session::new(wallet).with_inactivity_timeout(CONFIG.session_inactivity_timeout()));
-
-    Ok(UnlockMsg {
+    Ok(UnlockDto {
         ethereum,
         bitcoin,
         last_used_chain,
@@ -150,8 +188,8 @@ pub struct UIConfig {
 
 #[specta]
 #[tauri::command]
-pub async fn get_config() -> Result<UIConfig, String> {
+pub async fn get_config(config: tauri::State<'_, Config>) -> Result<UIConfig, String> {
     Ok(UIConfig {
-        eth_anvil: CONFIG.ethereum.anvil,
+        eth_anvil: config.eth.anvil,
     })
 }

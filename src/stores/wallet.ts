@@ -1,5 +1,5 @@
 import { makeAutoObservable } from 'mobx'
-import { commands, type UnlockMsg } from '../bindings'
+import { commands, type UnlockDto } from '../bindings'
 import { notifier } from '../lib/notifier'
 import { BitcoinChain } from '../routes/bitcoin/bitcoin.chain'
 import { EthereumWallet } from '../routes/ethereum/wallet.store'
@@ -13,7 +13,7 @@ export class Wallet {
     makeAutoObservable(this)
   }
 
-  init(name: string, unlock: UnlockMsg) {
+  init(name: string, unlock: UnlockDto) {
     this.name = name
     this.eth.init(unlock.ethereum)
     this.btc.init(unlock.bitcoin)

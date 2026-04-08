@@ -9,7 +9,7 @@ import {
 import { makeAutoObservable } from 'mobx'
 import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
-import { commands } from '../../bindings'
+import { commands } from '../../bindings/btc'
 import { CompactSrt } from '../../components/compact_str'
 import { NumberInput } from '../../components/number_input'
 import { notifier } from '../../lib/notifier'
@@ -36,7 +36,7 @@ class DeriveChild {
   address: string | null = null
 
   async getAvaiableIndex() {
-    const res = await commands.btcUnoccupiedDeriviationIndex()
+    const res = await commands.unoccupiedDeriviationIndex()
     if (res.status === 'error') {
       notifier.err(res.error)
       throw Error(res.error)
@@ -50,7 +50,7 @@ class DeriveChild {
 
     this.address = null
     this.loader.start()
-    const res = await commands.btcDeriveAddress(this.label, this.index)
+    const res = await commands.deriveExternalAddress(this.label, this.index)
     this.loader.stop()
     if (res.status === 'error') {
       notifier.err(res.error)

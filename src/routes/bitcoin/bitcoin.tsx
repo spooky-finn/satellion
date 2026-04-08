@@ -2,9 +2,10 @@ import { Card, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
+import { AccountSelector } from '../../components/account_selector'
 import { Navbar } from '../../components/navbar'
 import { route } from '../../routes'
-import { P, Row } from '../../shortcuts'
+import { P, Progress, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
 import { DeriveChildAddress } from './derive_child'
 import { ListDerivedAddresses } from './list_childs'
@@ -25,9 +26,13 @@ const Bitcoin = () => {
   return (
     <Stack gap={1}>
       <Navbar />
-      <P level="h3" color="primary">
-        Bitcoin
-      </P>
+      <Row gap={3}>
+        <P level="h3" color="primary">
+          Bitcoin
+        </P>
+        <AccountSelector vm={btc.account_selector} />
+      </Row>
+      {btc.account_selector.account_loader.loading && <Progress size="sm" />}
       {addr && (
         <Card size="sm" variant="soft">
           <Stack>
@@ -53,10 +58,7 @@ const Bitcoin = () => {
       )}
       {btc.height && (
         <>
-          <P>
-            Blockchain sync {btc.status} - height {btc.height},{' '}
-            {btc.progress.toFixed(0)}%
-          </P>
+          <P level="body-xs">Blockchain head at {btc.height}</P>
         </>
       )}
       {btc.warning && (

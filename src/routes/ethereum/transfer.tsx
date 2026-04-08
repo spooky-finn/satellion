@@ -8,7 +8,7 @@ import {
 } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
-import type { FeeMode } from '../../bindings'
+import type { FeeMode } from '../../bindings/eth'
 import { Navbar } from '../../components/navbar'
 import { P, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
@@ -42,7 +42,7 @@ export const EthereumTransfer = observer(() => {
         disabled={state.disabled}
         sx={{ width: 'min-content' }}
         size="sm"
-        onClick={() => state.createTrasaction()}
+        onClick={() => state.estimateTransfer()}
       >
         Estimate
       </Button>
@@ -125,7 +125,7 @@ const SendTransaction = observer(({ state }: { state: TransferStore }) => {
   return (
     <Button
       loading={state.isSending}
-      onClick={() => state.signAndSend()}
+      onClick={() => state.executeTransfer()}
       sx={{ width: 'max-content' }}
       size="sm"
     >

@@ -3,14 +3,14 @@ pub trait ChainTrait {
     /// The private key type used by this chain for signing.
     type Prk;
     type UnlockContext;
-    type UnlockResult;
+    type AccountState;
 
     /// Unlocks the wallet using the provided private key material.
     fn unlock(
         &mut self,
         ctx: Self::UnlockContext,
         prk: &Self::Prk,
-    ) -> impl Future<Output = Result<Self::UnlockResult, String>> + Send;
+    ) -> Result<Self::AccountState, String>;
 }
 
 /// Trait for secure private key handling across different blockchains.
@@ -66,3 +66,5 @@ where
     /// an address string or similar unique identifier.
     fn untrack(&mut self, asset: Asset) -> Result<(), String>;
 }
+
+pub type AccountIndex = u32;

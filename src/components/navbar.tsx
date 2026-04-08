@@ -1,7 +1,7 @@
 import LockIcon from '@mui/icons-material/Lock'
 import { Button, Tooltip } from '@mui/joy'
 import { Link, useNavigate } from 'react-router'
-import { type Chain, commands } from '../bindings'
+import { type BlockChain, commands } from '../bindings'
 import { notifier } from '../lib/notifier'
 import { route } from '../routes'
 import { Row } from '../shortcuts'
@@ -43,7 +43,11 @@ export const Navbar = ({ hideLedgers }: { hideLedgers?: boolean }) => {
   )
 }
 
-const BlockchainLink = (props: { to: string; src: string; chain: Chain }) => (
+const BlockchainLink = (props: {
+  to: string
+  src: string
+  chain: BlockChain
+}) => (
   <Link to={props.to}>
     <Button
       size="sm"
@@ -53,7 +57,7 @@ const BlockchainLink = (props: { to: string; src: string; chain: Chain }) => (
         <img src={props.src} alt={props.chain} width={'auto'} height={22} />
       }
       onClick={async () => {
-        const res = await commands.chainSwitchEvent(props.chain)
+        const res = await commands.switchBlockchain(props.chain)
         if (res.status === 'error') {
           notifier.err(res.error)
         }

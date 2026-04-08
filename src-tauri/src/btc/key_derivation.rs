@@ -1,19 +1,18 @@
-use std::{
-    collections::{HashMap, hash_map::Keys},
-    fmt::Display,
-    str::FromStr,
+use std::{fmt::Display, str::FromStr};
+
+use bitcoin::{
+    Address, Network,
+    bip32::{DerivationPath, Xpriv},
+    key::{Keypair, Secp256k1},
 };
 
-pub use bitcoin::network::Network;
-use bitcoin::{ScriptBuf, bip32::DerivationPath};
-
-use crate::btc::DerivedScript;
+use crate::chain_trait::AccountIndex;
 
 /// m / purpose' / coin_type' / account' / change / address_index
-pub type DerivePathSlice = [u32; 5];
+pub type KeyDeriviationPathSlice = [u32; 5];
 
 #[cfg(test)]
-pub fn make_hardened(raw: DerivePathSlice) -> DerivePathSlice {
+pub fn make_hardened(raw: KeyDeriviationPathSlice) -> KeyDeriviationPathSlice {
     [
         raw[0] + HARDENED,
         raw[1] + HARDENED,
@@ -24,9 +23,14 @@ pub fn make_hardened(raw: DerivePathSlice) -> DerivePathSlice {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct LabeledDerivationPath {
+pub struct ChildKeyDeriviationScheme {
     pub label: String,
-    pub derive_path: DerivePath,
+    pub path: KeyDerivationPath,
+}
+
+pub struct Child {
+    pub keypair: Keypair,
+    pub address: Address,
 }
 
 #[derive(Debug, Clone, PartialEq, Copy, Eq, Hash)]
@@ -49,24 +53,24 @@ impl TryFrom<u32> for Change {
 }
 
 #[derive(Debug, Clone, PartialEq, Copy, Eq, Hash)]
-pub enum Purpose {
+pub enum Proposal {
     Bip86 = 86,
 }
 
-impl TryFrom<u32> for Purpose {
+impl TryFrom<u32> for Proposal {
     type Error = String;
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         match value {
-            86 => Ok(Purpose::Bip86),
+            86 => Ok(Proposal::Bip86),
             v => Err(format!("invalid purpose {}", v)),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct DerivePath {
-    pub purpose: Purpose,
-    pub account: u32,
+pub struct KeyDerivationPath {
+    pub purpose: Proposal,
+    pub account: AccountIndex,
     pub network: Network,
     pub change: Change,
     pub index: u32,
@@ -74,27 +78,37 @@ pub struct DerivePath {
 
 const HARDENED: u32 = 0x80000000;
 
-impl Display for DerivePath {
+impl Display for KeyDerivationPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let coin_type = match self.network {
+        let network = match self.network {
             Network::Bitcoin => 0,
             _ => 1,
         };
         write!(
             f,
             "m/{}'/{}'/{}'/{}/{}",
-            self.purpose as u32, coin_type, self.account, self.change as i32, self.index
+            self.purpose as u32, network, self.account, self.change as i32, self.index
         )
     }
 }
 
-impl DerivePath {
+impl KeyDerivationPath {
+    pub fn new_bip86(network: Network, account: AccountIndex, change: Change, index: u32) -> Self {
+        Self {
+            purpose: Proposal::Bip86,
+            network,
+            account,
+            change,
+            index,
+        }
+    }
+
     pub fn to_path(&self) -> Result<DerivationPath, String> {
         let str = self.to_string();
         DerivationPath::from_str(&str).map_err(|e| format!("fail to derive bip86_path: {e}"))
     }
 
-    pub fn to_slice(&self) -> DerivePathSlice {
+    pub fn to_slice(&self) -> KeyDeriviationPathSlice {
         let network = match self.network {
             Network::Bitcoin => 0,
             _ => 1,
@@ -108,8 +122,8 @@ impl DerivePath {
         ]
     }
 
-    pub fn from_slice(v: DerivePathSlice) -> Result<Self, String> {
-        let purpose = Purpose::try_from(
+    pub fn from_slice(v: KeyDeriviationPathSlice) -> Result<Self, String> {
+        let purpose = Proposal::try_from(
             v[0].checked_sub(HARDENED)
                 .ok_or("purpose must be hardened")?,
         )?;
@@ -122,7 +136,7 @@ impl DerivePath {
             .ok_or("account must be hardened")?;
         let change = Change::try_from(v[3])?;
         let index = v[4];
-        Ok(DerivePath {
+        Ok(KeyDerivationPath {
             purpose,
             account,
             network,
@@ -130,31 +144,39 @@ impl DerivePath {
             index,
         })
     }
+
+    pub fn derive(&self, xpriv: &Xpriv) -> Result<Child, String> {
+        let secp = Secp256k1::new();
+        // derive child private key
+        let keypair = xpriv
+            .derive_priv(&secp, &self.to_path()?)
+            .map_err(|e| format!("Derivation error: {}", e))?
+            .to_keypair(&secp);
+
+        // x-only pubkey for taproot
+        let (internal_key, _parity) = keypair.x_only_public_key();
+
+        // Create taproot address (BIP341 tweak is done automatically by rust-bitcoin)
+        let address = Address::p2tr(
+            &secp,
+            internal_key,
+            None, // no script tree = BIP86 key-path spend
+            self.network,
+        );
+        Ok(Child { address, keypair })
+    }
 }
 
-#[derive(Default)]
-pub struct ScriptHolder {
-    map: HashMap<bitcoin::ScriptBuf, DerivePath>,
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct DerivedScript {
+    pub derive_path: KeyDerivationPath,
+    pub script: bitcoin::ScriptBuf,
 }
 
-impl ScriptHolder {
-    pub fn new() -> Self {
-        Self {
-            map: HashMap::default(),
-        }
-    }
-
-    pub fn add(&mut self, s: DerivedScript) {
-        self.map.insert(s.script, s.derive_path);
-    }
-
-    pub fn len(&self) -> usize {
-        self.map.len()
-    }
-
-    pub fn scripts(&self) -> Keys<'_, ScriptBuf, DerivePath> {
-        self.map.keys()
-    }
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct DerivedAddress {
+    pub derive_path: KeyDerivationPath,
+    pub address: Address,
 }
 
 #[cfg(test)]
@@ -170,14 +192,14 @@ mod tests {
 
     #[test]
     fn test_purpose_conversion() {
-        assert_eq!(Purpose::try_from(86), Ok(Purpose::Bip86));
-        assert!(Purpose::try_from(44).is_err());
+        assert_eq!(Proposal::try_from(86), Ok(Proposal::Bip86));
+        assert!(Proposal::try_from(44).is_err());
     }
 
     #[test]
     fn test_to_u32_vec() {
-        let path = DerivePath {
-            purpose: Purpose::Bip86,
+        let path = KeyDerivationPath {
+            purpose: Proposal::Bip86,
             account: 0,
             network: Network::Bitcoin,
             change: Change::External,
@@ -189,10 +211,10 @@ mod tests {
     #[test]
     fn test_from_u32_vec() {
         let vec = make_hardened([86, 0, 0, 0, 0]);
-        let result = DerivePath::from_slice(vec);
+        let result = KeyDerivationPath::from_slice(vec);
         assert!(result.is_ok());
         let path = result.unwrap();
-        assert_eq!(path.purpose, Purpose::Bip86);
+        assert_eq!(path.purpose, Proposal::Bip86);
         assert_eq!(path.network, Network::Bitcoin);
         assert_eq!(path.change, Change::External);
         assert_eq!(path.index, 0);
@@ -201,22 +223,22 @@ mod tests {
 
     #[test]
     fn test_derive_path_roundtrip() {
-        let original = DerivePath {
-            purpose: Purpose::Bip86,
+        let original = KeyDerivationPath {
+            purpose: Proposal::Bip86,
             account: 0,
             network: Network::Bitcoin,
             change: Change::Internal,
             index: 5,
         };
         let vec = original.to_slice();
-        let parsed = DerivePath::from_slice(vec).unwrap();
+        let parsed = KeyDerivationPath::from_slice(vec).unwrap();
         assert_eq!(original, parsed);
     }
 
     #[test]
     fn test_derive_path_display() {
-        let path = DerivePath {
-            purpose: Purpose::Bip86,
+        let path = KeyDerivationPath {
+            purpose: Proposal::Bip86,
             account: 0,
             network: Network::Bitcoin,
             change: Change::External,
@@ -224,8 +246,8 @@ mod tests {
         };
         assert_eq!(path.to_string(), "m/86'/0'/0'/0/0");
 
-        let path = DerivePath {
-            purpose: Purpose::Bip86,
+        let path = KeyDerivationPath {
+            purpose: Proposal::Bip86,
             account: 5,
             network: Network::Regtest,
             change: Change::Internal,
@@ -237,25 +259,25 @@ mod tests {
     #[test]
     fn test_from_u32_vec_invalid_purpose() {
         let vec = [44, 0, 0, 0, 0]; // Invalid purpose
-        assert!(DerivePath::from_slice(vec).is_err());
+        assert!(KeyDerivationPath::from_slice(vec).is_err());
     }
 
     #[test]
     fn test_from_u32_vec_invalid_change() {
         let vec = [86, 0, 0, 2, 0]; // Invalid change
-        assert!(DerivePath::from_slice(vec).is_err());
+        assert!(KeyDerivationPath::from_slice(vec).is_err());
     }
 
     #[test]
     fn test_from_u32_vec_invalid_network() {
         let vec = [86, 99, 0, 0, 0]; // Invalid network
-        assert!(DerivePath::from_slice(vec).is_err());
+        assert!(KeyDerivationPath::from_slice(vec).is_err());
     }
 
     #[test]
     fn test_regtest_network() {
-        let path = DerivePath {
-            purpose: Purpose::Bip86,
+        let path = KeyDerivationPath {
+            purpose: Proposal::Bip86,
             account: 0,
             network: Network::Regtest,
             change: Change::External,
@@ -264,7 +286,7 @@ mod tests {
         let vec = path.to_slice();
         assert_eq!(vec, vec);
 
-        let parsed = DerivePath::from_slice(vec).unwrap();
+        let parsed = KeyDerivationPath::from_slice(vec).unwrap();
         assert_eq!(parsed.network, Network::Regtest);
     }
 }

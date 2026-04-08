@@ -4,8 +4,7 @@ use serde::{Deserialize, Serialize};
 use shush_rs::{ExposeSecret, SecretBox};
 
 use crate::{
-    chain_trait::Persistable,
-    config::{Config, constants::Chain},
+    config::{Config, constants::BlockChain},
     encryptor::{self, Envelope},
     wallet::Wallet,
     wallet_keeper::WalletKeeper,
@@ -15,26 +14,33 @@ use crate::{
 pub struct SerializedWallet {
     pub name: String,
     pub mnemonic: String,
-    pub bitcoin_data: crate::btc::persistence::Wallet,
-    pub ethereum_data: crate::eth::persistence::Wallet,
+    pub bitcoin_data: crate::btc::persistence::WalletData,
+    pub ethereum_data: crate::eth::persistence::WalletData,
     pub last_used_chain: u16,
     pub birth_date: Option<u64>,
     pub version: u8,
 }
 
 impl SerializedWallet {
-    pub fn to_model(&self, passphrase: SecretBox<String>) -> Result<Wallet, String> {
+    pub fn to_model(
+        &self,
+        config: Config,
+        passphrase: SecretBox<String>,
+    ) -> Result<Wallet, String> {
         Ok(Wallet {
-            keeper: WalletKeeper::new(),
+            keeper: WalletKeeper::default(),
             name: self.name.clone(),
             mnemonic: SecretBox::new(Box::new(self.mnemonic.clone())),
             passphrase,
-            // Use the Persistable trait for deserialization
-            btc: crate::btc::BitcoinWallet::deserialize(self.bitcoin_data.clone())?,
-            eth: crate::eth::EthereumWallet::deserialize(self.ethereum_data.clone())?,
-            last_used_chain: Chain::from(self.last_used_chain),
+            btc: self.bitcoin_data.deserialize(config.clone())?,
+            eth: crate::eth::EthereumWallet::deserialize(
+                self.ethereum_data.clone(),
+                config.clone(),
+            )?,
+            last_used_chain: BlockChain::from(self.last_used_chain),
             birth_date: self.birth_date,
             version: self.version,
+            config,
         })
     }
 
@@ -65,14 +71,18 @@ impl Repository {
         FsRepository.ls()
     }
 
-    pub fn load(&self, wallet_name: &str, passphrase: SecretBox<String>) -> Result<Wallet, String> {
+    pub fn load(
+        &self,
+        wallet_name: &str,
+        passphrase: &SecretBox<String>,
+    ) -> Result<SerializedWallet, String> {
         let data = FsRepository
             .get(wallet_name)
             .map_err(|e| format!("fail to load wallet from dist: {}", e))?;
         let decrypted_json = encryptor::decrypt(&data, passphrase.expose_secret().as_bytes())?;
         let persisted_wallet = serde_json::from_slice::<SerializedWallet>(&decrypted_json)
             .map_err(|e| format!("fail to parse json wallet into struct {}", e))?;
-        persisted_wallet.to_model(passphrase)
+        Ok(persisted_wallet)
     }
 
     pub fn store(&self, wallet: &Wallet) -> Result<(), String> {
@@ -178,13 +188,14 @@ impl FsRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{btc::address::make_hardened, eth::constants::USDT};
+    use crate::eth::constants::USDT;
 
     #[test]
     fn test_serialication() {
         let repository = Repository;
         let name = "Wallet 1".to_string();
         let passphrase = SecretBox::new(Box::new("1111".to_string()));
+        let config = Config::new();
 
         let persisted_wallet = SerializedWallet {
             name: name.clone(),
@@ -192,14 +203,11 @@ mod tests {
             birth_date: None,
             version: 0,
             last_used_chain: 1,
-            bitcoin_data: crate::btc::persistence::Wallet {
-                childs: vec![crate::btc::persistence::ChildAddress {
-                    label: "Secret contractor".to_string(),
-                    devive_path: make_hardened([86,0,0,0,1])
-                }],
-                utxos: vec![],
+            bitcoin_data: crate::btc::persistence::WalletData {
+                active_account: 0,
+                accounts: vec![]
             },
-            ethereum_data: crate::eth::persistence::Wallet {
+            ethereum_data: crate::eth::persistence::WalletData {
                 tracked_tokens: vec![crate::eth::persistence::Token {
                     address: USDT.address.to_string(),
                     decimals: 4,
@@ -209,18 +217,20 @@ mod tests {
             },
         };
 
-        let wallet = persisted_wallet.to_model(passphrase.clone()).unwrap();
+        let wallet = persisted_wallet
+            .to_model(config, passphrase.clone())
+            .unwrap();
         repository.store(&wallet).unwrap();
 
         let listed = repository.ls().unwrap();
         assert!(listed.contains(&FsRepository.sanitize_filename(&name)));
 
         let saved_wallet = repository
-            .load(&name, passphrase)
+            .load(&name, &passphrase)
             .expect("fail to load wallet");
         assert_eq!(
             wallet.mnemonic.expose_secret().to_string(),
-            saved_wallet.mnemonic.expose_secret().to_string()
+            saved_wallet.mnemonic.to_string()
         )
     }
 }

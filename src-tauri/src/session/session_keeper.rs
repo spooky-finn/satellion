@@ -4,9 +4,10 @@ use chrono::{DateTime, Utc};
 use tokio::sync::Mutex;
 
 use crate::{
-    btc::{EventEmitter, EventEmitterTrait},
+    event_emitter::{EventEmitter, EventEmitterTrait},
     wallet::Wallet,
 };
+
 pub struct Session {
     pub wallet: Wallet,
     pub activated_at: DateTime<Utc>,
@@ -72,7 +73,7 @@ impl SessionKeeper {
     }
 
     pub fn soft_terminate(&mut self) -> bool {
-        if let Some(_) = &self.session {
+        if self.session.is_some() {
             self.terminate();
             return true;
         }
@@ -99,11 +100,10 @@ impl SessionKeeper {
                     let mut sk = sk.lock().await;
                     if let Some(session) = &sk.session
                         && session.is_expired()
+                        && sk.soft_terminate()
                     {
-                        if sk.soft_terminate() {
-                            Self::fire_expired_event(&em);
-                            tracing::warn!("Session expired and dropped from mem");
-                        };
+                        Self::fire_expired_event(&em);
+                        tracing::warn!("Session expired and dropped from mem");
                     }
                 }
             }
@@ -120,6 +120,8 @@ impl SessionKeeper {
 
 #[cfg(test)]
 mod tests {
+    use crate::config::Config;
+
     use super::*;
     use shush_rs::SecretBox;
     use std::sync::Mutex as StdMutex;
@@ -130,7 +132,9 @@ mod tests {
 
     fn new_wallet() -> Wallet {
         let name = "test_wallet";
+        let config = Config::new();
         let wallet = Wallet::new(
+            config,
             name.to_string(),
             MNEMONIC.to_string(),
             SecretBox::new(Box::new("333".to_string())),

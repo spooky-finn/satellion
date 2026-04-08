@@ -2,7 +2,7 @@ import { Button, Modal, ModalClose, ModalDialog, Stack, Table } from '@mui/joy'
 import { makeAutoObservable } from 'mobx'
 import { observer } from 'mobx-react-lite'
 import { useEffect, useState } from 'react'
-import { commands, type Utxo } from '../../bindings'
+import { commands, type UtxoDto } from '../../bindings/btc'
 import { CompactSrt } from '../../components/compact_str'
 import { notifier } from '../../lib/notifier'
 import { P, Progress, Row } from '../../shortcuts'
@@ -20,16 +20,16 @@ class UtxoList {
   setIsOpen(o: boolean) {
     this.isOpen = o
   }
-  utxos: Utxo[] = []
+  utxos: UtxoDto[] = []
 
   async fetch() {
     this.loader.start()
-    const res = await commands.btcListUtxos()
-    if (res.status === 'error') {
-      notifier.err(res.error)
-      throw new Error(res.error)
+    const syncRes = await commands.syncUtxos()
+    if (syncRes.status === 'error') {
+      notifier.err(syncRes.error)
+      throw new Error(syncRes.error)
     }
-    this.utxos = res.data
+    this.utxos = syncRes.data
     this.loader.stop()
   }
 

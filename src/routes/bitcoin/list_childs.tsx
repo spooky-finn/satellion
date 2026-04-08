@@ -2,7 +2,7 @@ import { Button, Modal, ModalClose, ModalDialog, Stack, Table } from '@mui/joy'
 import { makeAutoObservable } from 'mobx'
 import { observer } from 'mobx-react-lite'
 import { useEffect, useState } from 'react'
-import { commands, type DerivedAddress } from '../../bindings'
+import { commands, type DerivedAddressDto } from '../../bindings/btc'
 import { CompactSrt } from '../../components/compact_str'
 import { notifier } from '../../lib/notifier'
 import { P, Progress, Row } from '../../shortcuts'
@@ -20,11 +20,11 @@ class ChildAddressList {
     this.isOpen = o
   }
 
-  addresses: DerivedAddress[] = []
+  addresses: DerivedAddressDto[] = []
 
   async fetch() {
     this.loader.start()
-    const res = await commands.btcListDerivedAddresess()
+    const res = await commands.getExternalAddresess()
     this.loader.stop()
     if (res.status === 'error') {
       notifier.err(res.error)
@@ -89,7 +89,7 @@ export const ListDerivedAddresses = observer(() => {
                         <P>{addr.label}</P>
                       </td>
                       <td>
-                        <P fontFamily="monospace">{addr.deriv_path}</P>
+                        <P fontFamily="monospace">{addr.path}</P>
                       </td>
                       <td>
                         <CompactSrt val={addr.address} />
