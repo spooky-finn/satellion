@@ -3,12 +3,16 @@ mod mocks;
 
 use std::{error::Error, str::FromStr};
 
-use bitcoin::Address;
+use bitcoin::{Address, Network};
+use shush_rs::SecretBox;
+
+use crate::bitcoind::BitcoindHarness;
 use satellion_lib::{
     btc::{
         self,
         account::UtxoSelectionMethod,
         config::BitcoinConfig,
+        key_derivation::{Change, KeyDerivationPath},
         tx_builder::{BuildPsbtParams, build_psbt},
         utxo::OutPointDto,
     },
@@ -19,9 +23,6 @@ use satellion_lib::{
     utils,
     wallet::Wallet,
 };
-use shush_rs::SecretBox;
-
-use crate::bitcoind::{BitcoindHarness, parse_scan_result};
 
 #[tokio::test]
 async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
@@ -48,78 +49,33 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
     let balance = harness.balance()?;
     println!("balance before {}", balance.to_btc());
 
-    let account_info = {
+    let (account_info, key_derive_path) = {
         let mut sk = sk.lock().await;
         let wallet = sk.wallet()?;
         let account = wallet.btc.active_account()?;
         let prk = wallet.btc_prk()?;
         let account_info = account.info(&prk, wallet.config.btc.network())?;
-        account_info
+        let key_derive_path =
+            KeyDerivationPath::new_bip86(Network::Regtest, account.index, Change::External, 0);
+
+        (account_info, key_derive_path)
     };
     harness.fund_wallet()?;
-    harness.send_and_confirm(&&account_info.address.to_string(), 1.2)?;
+    harness.send_and_confirm(&account_info.address.to_string(), 1.2)?;
 
-    // Use scantxoutset to find UTXOs for the specific address
-    let scan_result = harness.client().call::<serde_json::Value>(
-        "scantxoutset",
-        &[
-            serde_json::json!("start"),
-            serde_json::json!([format!("addr({})", account_info.address)]),
-        ],
-    )?;
+    let utxos = harness.scanutxoset(account_info.address, &key_derive_path)?;
+    let utxo = utxos.clone()[0].clone();
+    println!(
+        "UTXO Outpoint: {}, Value: {} BTC",
+        utxo.outpoint(),
+        utxo.output.value
+    );
 
-    let utxos = parse_scan_result(scan_result).expect("failed to parse scan result");
-    println!("Found {} UTXOs for test wallet", utxos.len());
-
-    let utxo = &utxos.get(0).cloned().unwrap();
-    for utxo in &utxos {
-        println!(
-            "UTXO Outpoint: {}, Value: {} BTC",
-            utxo.outpoint(),
-            utxo.amount
-        );
-    }
-    // TODO: add utxo to the wallet state
     {
         let mut sk = sk.lock().await;
         let wallet = sk.wallet()?;
         let account = wallet.btc.get_mut_active_account()?;
-        let network = wallet.config.btc.network();
-
-        let wallet_utxos: Vec<btc::utxo::Utxo> = utxos
-            .iter()
-            .map(|scanned_utxo| {
-                let tx_id = bitcoin::Txid::from_str(&scanned_utxo.txid).expect("invalid txid");
-                let vout = scanned_utxo.vout as usize;
-                let script_pubkey = bitcoin::ScriptBuf::from_hex(&scanned_utxo.script_pub_key)
-                    .expect("invalid script");
-                let value = bitcoin::Amount::from_btc(scanned_utxo.amount).expect("invalid amount");
-                let output = bitcoin::TxOut {
-                    script_pubkey,
-                    value,
-                };
-
-                // Derivation path: assume external address at index 0 for the main address
-                let derivation = btc::key_derivation::KeyDerivationPath::new_bip86(
-                    network,
-                    account.index,
-                    btc::key_derivation::Change::External,
-                    0,
-                );
-
-                let height = scanned_utxo.height as u32;
-
-                btc::utxo::Utxo {
-                    tx_id,
-                    vout,
-                    output,
-                    derivation,
-                    height,
-                }
-            })
-            .collect();
-
-        account.set_utxos(wallet_utxos);
+        account.set_utxos(utxos.clone());
     }
 
     let balance = harness.balance()?;
@@ -128,11 +84,6 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
         balance.to_btc(),
         utxos.len()
     );
-
-    let tips = harness.tips()?;
-    println!("Tips {:?}", tips);
-
-    // build transaction
 
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
@@ -146,11 +97,11 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
             .unwrap()
             .assume_checked();
 
-    let ptsb = build_psbt(&BuildPsbtParams {
+    let build_res = build_psbt(&BuildPsbtParams {
         send_value_sat: 2000,
-        recipient,
+        recipient: recipient.clone(),
         utxo_selection_method: UtxoSelectionMethod::Manual(vec![OutPointDto {
-            tx_id: utxo.txid.clone(),
+            tx_id: utxo.tx_id.to_string(),
             vout: utxo.vout.to_string(),
         }]),
         miner_fee_vbytes: 100,
@@ -160,7 +111,43 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
     })
     .expect("failed to create btsp");
 
-    println!("ptsb {:?}", ptsb);
+    // Sign the PSBT and get the final transaction with witnesses
+    let tx = btc::tx_builder::sign_psbt(build_res.psbt, &prk)?;
+    println!("extracted tx txid: {}", tx.compute_txid());
+
+    // Send the transaction to the local bitcoin node
+    let tx_id = harness.client().send_raw_transaction(&tx)?;
+    println!("transaction sent with txid: {:?}", tx_id);
+
+    // Mine a block to confirm the transaction
+    harness.mine_blocks(1)?;
+
+    // Verify the transaction was confirmed by checking it exists
+    let tx_result = harness.client().get_raw_transaction(tx.compute_txid())?;
+    println!("transaction retrieved, confirmations: {:?}", tx_result);
+
+    // Verify transaction exists and is confirmed
+    assert!(!tx_result.0.is_empty(), "Transaction should be retrievable");
+
+    // Verify that the recipient now has the UTXO after transaction confirmation
+    let recipient_scan = harness.scanutxoset(recipient.to_string(), &key_derive_path)?;
+
+    // Find the UTXO corresponding to the output we sent (2000 satoshis)
+    let matching_utxo = recipient_scan
+        .iter()
+        .find(|utxo| utxo.output.value.to_sat() == 2000);
+
+    assert!(
+        matching_utxo.is_some(),
+        "Recipient should have the UTXO of {} satoshis after confirmation",
+        2000
+    );
+    println!(
+        "Recipient has UTXO: txid={}, vout={}, amount={} BTC",
+        matching_utxo.unwrap().tx_id,
+        matching_utxo.unwrap().vout,
+        matching_utxo.unwrap().output.value.to_btc()
+    );
 
     Ok(())
 }

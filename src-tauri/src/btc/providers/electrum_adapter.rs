@@ -39,6 +39,7 @@ impl ElectrumAdapter {
             })
             .await
     }
+
     pub async fn get_balances(&self, addresses: &[&str]) -> Result<Vec<Balance>, ElectrumError> {
         let conn = self.get_conn().await?;
         conn.get_balances(addresses).await

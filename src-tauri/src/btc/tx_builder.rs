@@ -1,13 +1,21 @@
-use serde::Serialize;
-use specta::Type;
+use bitcoin::{
+    Address, Sequence, Transaction, TxIn, TxOut, Witness,
+    absolute::LockTime,
+    bip32::{KeySource, Xpriv},
+    key::Secp256k1,
+    psbt::Psbt,
+    transaction::Version,
+};
+use bitcoin::{OutPoint, address::NetworkChecked};
 
-use bitcoin::{Address, address::NetworkChecked, hashes::Hash, key::Secp256k1};
-use rustywallet_psbt::{KeySource, Psbt, TxOut};
-
-use crate::btc::{
-    account::{Account, UtxoSelectionMethod},
-    config::BitcoinConfig,
-    key_derivation::{Change, KeyDerivationPath},
+use crate::{
+    btc::{
+        Prk,
+        account::{Account, UtxoSelectionMethod},
+        config::BitcoinConfig,
+        key_derivation::{Change, KeyDerivationPath},
+    },
+    chain_trait::SecureKey,
 };
 
 const UTXO_DUST_VALUE: u64 = 330;
@@ -19,11 +27,13 @@ pub struct BuildPsbtParams<'a> {
     pub miner_fee_vbytes: u64,
     pub config: BitcoinConfig,
     pub account: &'a Account,
-    pub xpriv: &'a bitcoin::bip32::Xpriv,
+    pub xpriv: &'a Xpriv,
 }
 
-#[derive(Type, Serialize, Debug)]
-pub struct BuildTxResult {}
+#[derive(Debug)]
+pub struct BuildTxResult {
+    pub psbt: Psbt,
+}
 
 /// The PSBT has two outputs:
 /// - Output 0: change returned to the wallet's next unused **internal** address
@@ -59,74 +69,113 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
         output_count - 1
     };
 
-    let mut psbt = Psbt::new_v2(input_count, output_count);
+    let inputs: Vec<TxIn> = utxos
+        .iter()
+        .map(|utxo| TxIn {
+            previous_output: OutPoint {
+                txid: utxo.tx_id,
+                vout: utxo.vout as u32,
+            },
+            script_sig: bitcoin::ScriptBuf::new(),
+            sequence: Sequence::MAX,
+            witness: Witness::new(),
+        })
+        .collect();
 
-    // Global fields
+    let mut outputs: Vec<TxOut> = Vec::with_capacity(output_count);
+
+    if has_change {
+        // Create the change output
+        let change_index = p.account.unoccupied_address(Change::Internal);
+        let change_path = KeyDerivationPath::new_bip86(
+            p.config.network(),
+            p.account.index,
+            Change::Internal,
+            change_index,
+        );
+        let change_child_key = change_path
+            .derive(p.xpriv)
+            .map_err(|e| format!("failed to derive change key: {e}"))?;
+
+        outputs.push(TxOut {
+            value: bitcoin::Amount::from_sat(potential_change),
+            script_pubkey: change_child_key.address.script_pubkey(),
+        });
+    }
+
+    // Create the recipient output
+    outputs.push(TxOut {
+        value: bitcoin::Amount::from_sat(p.send_value_sat),
+        script_pubkey: p.recipient.script_pubkey(),
+    });
+
+    // Create the unsigned transaction
+    let tx = bitcoin::Transaction {
+        version: Version::TWO,
+        lock_time: LockTime::ZERO,
+        input: inputs,
+        output: outputs,
+    };
+
+    // Create PSBT from unsigned transaction
+    let mut psbt = Psbt::from_unsigned_tx(tx).map_err(|e| format!("Failed to create PSBT: {e}"))?;
+
+    // Add witness UTXOs and BIP32 derivation info to inputs
     let secp = Secp256k1::new();
-    let master_fingerprint = p.xpriv.fingerprint(&secp).to_bytes();
+    let master_fingerprint = p.xpriv.fingerprint(&secp);
 
     for (i, utxo) in utxos.iter().enumerate() {
-        // PSBT v2 required fields
-        psbt.inputs[i].previous_txid = Some(utxo.tx_id.to_byte_array());
-        psbt.inputs[i].output_index = Some(utxo.vout as u32);
-        psbt.inputs[i].sequence = Some(0xFFFFFFFF);
+        // Add witness UTXO
+        psbt.inputs[i].witness_utxo = Some(utxo.output.clone());
 
-        // Witness UTXO for segwit signing
-        psbt.update_input_with_utxo(
-            i,
-            TxOut {
-                value: utxo.output.value.to_sat(),
-                script_pubkey: utxo.output.script_pubkey.to_bytes(),
-            },
-        )
-        .map_err(|e| format!("fail to add utxo into psbt: {e}"))?;
-
-        // Derive key and add BIP32 derivation info for hardware wallet compatibility
+        // Derive key and add BIP32 derivation info
         let child = utxo
             .derivation
             .derive(p.xpriv)
             .map_err(|e| format!("failed to derive child key: {e}"))?;
-        let xonly_pubkey = child.keypair.x_only_public_key().0.serialize();
+        let xonly_pubkey = child.keypair.x_only_public_key().0;
 
-        let derivation_path: Vec<u32> = utxo.derivation.to_slice().to_vec();
-        let key_source = KeySource::new(master_fingerprint, derivation_path);
-        psbt.update_input_with_bip32(i, xonly_pubkey.to_vec(), key_source.clone())
-            .map_err(|e| format!("fail to update input bip32: {e}"))?;
+        let derivation_path = utxo.derivation.to_path()?;
+        let key_source: KeySource = (master_fingerprint, derivation_path);
+
+        // Add to tap_key_origins for Taproot inputs
+        psbt.inputs[i]
+            .tap_key_origins
+            .insert(xonly_pubkey, (vec![], key_source));
 
         // Taproot internal key (BIP86 key-path spend)
-        psbt.inputs[i].tap_internal_key = Some(xonly_pubkey.to_vec());
+        psbt.inputs[i].tap_internal_key = Some(xonly_pubkey);
     }
 
-    {
-        // We use a mutable index because the recipient output might be at index 0 or 1
-        let mut current_out_idx = 0;
+    Ok(BuildTxResult { psbt })
+}
 
-        if has_change {
-            // Create the change output
-            let change_index = p.account.unoccupied_address(Change::Internal);
-            let change_path = KeyDerivationPath::new_bip86(
-                p.config.network(),
-                p.account.index,
-                Change::Internal,
-                change_index,
-            );
-            let change_child_key = change_path
-                .derive(p.xpriv)
-                .map_err(|e| format!("failed to derive change key: {e}"))?;
+pub fn sign_psbt(mut psbt: Psbt, prk: &Prk) -> Result<Transaction, Box<dyn std::error::Error>> {
+    let secp = Secp256k1::new();
 
-            psbt.outputs[current_out_idx].script =
-                Some(change_child_key.address.script_pubkey().to_bytes());
-            psbt.outputs[current_out_idx].amount = Some(potential_change);
+    // Sign the PSBT - bitcoin crate handles both ECDSA and Schnorr automatically
+    // using the xpriv's GetKey implementation which derives keys from the bip32 path
+    psbt.sign(prk.expose(), &secp)
+        .map_err(|e| format!("Failed to sign PSBT: {:?}", e))?;
 
-            current_out_idx += 1;
+    // Build the final transaction with witnesses
+    let mut final_tx = psbt.unsigned_tx.clone();
+
+    for input_idx in 0..psbt.inputs.len() {
+        let input = &psbt.inputs[input_idx];
+
+        // For Taproot key-path spend
+        if let Some(tap_key_sig) = &input.tap_key_sig {
+            let mut witness = Witness::new();
+            witness.push(tap_key_sig.to_vec());
+
+            if let Some(tx_input) = final_tx.input.get_mut(input_idx) {
+                tx_input.witness = witness;
+            }
         }
-
-        // Create the recipient output
-        psbt.outputs[current_out_idx].script = Some(p.recipient.script_pubkey().to_bytes());
-        psbt.outputs[current_out_idx].amount = Some(p.send_value_sat);
     }
 
-    Ok(BuildTxResult {})
+    Ok(final_tx)
 }
 
 pub fn estimate_taproot_vbytes(input_count: usize, output_count: usize) -> u64 {

@@ -2,15 +2,16 @@ use std::{fs, str::FromStr, thread, time::Duration};
 
 use corepc_client::{bitcoin::Address, client_sync::Error};
 use corepc_node::{Client, Conf, Node, client::bitcoin::Amount};
+use satellion_lib::btc::{self, key_derivation::KeyDerivationPath, utxo};
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ScannedUtxo {
     pub amount: f64,
-    pub blockhash: String,
-    pub coinbase: bool,
-    pub confirmations: u64,
-    pub desc: String,
+    // pub blockhash: String,
+    // pub coinbase: bool,
+    // pub confirmations: u64,
+    // pub desc: String,
     pub height: u64,
     #[serde(rename = "scriptPubKey")]
     pub script_pub_key: String,
@@ -21,6 +22,25 @@ pub struct ScannedUtxo {
 impl ScannedUtxo {
     pub fn outpoint(&self) -> String {
         format!("{}:{}", self.txid, self.vout)
+    }
+
+    pub fn to_domain(&self, derivation: KeyDerivationPath) -> btc::utxo::Utxo {
+        let tx_id = bitcoin::Txid::from_str(&self.txid).expect("invalid txid");
+        let vout = self.vout as usize;
+        let script_pubkey =
+            bitcoin::ScriptBuf::from_hex(&self.script_pub_key).expect("invalid script");
+        let value = bitcoin::Amount::from_btc(self.amount).expect("invalid amount");
+        let height = self.height as u32;
+        btc::utxo::Utxo {
+            tx_id,
+            vout,
+            output: bitcoin::TxOut {
+                script_pubkey,
+                value,
+            },
+            derivation,
+            height,
+        }
     }
 }
 
@@ -142,13 +162,6 @@ impl BitcoindHarness {
         Ok(self.client().get_balance()?.balance().unwrap())
     }
 
-    pub fn tips(
-        &self,
-    ) -> std::result::Result<corepc_node::vtype::GetChainTips, corepc_client::client_sync::Error>
-    {
-        self.client().get_chain_tips()
-    }
-
     fn prepare() {
         if let Some(home_dir) = std::env::home_dir() {
             let nakamoto_path = home_dir.join(".nakamoto").join("regtest");
@@ -163,6 +176,25 @@ impl BitcoindHarness {
         } else {
             eprintln!("Could not resolve user home directory.");
         }
+    }
+
+    pub fn scanutxoset(
+        &self,
+        address: String,
+        derivation: &KeyDerivationPath,
+    ) -> Result<Vec<utxo::Utxo>, Error> {
+        let scan_result = self.client().call::<serde_json::Value>(
+            "scantxoutset",
+            &[
+                serde_json::json!("start"),
+                serde_json::json!([format!("addr({})", address)]),
+            ],
+        )?;
+        let utxos = parse_scan_result(scan_result).expect("failed to parse scan result");
+        Ok(utxos
+            .iter()
+            .map(|each| each.to_domain(derivation.clone()))
+            .collect())
     }
 }
 

@@ -53,6 +53,7 @@ pub fn encrypt(plaintext: &[u8], passphrase: &[u8]) -> Result<Envelope, String> 
         kdf_salt: kdf_salt.to_vec(),
     })
 }
+
 pub fn decrypt(encrypted: &Envelope, passphrase: &[u8]) -> Result<Vec<u8>, String> {
     let mut kek = derive_kek_from_passphrase(passphrase, &encrypted.kdf_salt)?;
     if encrypted.wrapped_key.len() < NONCE_SIZE {

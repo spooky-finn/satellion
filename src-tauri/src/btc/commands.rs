@@ -8,7 +8,7 @@ use crate::{
     btc::{
         account::{ActiveAccountDto, UtxoSelectionMethod},
         key_derivation::{Change, ChildKeyDeriviationScheme},
-        tx_builder::{BuildPsbtParams, BuildTxResult, build_psbt},
+        tx_builder::{BuildPsbtParams, build_psbt},
         utxo::{self, Utxo},
     },
     chain_trait::SecureKey,
@@ -188,6 +188,9 @@ pub struct BuildTx {
     pub utxo_selection_method: UtxoSelectionMethod,
 }
 
+#[derive(Type, Serialize)]
+pub struct BuildTxResult {}
+
 #[specta]
 #[tauri::command]
 pub async fn build_tx(req: BuildTx, sk: tauri::State<'_, SK>) -> Result<BuildTxResult, String> {
@@ -207,7 +210,7 @@ pub async fn build_tx(req: BuildTx, sk: tauri::State<'_, SK>) -> Result<BuildTxR
         .parse::<u64>()
         .map_err(|e| format!("invalid value: {e}"))?;
 
-    build_psbt(&BuildPsbtParams {
+    let _build_res = build_psbt(&BuildPsbtParams {
         send_value_sat,
         recipient,
         utxo_selection_method: req.utxo_selection_method,
@@ -216,6 +219,9 @@ pub async fn build_tx(req: BuildTx, sk: tauri::State<'_, SK>) -> Result<BuildTxR
         account,
         xpriv,
     })
+    .map_err(|e| format!("failed to build PSBT: {e}"))?;
+
+    Ok(BuildTxResult {})
 }
 
 #[derive(Type, Deserialize)]

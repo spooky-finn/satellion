@@ -5785,21 +5785,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustywallet-address"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c94f61a415cea296e6cc2558d6dc2683bc88cb18ef589d45a30794c9762a059f"
-dependencies = [
- "bech32 0.11.1",
- "bs58",
- "ripemd",
- "rustywallet-keys",
- "sha2",
- "thiserror 1.0.69",
- "tiny-keccak",
-]
-
-[[package]]
 name = "rustywallet-electrum"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5817,68 +5802,6 @@ dependencies = [
  "tokio-rustls 0.24.1",
  "tracing",
  "webpki-roots",
-]
-
-[[package]]
-name = "rustywallet-keys"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b37baf783b2ce7037e8fb9c18090d22087d1c6fd0e390e3b94885e566c169456"
-dependencies = [
- "bs58",
- "rand 0.8.5",
- "secp256k1 0.29.1",
- "sha2",
- "thiserror 1.0.69",
- "zeroize",
-]
-
-[[package]]
-name = "rustywallet-psbt"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd62918b4da0627b5a1b3cc020745e26a4c83e5023a67da17f3f2248d7781c64"
-dependencies = [
- "base64 0.22.1",
- "ripemd",
- "rustywallet-address",
- "rustywallet-keys",
- "rustywallet-signer",
- "rustywallet-tx",
- "secp256k1 0.29.1",
- "sha2",
- "thiserror 1.0.69",
-]
-
-[[package]]
-name = "rustywallet-signer"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "989e686fe3e58b969e23a00d64b7d75b578feeed5a4222d09c7ffc90cd2c325f"
-dependencies = [
- "base64 0.22.1",
- "bs58",
- "ripemd",
- "rustywallet-keys",
- "secp256k1 0.29.1",
- "sha2",
- "thiserror 1.0.69",
- "tiny-keccak",
-]
-
-[[package]]
-name = "rustywallet-tx"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c17e9474c2317420e7526483a6a94d03111ec268654b32c3fdccd4d946ad9b11"
-dependencies = [
- "bs58",
- "ripemd",
- "rustywallet-address",
- "rustywallet-keys",
- "secp256k1 0.29.1",
- "sha2",
- "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -5924,7 +5847,6 @@ dependencies = [
  "r2d2",
  "rand 0.10.0",
  "rustywallet-electrum",
- "rustywallet-psbt",
  "serde",
  "serde_json",
  "shush-rs",
@@ -6048,7 +5970,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9465315bc9d4566e1724f0fffcbcc446268cb522e60f9a27bcded6b19c108113"
 dependencies = [
  "bitcoin_hashes",
- "rand 0.8.5",
  "secp256k1-sys",
  "serde",
 ]
@@ -7173,15 +7094,6 @@ checksum = "2e70e4c5a0e0a8a4823ad65dfe1a6930e4f4d756dcd9dd7939022b5e8c501215"
 dependencies = [
  "num-conv",
  "time-core",
-]
-
-[[package]]
-name = "tiny-keccak"
-version = "2.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c9d3793400a45f954c52e73d068316d76b6f4e36977e3fcebb13a2721e80237"
-dependencies = [
- "crunchy",
 ]
 
 [[package]]
