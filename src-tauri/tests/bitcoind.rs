@@ -20,10 +20,6 @@ pub struct ScannedUtxo {
 }
 
 impl ScannedUtxo {
-    pub fn outpoint(&self) -> String {
-        format!("{}:{}", self.txid, self.vout)
-    }
-
     pub fn to_domain(&self, derivation: KeyDerivationPath) -> btc::utxo::Utxo {
         let tx_id = bitcoin::Txid::from_str(&self.txid).expect("invalid txid");
         let vout = self.vout as usize;

@@ -1,12 +1,12 @@
 use bitcoin::{
-    Address, Sequence, Transaction, TxIn, TxOut, Witness,
+    Address, OutPoint, Sequence, Transaction, TxIn, TxOut, Witness,
     absolute::LockTime,
+    address::NetworkChecked,
     bip32::{KeySource, Xpriv},
     key::Secp256k1,
     psbt::Psbt,
     transaction::Version,
 };
-use bitcoin::{OutPoint, address::NetworkChecked};
 
 use crate::{
     btc::{
@@ -69,7 +69,7 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
         output_count - 1
     };
 
-    let inputs: Vec<TxIn> = utxos
+    let input: Vec<TxIn> = utxos
         .iter()
         .map(|utxo| TxIn {
             previous_output: OutPoint {
@@ -82,7 +82,7 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
         })
         .collect();
 
-    let mut outputs: Vec<TxOut> = Vec::with_capacity(output_count);
+    let mut output: Vec<TxOut> = Vec::with_capacity(output_count);
 
     if has_change {
         // Create the change output
@@ -97,14 +97,14 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
             .derive(p.xpriv)
             .map_err(|e| format!("failed to derive change key: {e}"))?;
 
-        outputs.push(TxOut {
+        output.push(TxOut {
             value: bitcoin::Amount::from_sat(potential_change),
             script_pubkey: change_child_key.address.script_pubkey(),
         });
     }
 
     // Create the recipient output
-    outputs.push(TxOut {
+    output.push(TxOut {
         value: bitcoin::Amount::from_sat(p.send_value_sat),
         script_pubkey: p.recipient.script_pubkey(),
     });
@@ -113,8 +113,8 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
     let tx = bitcoin::Transaction {
         version: Version::TWO,
         lock_time: LockTime::ZERO,
-        input: inputs,
-        output: outputs,
+        input,
+        output,
     };
 
     // Create PSBT from unsigned transaction
@@ -152,7 +152,6 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
 
 pub fn sign_psbt(mut psbt: Psbt, prk: &Prk) -> Result<Transaction, Box<dyn std::error::Error>> {
     let secp = Secp256k1::new();
-
     // Sign the PSBT - bitcoin crate handles both ECDSA and Schnorr automatically
     // using the xpriv's GetKey implementation which derives keys from the bip32 path
     psbt.sign(prk.expose(), &secp)
@@ -183,7 +182,6 @@ pub fn estimate_taproot_vbytes(input_count: usize, output_count: usize) -> u64 {
     // We multiply by 4 to work in Weight Units (integers) and divide at the end
     // to avoid floating point math inaccuracies.
     let weight_units = 42 + (229 * input_count as u64) + (172 * output_count as u64);
-
     // vBytes is Weight / 4, rounded up to the nearest integer
-    (weight_units + 3) / 4
+    weight_units.div_ceil(4)
 }
