@@ -45,6 +45,18 @@ impl ElectrumAdapter {
         conn.get_balances(addresses).await
     }
 
+    /// Get estimated fee rate (satoshis per byte).
+    ///
+    /// # Arguments
+    /// * `blocks` - Target confirmation blocks (e.g., 1, 6, 144)
+    pub async fn estimate_fee(&self, blocks: u32) -> Result<f64, ElectrumError> {
+        let conn = self.get_conn().await?;
+        conn.estimate_fee(blocks).await.map(|btc_per_kvb| {
+            // Just move the decimal to convert BTC/kvB -> sat/vB
+            btc_per_kvb * 100_000.0
+        })
+    }
+
     pub async fn get_utxos(
         &self,
         address_path_map: AddressPathMap,

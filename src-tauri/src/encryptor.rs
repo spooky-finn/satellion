@@ -16,9 +16,39 @@ use aes_gcm::aead::{Aead, KeyInit};
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
+/// Size of the nonce for AES-256-GCM in bytes
 pub const NONCE_SIZE: usize = 12;
+/// Size of the encryption key in bytes (256 bits for AES-256)
 pub const KEY_SIZE: usize = 32;
+/// Size of the salt for Argon2 KDF in bytes
 pub const SALT_SIZE: usize = 32;
+
+struct ArgonSec {
+    memory_cost: u32,
+    time_cost: u32,
+}
+
+impl ArgonSec {
+    fn default() -> Self {
+        if cfg!(debug_assertions) {
+            Self::debug()
+        } else {
+            Self::secure()
+        }
+    }
+    fn secure() -> Self {
+        Self {
+            memory_cost: 64 * 1024,
+            time_cost: 3,
+        }
+    }
+    fn debug() -> Self {
+        Self {
+            memory_cost: 512,
+            time_cost: 1,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct Envelope {
@@ -88,10 +118,11 @@ pub fn decrypt(encrypted: &Envelope, passphrase: &[u8]) -> Result<Vec<u8>, Strin
 
 fn derive_kek_from_passphrase(passphrase: &[u8], salt: &[u8]) -> Result<[u8; KEY_SIZE], String> {
     let mut kek = [0u8; KEY_SIZE];
+    let argon_sec = ArgonSec::default();
     let params = argon2::Params::new(
-        64 * 1024, // 64 MB memory
-        3,         // iterations
-        1,         // parallelism
+        argon_sec.memory_cost,
+        argon_sec.time_cost, // Time cost (iterations)
+        1,                   // Parallelism
         Some(32),
     )
     .unwrap();

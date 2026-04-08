@@ -210,11 +210,12 @@ pub async fn build_tx(req: BuildTx, sk: tauri::State<'_, SK>) -> Result<BuildTxR
         .parse::<u64>()
         .map_err(|e| format!("invalid value: {e}"))?;
 
+    let miner_fee_vbytes = wallet.btc.server.estimate_fee(1).await.unwrap();
     let _build_res = build_psbt(&BuildPsbtParams {
         send_value_sat,
         recipient,
         utxo_selection_method: req.utxo_selection_method,
-        miner_fee_vbytes: 100,
+        miner_fee_vbytes,
         config: wallet.config.btc.clone(),
         account,
         xpriv,

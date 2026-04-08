@@ -24,7 +24,7 @@ pub struct BuildPsbtParams<'a> {
     pub send_value_sat: u64,
     pub recipient: Address<NetworkChecked>,
     pub utxo_selection_method: UtxoSelectionMethod,
-    pub miner_fee_vbytes: u64,
+    pub miner_fee_vbytes: f64,
     pub config: BitcoinConfig,
     pub account: &'a Account,
     pub xpriv: &'a Xpriv,
@@ -49,7 +49,7 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
 
     // 1. Estimate the fee assuming we WILL have a change output (2 outputs total)
     let estimated_vbytes = estimate_taproot_vbytes(input_count, output_count);
-    let required_fee = estimated_vbytes * p.miner_fee_vbytes;
+    let required_fee: u64 = (estimated_vbytes as f64 * p.miner_fee_vbytes).ceil() as u64;
 
     // 2. Check if the inputs can cover the send amount + fee
     let total_required = p
