@@ -1,8 +1,6 @@
-use std::str::FromStr;
-
 use alloy::{
     eips::{BlockId, BlockNumberOrTag},
-    primitives::{Address, utils::format_units},
+    primitives::utils::format_units,
     providers::Provider,
 };
 use alloy_provider::{DynProvider, ext::AnvilApi};
@@ -208,13 +206,6 @@ pub async fn execute_transfer(
     let prk = wallet.eth_prk()?;
     let hash = builder.sign_and_send_tx(prk.expose()).await?;
     Ok(hash.to_string())
-}
-
-#[specta]
-#[tauri::command]
-pub async fn verify_address(address: String) -> Result<bool, String> {
-    Address::from_str(&address).map_err(|e| e.to_string())?;
-    Ok(true)
 }
 
 #[derive(Type, Serialize)]

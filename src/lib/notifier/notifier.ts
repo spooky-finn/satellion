@@ -41,7 +41,7 @@ class NotifierStore {
   }
 
   err(msg: string, timeout?: number) {
-    this.notify('err', msg, timeout || ErrMsgTime)
+    this.notify('err', String(msg), timeout || ErrMsgTime)
   }
 }
 

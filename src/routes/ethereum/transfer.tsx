@@ -10,45 +10,38 @@ import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
 import type { FeeMode } from '../../bindings/eth'
 import { Navbar } from '../../components/navbar'
+import { handle_err } from '../../lib/handle_err'
 import { P, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
-import { TransferStore } from './transfer.store'
+import { AddressInput } from '../components'
+import { EthereumTransferVM } from './transfer.vm'
 import { OpenExplorerButton } from './utils/shared'
 
 export const EthereumTransfer = observer(() => {
-  const [state] = useState(() => new TransferStore())
+  const [state] = useState(() => new EthereumTransferVM())
   return (
     <Stack gap={1}>
       <Navbar />
       <P level="h3" color="primary">
         Transact on Ethereum
       </P>
-      <Input
-        placeholder="Recipient address"
-        sx={{ maxWidth: '500px' }}
-        value={state.address}
-        onChange={e => {
-          state.setAddress(e.target.value)
-          state.verifyAddress()
-        }}
-        error={!!state.address && !state.isAddressValid}
-      />
+      <AddressInput state={state.address} />
       <TokenSelect state={state} />
       <CurrentBalance state={state} />
       <AmountInput state={state} />
       <FeeModeSelect state={state} />
       <Button
-        loading={state.isEstimating}
+        loading={state.is_estimating}
         disabled={state.disabled}
         sx={{ width: 'min-content' }}
         size="sm"
-        onClick={() => state.estimateTransfer()}
+        onClick={() => state.estimate().catch(handle_err)}
       >
         Estimate
       </Button>
       <TransactionFee state={state} />
 
-      {!state.txHash ? (
+      {!state.tx_hash ? (
         <SendTransaction state={state} />
       ) : (
         <TransactionDetails state={state} />
@@ -57,12 +50,12 @@ export const EthereumTransfer = observer(() => {
   )
 })
 
-const TokenSelect = observer(({ state }: { state: TransferStore }) => (
+const TokenSelect = observer(({ state }: { state: EthereumTransferVM }) => (
   <Select
     placeholder="Token"
-    value={state.selectedToken}
+    value={state.token}
     sx={{ width: 'fit-content' }}
-    onChange={(_, value) => state.setSelectedToken(value ?? undefined)}
+    onChange={(_, value) => state.set_token(value ?? undefined)}
   >
     {root_store.wallet.eth.tokens_with_balance.map(t => (
       <Option key={t.address} value={t.address}>
@@ -72,9 +65,9 @@ const TokenSelect = observer(({ state }: { state: TransferStore }) => (
   </Select>
 ))
 
-const CurrentBalance = observer(({ state }: { state: TransferStore }) => {
+const CurrentBalance = observer(({ state }: { state: EthereumTransferVM }) => {
   const { eth } = root_store.wallet
-  const selectedToken = state.selectedToken
+  const selectedToken = state.token
   if (!selectedToken) return null
   const token = eth.balance?.data?.tokens.find(
     token => token.address === selectedToken,
@@ -86,7 +79,7 @@ const CurrentBalance = observer(({ state }: { state: TransferStore }) => {
   )
 })
 
-const AmountInput = observer(({ state }: { state: TransferStore }) => (
+const AmountInput = observer(({ state }: { state: EthereumTransferVM }) => (
   <Row>
     <Input
       placeholder="Amount"
@@ -95,37 +88,37 @@ const AmountInput = observer(({ state }: { state: TransferStore }) => (
       onChange={e => {
         const num = e.target.value.trim()
         if (num === '') {
-          state.setAmount(undefined)
+          state.set_amount(undefined)
         } else {
-          state.setAmount(parseFloat(num))
+          state.set_amount(parseFloat(num))
         }
       }}
     />
   </Row>
 ))
 
-const TransactionFee = observer(({ state }: { state: TransferStore }) => {
+const TransactionFee = observer(({ state }: { state: EthereumTransferVM }) => {
   const { wallet } = root_store
-  if (!state.preconfirmInfo || !wallet.eth.usd_price) {
+  if (!state.estimation || !wallet.eth.usd_price) {
     return null
   }
   return (
     <P>
-      Network fee: {state.preconfirmInfo.fee_ceiling} gwei ~ $
-      {state.preconfirmInfo.fee_in_usd.toFixed(2)}
+      Network fee: {state.estimation.fee_ceiling} gwei ~ $
+      {state.estimation.fee_in_usd.toFixed(2)}
     </P>
   )
 })
 
-const SendTransaction = observer(({ state }: { state: TransferStore }) => {
+const SendTransaction = observer(({ state }: { state: EthereumTransferVM }) => {
   const { wallet } = root_store
-  if (!state.preconfirmInfo || !wallet.eth.usd_price) {
+  if (!state.estimation || !wallet.eth.usd_price) {
     return null
   }
   return (
     <Button
-      loading={state.isSending}
-      onClick={() => state.executeTransfer()}
+      loading={state.sending}
+      onClick={() => state.execute()}
       sx={{ width: 'max-content' }}
       size="sm"
     >
@@ -134,24 +127,26 @@ const SendTransaction = observer(({ state }: { state: TransferStore }) => {
   )
 })
 
-const TransactionDetails = observer(({ state }: { state: TransferStore }) => {
-  if (!state.txHash) {
-    return null
-  }
-  return (
-    <Stack>
-      <P>
-        Transaction hash <b>{state.txHash}</b>
-      </P>
-      <OpenExplorerButton path={`tx/${state.txHash}`} />
-    </Stack>
-  )
-})
+const TransactionDetails = observer(
+  ({ state }: { state: EthereumTransferVM }) => {
+    if (!state.tx_hash) {
+      return null
+    }
+    return (
+      <Stack>
+        <P>
+          Transaction hash <b>{state.tx_hash}</b>
+        </P>
+        <OpenExplorerButton path={`tx/${state.tx_hash}`} />
+      </Stack>
+    )
+  },
+)
 
-const FeeModeSelect = observer(({ state }: { state: TransferStore }) => (
+const FeeModeSelect = observer(({ state }: { state: EthereumTransferVM }) => (
   <ToggleButtonGroup
-    value={state.feeMode}
-    onChange={(_, v) => state.setFeeMode(v)}
+    value={state.fee_mode}
+    onChange={(_, v) => state.set_fee_mode(v)}
   >
     <Button value={'Minimal' satisfies FeeMode}>Slow</Button>
     <Button value={'Standard' satisfies FeeMode}>Standart</Button>

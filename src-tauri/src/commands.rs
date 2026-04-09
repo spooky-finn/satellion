@@ -1,5 +1,6 @@
 use serde::Serialize;
 use specta::{Type, specta};
+use std::str::FromStr;
 use zeroize::Zeroize;
 
 use crate::{
@@ -19,6 +20,27 @@ use crate::{
 #[tauri::command]
 pub async fn generate_mnemonic() -> Result<String, String> {
     mnemonic::new()
+}
+
+#[specta]
+#[tauri::command]
+pub async fn validate_address(
+    chain: BlockChain,
+    address: String,
+    config: tauri::State<'_, Config>,
+) -> Result<(), String> {
+    match chain {
+        BlockChain::Bitcoin => {
+            bitcoin::Address::from_str(&address)
+                .map_err(|e| format!("invalid address: {e}"))?
+                .require_network(config.btc.network())
+                .map_err(|e| format!("invalid address network: {e}"))?;
+        }
+        BlockChain::Ethereum => {
+            alloy::primitives::Address::from_str(&address).map_err(|e| e.to_string())?;
+        }
+    };
+    Ok(())
 }
 
 #[specta]

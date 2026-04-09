@@ -4,8 +4,9 @@ import { commands } from '../../bindings/btc'
 import { AccountSelectorVM } from '../../components/account_selector'
 import { notifier } from '../../lib/notifier'
 
-export class BitcoinChain {
+export class BitcoinWalletVM {
   readonly chain: BlockChain = 'Bitcoin'
+
   readonly account_selector = new AccountSelectorVM(this.chain, async _ => {
     await this.load_account_info()
   })
@@ -15,7 +16,7 @@ export class BitcoinChain {
   }
 
   init(unlock: BitcoinUnlockDto) {
-    this.account_selector.init(unlock.accounts, unlock.accounts[0].index)
+    this.account_selector.init(unlock.accounts, unlock.active_account.index)
     this.init_with_account_info(unlock.active_account)
   }
 

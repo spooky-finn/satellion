@@ -33,6 +33,7 @@ pub enum UtxoSelectionMethod {
 
 #[derive(Serialize, specta::Type)]
 pub struct ActiveAccountDto {
+    pub index: u32,
     /** main external address to accept payments */
     pub address: String,
     pub total_balance: String,
@@ -64,6 +65,7 @@ impl Account {
             .map_err(|e| e.to_string())?;
 
         Ok(ActiveAccountDto {
+            index: self.index,
             address: mainkey.address.to_string(),
             total_balance: self.total_balance().to_string(),
         })

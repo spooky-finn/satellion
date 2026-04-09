@@ -7,10 +7,8 @@ import {
 } from '../../bindings/eth'
 import { notifier } from '../../lib/notifier'
 import { Loader } from '../../stores/loader'
-import { TransferStore } from './transfer.store'
 
-export class EthereumWallet {
-  readonly send = new TransferStore()
+export class EthereumWalletVM {
   readonly balance = new Loader<WalletBalance>()
 
   constructor() {

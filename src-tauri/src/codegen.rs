@@ -17,6 +17,7 @@ pub fn handlers() -> tauri_specta::Builder {
             commands::switch_account,
             commands::switch_blockchain,
             commands::price_feed,
+            commands::validate_address,
         ])
         .constant("MIN_PASSPHRASE_LEN", config::MIN_PASSPHRASE_LEN)
         .events(event_emitter::list_events())
@@ -43,7 +44,6 @@ pub fn handlers() -> tauri_specta::Builder {
             eth::commands::get_wallet_balance,
             eth::commands::estimate_transfer,
             eth::commands::execute_transfer,
-            eth::commands::verify_address,
             eth::commands::track_token,
             eth::commands::untrack_token,
             eth::commands::anvil_set_initial_balances,
@@ -63,6 +63,7 @@ pub fn handlers() -> tauri_specta::Builder {
         commands::switch_account,
         commands::switch_blockchain,
         commands::price_feed,
+        commands::validate_address,
         //
         btc::commands::derive_external_address,
         btc::commands::unoccupied_deriviation_index,
@@ -77,7 +78,6 @@ pub fn handlers() -> tauri_specta::Builder {
         eth::commands::get_wallet_balance,
         eth::commands::estimate_transfer,
         eth::commands::execute_transfer,
-        eth::commands::verify_address,
         eth::commands::track_token,
         eth::commands::untrack_token,
         eth::commands::anvil_set_initial_balances,

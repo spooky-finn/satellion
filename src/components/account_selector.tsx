@@ -3,6 +3,7 @@ import { IconButton, Input, Option, Select } from '@mui/joy'
 import { makeAutoObservable, runInAction } from 'mobx'
 import { observer } from 'mobx-react-lite'
 import { type BlockChain, commands } from '../bindings'
+import { unwrap_result } from '../lib/handle_err'
 import { notifier } from '../lib/notifier'
 import { P, Row } from '../shortcuts'
 import { Loader } from '../stores/loader'
@@ -87,15 +88,12 @@ export class AccountSelectorVM {
     if (account == null) return
 
     this.account_loader.start()
-    const res = await commands.switchAccount(this.chain, account)
-    if (res.status == 'error') {
-      notifier.err(res.error)
-      this.account_loader.stop()
-      throw res.error
-    }
+    await commands
+      .switchAccount(this.chain, account)
+      .then(unwrap_result)
+      .finally(() => this.account_loader.stop())
 
     await this.switch_handler(account)
-    this.account_loader.stop()
   }
 }
 

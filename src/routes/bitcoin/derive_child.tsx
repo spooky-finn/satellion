@@ -6,17 +6,17 @@ import {
   ModalClose,
   ModalDialog,
 } from '@mui/joy'
-import { makeAutoObservable } from 'mobx'
+import { makeAutoObservable, runInAction } from 'mobx'
 import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
 import { commands } from '../../bindings/btc'
 import { CompactSrt } from '../../components/compact_str'
 import { NumberInput } from '../../components/number_input'
-import { notifier } from '../../lib/notifier'
+import { unwrap_result } from '../../lib/handle_err'
 import { P, Row } from '../../shortcuts'
 import { Loader } from '../../stores/loader'
 
-class DeriveChild {
+class DeriveChildVM {
   readonly loader = new Loader()
   constructor() {
     makeAutoObservable(this)
@@ -36,12 +36,12 @@ class DeriveChild {
   address: string | null = null
 
   async getAvaiableIndex() {
-    const res = await commands.unoccupiedDeriviationIndex()
-    if (res.status === 'error') {
-      notifier.err(res.error)
-      throw Error(res.error)
-    }
-    this.index = res.data
+    const index = await commands
+      .unoccupiedDeriviationIndex()
+      .then(unwrap_result)
+    runInAction(() => {
+      this.index = index
+    })
   }
 
   async derive() {
@@ -50,18 +50,17 @@ class DeriveChild {
 
     this.address = null
     this.loader.start()
-    const res = await commands.deriveExternalAddress(this.label, this.index)
-    this.loader.stop()
-    if (res.status === 'error') {
-      notifier.err(res.error)
-      throw Error(res.error)
-    }
-    this.address = res.data
+    const address = await commands
+      .deriveExternalAddress(this.label, this.index)
+      .then(unwrap_result)
+      .finally(() => this.loader.stop())
+
+    this.address = address
   }
 }
 
-export const DeriveChildAddress = observer(() => {
-  const [state] = useState(() => new DeriveChild())
+export const DeriveChildAddress = observer((props: { refetch: () => void }) => {
+  const [state] = useState(() => new DeriveChildVM())
   return (
     <Row alignItems={'center'}>
       <Button
@@ -100,7 +99,7 @@ export const DeriveChildAddress = observer(() => {
             sx={{ width: 'fit-content' }}
             disabled={!state.label || !state.index}
             size="sm"
-            onClick={() => state.derive()}
+            onClick={() => state.derive().then(props.refetch)}
           >
             Derive
           </Button>

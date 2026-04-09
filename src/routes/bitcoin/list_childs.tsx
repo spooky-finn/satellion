@@ -1,14 +1,15 @@
 import { Button, Modal, ModalClose, ModalDialog, Stack, Table } from '@mui/joy'
-import { makeAutoObservable } from 'mobx'
+import { makeAutoObservable, runInAction } from 'mobx'
 import { observer } from 'mobx-react-lite'
 import { useEffect, useState } from 'react'
 import { commands, type DerivedAddressDto } from '../../bindings/btc'
 import { CompactSrt } from '../../components/compact_str'
-import { notifier } from '../../lib/notifier'
+import { unwrap_result } from '../../lib/handle_err'
 import { P, Progress, Row } from '../../shortcuts'
 import { Loader } from '../../stores/loader'
+import { DeriveChildAddress } from './derive_child'
 
-class ChildAddressList {
+class ChildAddressListVM {
   readonly loader = new Loader()
 
   constructor() {
@@ -23,19 +24,17 @@ class ChildAddressList {
   addresses: DerivedAddressDto[] = []
 
   async fetch() {
-    this.loader.start()
-    const res = await commands.getExternalAddresess()
-    this.loader.stop()
-    if (res.status === 'error') {
-      notifier.err(res.error)
-      return
-    }
-    this.addresses = res.data
+    // this.loader.start()
+    const addresses = await commands.getExternalAddresess().then(unwrap_result)
+    // .finally(() => this.loader.stop())
+    runInAction(() => {
+      this.addresses = addresses
+    })
   }
 }
 
-export const ListDerivedAddresses = observer(() => {
-  const [store] = useState(() => new ChildAddressList())
+export const ChildAddresses = observer(() => {
+  const [store] = useState(() => new ChildAddressListVM())
 
   useEffect(() => {
     if (store.isOpen) {
@@ -51,7 +50,7 @@ export const ListDerivedAddresses = observer(() => {
         sx={{ width: 'fit-content' }}
         onClick={() => store.setIsOpen(true)}
       >
-        List childs
+        Child addresses
       </Button>
       <Modal open={store.isOpen} onClose={() => store.setIsOpen(false)}>
         <ModalDialog
@@ -63,7 +62,7 @@ export const ListDerivedAddresses = observer(() => {
           <ModalClose />
           <P level="h3">Derived child addresses</P>
           {store.loader.loading && <Progress />}
-
+          <DeriveChildAddress refetch={() => store.fetch()} />
           <Stack sx={{ overflow: 'auto', mt: 1 }}>
             {store.addresses.length === 0 ? (
               <P>No addresses derived yet.</P>

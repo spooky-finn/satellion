@@ -88,6 +88,7 @@ export const commands = {
 /** user-defined types **/
 
 export type ActiveAccountDto = {
+  index: number
   /**
    * main external address to accept payments
    */

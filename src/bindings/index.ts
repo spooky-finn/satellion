@@ -120,6 +120,20 @@ export const commands = {
       else return { status: 'error', error: e as any }
     }
   },
+  async validateAddress(
+    chain: BlockChain,
+    address: string,
+  ): Promise<Result<null, string>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('validate_address', { chain, address }),
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e
+      else return { status: 'error', error: e as any }
+    }
+  },
 }
 
 /** user-defined events **/
@@ -132,6 +146,7 @@ export const MIN_PASSPHRASE_LEN = 4 as const
 
 export type AccountIdDto = { index: number; name: string }
 export type ActiveAccountDto = {
+  index: number
   /**
    * main external address to accept payments
    */

@@ -5,10 +5,9 @@ import { useNavigate } from 'react-router'
 import { AccountSelector } from '../../components/account_selector'
 import { Navbar } from '../../components/navbar'
 import { route } from '../../routes'
-import { P, Progress, Row } from '../../shortcuts'
+import { LinkButton, P, Progress, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
-import { DeriveChildAddress } from './derive_child'
-import { ListDerivedAddresses } from './list_childs'
+import { ChildAddresses } from './list_childs'
 import { ListUtxo } from './list_utxo'
 import { display_sat, fmt_usd, sat2usd } from './utils/amount_formatters'
 
@@ -37,22 +36,13 @@ const Bitcoin = () => {
         <Card size="sm" variant="soft">
           <Stack>
             <P fontWeight="bold">{addr}</P>
-            <P level="body-xs">Main Address</P>
           </Stack>
-          <P level="body-xs">
-            Do not share this address with untrusted parties who may send
-            tainted or illicit coins.
-            <br />
-            Receiving funds from suspicious sources can link your wallet to
-            illegal activity.
-            <br />
-            For secure acceptance of funds, consider generating dedicated child
-            address per transaction.
-          </P>
           <Row>
-            <DeriveChildAddress />
-            <ListDerivedAddresses />
+            <ChildAddresses />
             <ListUtxo />
+            <LinkButton to={route.bitcoin_send} sx={{ width: 'min-content' }}>
+              Send
+            </LinkButton>
           </Row>
         </Card>
       )}

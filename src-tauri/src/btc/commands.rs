@@ -49,6 +49,7 @@ pub async fn derive_external_address(
         .get_mut_active_account()?
         .add_address(derivation_scheme);
 
+    wallet.persist()?;
     Ok(child.address.to_string())
 }
 
