@@ -11,7 +11,7 @@ use satellion_lib::{
     btc::{
         self,
         account::UtxoSelectionMethod,
-        key_derivation::{Change, KeyDerivationPath},
+        key_derivation::{Change, KeyDerivationPath, Proposal},
         tx_builder::{BuildPsbtParams, build_psbt},
         utxo::OutPointDto,
     },
@@ -42,16 +42,18 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
     .unwrap();
     sk.lock().await.set(Session::new(wallet));
 
-    let balance = local_node.balance()?;
-    println!("balance before {}", balance.to_btc());
-
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let account = wallet.btc.active_account()?;
     let prk = wallet.btc_prk()?;
     let account_info = account.info(&prk, wallet.config.btc.network())?;
-    let key_derive_path =
-        KeyDerivationPath::new_bip86(Network::Regtest, account.index, Change::External, 0);
+    let key_derive_path = KeyDerivationPath::new(
+        Proposal::Bip86,
+        Network::Regtest,
+        account.index,
+        Change::External,
+        0,
+    );
 
     local_node.fund_wallet()?;
     local_node.send_and_confirm(&account_info.address.to_string(), 1.2)?;
@@ -64,9 +66,6 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
         utxo.output.value
     );
 
-    // let mut sk = sk.lock().await;
-    // let wallet = sk.wallet()?;
-    // let prk = wallet.btc_prk()?;
     let account = wallet.btc.get_mut_active_account()?;
     account.set_utxos(utxos.clone());
 
@@ -90,7 +89,7 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
             tx_id: utxo.tx_id.to_string(),
             vout: utxo.vout.to_string(),
         }]),
-        miner_fee_vbytes: 100,
+        miner_fee_vbytes: 100.0,
         config: config.btc,
         account,
         xpriv: prk.expose(),
@@ -107,11 +106,7 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
 
     // Verify the transaction was confirmed by checking it exists
     let tx_result = local_node.client().get_raw_transaction(tx.compute_txid())?;
-    println!("transaction retrieved, confirmations: {:?}", tx_result);
-
-    // Verify transaction exists and is confirmed
     assert!(!tx_result.0.is_empty(), "Transaction should be retrievable");
-
     // Verify that the recipient now has the UTXO after transaction confirmation
     let recipient_scan = local_node.scanutxoset(recipient.to_string(), &key_derive_path)?;
 

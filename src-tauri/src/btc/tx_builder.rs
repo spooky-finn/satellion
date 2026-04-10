@@ -13,7 +13,7 @@ use crate::{
         Prk,
         account::{Account, UtxoSelectionMethod},
         config::BitcoinConfig,
-        key_derivation::{Change, KeyDerivationPath},
+        key_derivation::{Change, KeyDerivationPath, Proposal},
     },
     chain_trait::SecureKey,
 };
@@ -87,7 +87,8 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
     if has_change {
         // Create the change output
         let change_index = p.account.unoccupied_address(Change::Internal);
-        let change_path = KeyDerivationPath::new_bip86(
+        let change_path = KeyDerivationPath::new(
+            Proposal::Bip86,
             p.config.network(),
             p.account.index,
             Change::Internal,
@@ -99,7 +100,7 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
 
         output.push(TxOut {
             value: bitcoin::Amount::from_sat(potential_change),
-            script_pubkey: change_child_key.address.script_pubkey(),
+            script_pubkey: change_child_key.taproot_address.script_pubkey(),
         });
     }
 

@@ -30,7 +30,8 @@ pub struct ChildKeyDeriviationScheme {
 
 pub struct Child {
     pub keypair: Keypair,
-    pub address: Address,
+    pub taproot_address: Address,
+    pub segwit_address: Address,
 }
 
 #[derive(Debug, Clone, PartialEq, Copy, Eq, Hash)]
@@ -54,6 +55,7 @@ impl TryFrom<u32> for Change {
 
 #[derive(Debug, Clone, PartialEq, Copy, Eq, Hash)]
 pub enum Proposal {
+    Bip84 = 84,
     Bip86 = 86,
 }
 
@@ -62,6 +64,7 @@ impl TryFrom<u32> for Proposal {
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         match value {
             86 => Ok(Proposal::Bip86),
+            84 => Ok(Proposal::Bip84),
             v => Err(format!("invalid purpose {}", v)),
         }
     }
@@ -93,13 +96,26 @@ impl Display for KeyDerivationPath {
 }
 
 impl KeyDerivationPath {
-    pub fn new_bip86(network: Network, account: AccountIndex, change: Change, index: u32) -> Self {
+    pub fn new(
+        purpose: Proposal,
+        network: Network,
+        account: AccountIndex,
+        change: Change,
+        index: u32,
+    ) -> Self {
         Self {
-            purpose: Proposal::Bip86,
+            purpose,
             network,
             account,
             change,
             index,
+        }
+    }
+
+    pub fn with_label(&self, label: String) -> ChildKeyDeriviationScheme {
+        ChildKeyDeriviationScheme {
+            label,
+            path: self.clone(),
         }
     }
 
@@ -163,7 +179,17 @@ impl KeyDerivationPath {
             None, // no script tree = BIP86 key-path spend
             self.network,
         );
-        Ok(Child { address, keypair })
+
+        // Create native segwit (P2WPKH) address
+        let public_key = keypair.public_key();
+        let compressed_pk = bitcoin::CompressedPublicKey(public_key);
+        let segwit_address = Address::p2wpkh(&compressed_pk, self.network);
+
+        Ok(Child {
+            taproot_address: address,
+            segwit_address,
+            keypair,
+        })
     }
 }
 

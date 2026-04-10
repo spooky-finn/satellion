@@ -6,7 +6,7 @@ use bitcoin::bip32::{self, Xpriv};
 use crate::{
     btc::{
         account::{Account, ActiveAccountDto},
-        key_derivation::{Change, KeyDerivationPath},
+        key_derivation::{Change, KeyDerivationPath, Proposal},
         providers::electrum_adapter::ElectrumAdapter,
     },
     chain_trait::{AccountIndex, ChainTrait, SecureKey},
@@ -92,12 +92,18 @@ impl BitcoinWallet {
 
     pub fn new_deriviation_path(
         &self,
+        purpose: Proposal,
         change: Change,
         index: u32,
     ) -> Result<KeyDerivationPath, String> {
         let account = self.active_account()?;
-        let path =
-            KeyDerivationPath::new_bip86(self.config.btc.network(), account.index, change, index);
+        let path = KeyDerivationPath::new(
+            purpose,
+            self.config.btc.network(),
+            account.index,
+            change,
+            index,
+        );
         if !account.is_deriviation_path_available(path.clone()) {
             return Err(format!("Derivation index {} already occupied", index));
         }

@@ -6,7 +6,6 @@ authors = ["Ivan Loseev"]
 edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
@@ -60,6 +59,7 @@ shush-rs = "0.1.11"
 # Tracing
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.0", features = ["fmt", "env-filter"] }
+tracing-appender = "0.2"
 # Mac os system
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.4"

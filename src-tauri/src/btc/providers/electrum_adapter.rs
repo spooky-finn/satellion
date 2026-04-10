@@ -98,7 +98,7 @@ mod test {
     use std::collections::HashMap;
 
     use crate::{
-        btc::key_derivation::{Change, DerivedAddress, KeyDerivationPath},
+        btc::key_derivation::{Change, DerivedAddress, KeyDerivationPath, Proposal},
         mnemonic::TEST_MNEMONIC,
     };
 
@@ -110,11 +110,12 @@ mod test {
         let mnemonic = Mnemonic::parse_in_normalized(Language::English, TEST_MNEMONIC).unwrap();
         let seed = mnemonic.to_seed("");
         let xpriv = Xpriv::new_master(bitcoin::Network::Bitcoin, &seed).unwrap();
-        let path = KeyDerivationPath::new_bip86(bitcoin::Network::Regtest, 0, change, index);
+        let path =
+            KeyDerivationPath::new(Proposal::Bip86, bitcoin::Network::Regtest, 0, change, index);
         let child = path.derive(&xpriv).unwrap();
         DerivedAddress {
             derive_path: path,
-            address: child.address,
+            address: child.taproot_address,
         }
     }
 

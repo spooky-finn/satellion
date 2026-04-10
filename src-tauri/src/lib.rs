@@ -34,7 +34,6 @@ use crate::{
 pub fn run() {
     utils::tracing::init();
     db::initialize();
-
     let db = db::connect();
     let wallet_keeper = WalletKeeper::default();
     let config = Config::new();
@@ -68,6 +67,8 @@ pub fn run() {
                 window.open_devtools();
                 window.close_devtools();
             }
+
+            tracing::info!("app started");
             Ok(())
         })
         .invoke_handler(codegen::handlers().invoke_handler())

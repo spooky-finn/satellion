@@ -50,16 +50,44 @@ pub mod tracing {
             }
         }
 
-        let subscriber = FmtSubscriber::builder()
-            .with_timer(LocalTimeOnly)
-            .compact()
-            .with_env_filter(
-                EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
-            )
-            .finish();
+        let env_filter =
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
-        tracing::subscriber::set_global_default(subscriber)
-            .expect("setting default subscriber failed");
+        #[cfg(debug_assertions)]
+        {
+            let subscriber = FmtSubscriber::builder()
+                .with_timer(LocalTimeOnly)
+                .compact()
+                .with_env_filter(env_filter.clone())
+                .finish();
+
+            tracing::subscriber::set_global_default(subscriber)
+                .expect("setting default subscriber failed");
+        }
+
+        #[cfg(not(debug_assertions))]
+        {
+            use tracing_appender::rolling::{RollingFileAppender, Rotation};
+
+            use crate::config::Config;
+
+            let app = Config::config_dir().join("logs");
+            std::fs::create_dir_all(&app).expect("failed to create logs directory");
+            let file_appender = RollingFileAppender::new(Rotation::NEVER, app, "satellion.log");
+
+            let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+            // Leak the guard to keep the writer alive for the app lifetime
+            let _ = Box::leak(Box::new(guard));
+
+            let subscriber = FmtSubscriber::builder()
+                .compact()
+                .with_env_filter(env_filter)
+                .with_writer(non_blocking)
+                .finish();
+
+            tracing::subscriber::set_global_default(subscriber)
+                .expect("setting default subscriber failed");
+        }
     }
 
     pub fn init_test(level: &str) {

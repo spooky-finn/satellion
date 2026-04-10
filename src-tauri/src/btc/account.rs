@@ -8,7 +8,7 @@ use crate::{
     btc::{
         Prk,
         key_derivation::{
-            Change, ChildKeyDeriviationScheme, KeyDerivationPath, KeyDeriviationPathSlice,
+            Change, ChildKeyDeriviationScheme, KeyDerivationPath, KeyDeriviationPathSlice, Proposal,
         },
         utxo::{self, OutPointDto, Utxo},
     },
@@ -47,11 +47,23 @@ impl Account {
             addresses: vec![
                 ChildKeyDeriviationScheme {
                     label: "main".to_string(),
-                    path: KeyDerivationPath::new_bip86(network, account, Change::External, 0),
+                    path: KeyDerivationPath::new(
+                        Proposal::Bip86,
+                        network,
+                        account,
+                        Change::External,
+                        0,
+                    ),
                 },
                 ChildKeyDeriviationScheme {
                     label: "main_change".to_string(),
-                    path: KeyDerivationPath::new_bip86(network, account, Change::Internal, 0),
+                    path: KeyDerivationPath::new(
+                        Proposal::Bip86,
+                        network,
+                        account,
+                        Change::Internal,
+                        0,
+                    ),
                 },
             ],
             utxos: HashMap::new(),
@@ -59,14 +71,15 @@ impl Account {
     }
 
     pub fn info(&self, prk: &Prk, network: Network) -> Result<ActiveAccountDto, String> {
-        let main_key_path = KeyDerivationPath::new_bip86(network, self.index, Change::External, 0);
+        let main_key_path =
+            KeyDerivationPath::new(Proposal::Bip86, network, self.index, Change::External, 0);
         let mainkey = main_key_path
             .derive(prk.expose())
             .map_err(|e| e.to_string())?;
 
         Ok(ActiveAccountDto {
             index: self.index,
-            address: mainkey.address.to_string(),
+            address: mainkey.taproot_address.to_string(),
             total_balance: self.total_balance().to_string(),
         })
     }
@@ -125,7 +138,7 @@ impl Account {
                     .path
                     .derive(prk.expose())
                     .ok()
-                    .map(|child| (child.address, schema.path.clone()))
+                    .map(|child| (child.taproot_address, schema.path.clone()))
             })
             .collect()
     }

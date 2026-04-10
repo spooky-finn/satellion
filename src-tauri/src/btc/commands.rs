@@ -7,7 +7,7 @@ use specta::{Type, specta};
 use crate::{
     btc::{
         account::{ActiveAccountDto, UtxoSelectionMethod},
-        key_derivation::{Change, ChildKeyDeriviationScheme},
+        key_derivation::{Change, Proposal},
         tx_builder::{BuildPsbtParams, build_psbt},
         utxo::{self, Utxo},
     },
@@ -36,9 +36,11 @@ pub async fn derive_external_address(
     let wallet = sk.wallet()?;
     let prk = wallet.btc_prk()?;
 
-    let path = wallet.btc.new_deriviation_path(Change::External, index)?;
-    let derivation_scheme = ChildKeyDeriviationScheme { label, path };
-
+    let taproot_key_path =
+        wallet
+            .btc
+            .new_deriviation_path(Proposal::Bip86, Change::External, index)?;
+    let derivation_scheme = taproot_key_path.with_label(label.clone());
     let child = derivation_scheme
         .path
         .derive(prk.expose())
@@ -50,7 +52,7 @@ pub async fn derive_external_address(
         .add_address(derivation_scheme);
 
     wallet.persist()?;
-    Ok(child.address.to_string())
+    Ok(child.taproot_address.to_string())
 }
 
 #[specta]
@@ -90,7 +92,7 @@ pub async fn get_external_addresess(
             Ok(DerivedAddressDto {
                 path: scheme.path.to_string(),
                 label: scheme.label.clone(),
-                address: child.address.to_string(),
+                address: child.taproot_address.to_string(),
             })
         })
         .collect::<Result<Vec<_>, String>>()
