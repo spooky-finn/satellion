@@ -9,7 +9,7 @@ use objc2_foundation::{
 
 use crate::system::session_monitor::{SYS_SESSION_LOCKED_EVENT, SYS_SESSION_UNLOCKED_EVENT};
 
-pub fn init(app: AppHandle) {
+pub fn init_session_events(app: AppHandle) {
     unsafe {
         let center = NSDistributedNotificationCenter::defaultCenter();
 

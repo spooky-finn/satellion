@@ -20,13 +20,11 @@ pub mod wallet_keeper;
 pub use core::fmt;
 pub use std::{sync::Arc, time::Duration};
 
-use tauri::{Listener, Manager};
+use tauri::Manager;
 use tokio::sync::Mutex;
 
 use crate::{
-    config::Config,
-    event_emitter::{EventEmitter, EventEmitterTrait},
-    session::SessionKeeper,
+    config::Config, event_emitter::EventEmitter, session::SessionKeeper,
     wallet_keeper::WalletKeeper,
 };
 
@@ -57,9 +55,8 @@ pub fn run() {
             let sk = SessionKeeper::new(Some(event_emitter.clone()), Some(Duration::from_mins(1)));
             app.manage(sk.clone());
 
-            system::session_monitor::init(app.handle());
             let app_handle = app.handle();
-            setup_session_listeners(app_handle, sk, event_emitter.into());
+            system::session_monitor::init(app_handle, sk, event_emitter.into());
 
             #[cfg(debug_assertions)]
             if enable_devtools() {
@@ -80,45 +77,4 @@ fn enable_devtools() -> bool {
     std::env::var("DEVTOOLS")
         .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
         .unwrap_or(false)
-}
-
-fn setup_session_listeners(
-    app_handle: &tauri::AppHandle,
-    sk: Arc<Mutex<SessionKeeper>>,
-    event_emitter: Arc<EventEmitter>,
-) {
-    // Listener for session lock
-    {
-        let sk = sk.clone();
-        app_handle.listen(
-            system::session_monitor::SYS_SESSION_LOCKED_EVENT,
-            move |_| {
-                let sk = sk.clone();
-                tauri::async_runtime::spawn(async move {
-                    let mut sk = sk.lock().await;
-                    sk.soft_terminate();
-                });
-            },
-        );
-    }
-
-    // Listener for session unlock
-    {
-        let sk = sk.clone();
-        let em = event_emitter.clone();
-        app_handle.listen(
-            system::session_monitor::SYS_SESSION_UNLOCKED_EVENT,
-            move |_| {
-                let sk = sk.clone();
-                let emmiter = em.clone();
-                tauri::async_runtime::spawn(async move {
-                    let sk = sk.lock().await;
-                    // If no session exist just emit event to redirect UI
-                    if !sk.has_session() {
-                        emmiter.session_expired();
-                    }
-                });
-            },
-        );
-    }
 }
