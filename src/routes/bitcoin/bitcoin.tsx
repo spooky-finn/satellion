@@ -1,4 +1,4 @@
-import { Card, Stack } from '@mui/joy'
+import { Button, Card, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
@@ -11,7 +11,7 @@ import { ChildAddresses } from './list_childs'
 import { ListUtxo } from './list_utxo'
 import { display_sat, fmt_usd, sat2usd } from './utils/amount_formatters'
 
-const explorer_url = 'https://mempool.space/address/'
+// const explorer_url = 'https://mempool.space/address/'
 
 const Bitcoin = () => {
   const navigate = useNavigate()
@@ -39,18 +39,24 @@ const Bitcoin = () => {
           </Stack>
           <Row>
             <ChildAddresses />
-            <ListUtxo />
+
+            <Button
+              size="sm"
+              variant="soft"
+              sx={{ width: 'fit-content' }}
+              onClick={() => btc.utxo_list.open()}
+            >
+              Utxo
+            </Button>
+            <ListUtxo store={btc.utxo_list} />
+
             <LinkButton to={route.bitcoin_send} sx={{ width: 'min-content' }}>
               Send
             </LinkButton>
           </Row>
         </Card>
       )}
-      {btc.height && (
-        <>
-          <P level="body-xs">Blockchain head at {btc.height}</P>
-        </>
-      )}
+      {btc.height && <P level="body-xs">Blockchain head at {btc.height}</P>}
       {btc.warning && (
         <P level="body-xs" color="warning">
           {btc.warning}

@@ -1,7 +1,6 @@
-import { Button, Modal, ModalClose, ModalDialog, Stack, Table } from '@mui/joy'
+import { Chip, Modal, ModalClose, ModalDialog, Stack, Table } from '@mui/joy'
 import { makeAutoObservable } from 'mobx'
 import { observer } from 'mobx-react-lite'
-import { useEffect, useState } from 'react'
 import { commands, type UtxoDto } from '../../bindings/btc'
 import { CompactSrt } from '../../components/compact_str'
 import { notifier } from '../../lib/notifier'
@@ -10,16 +9,25 @@ import { Loader } from '../../stores/loader'
 import { root_store } from '../../stores/root'
 import { display_sat, sat2usd } from './utils/amount_formatters'
 
-class UtxoList {
+export class UtxoListVM {
   readonly loader = new Loader()
   constructor() {
     makeAutoObservable(this)
   }
 
-  isOpen = false
-  setIsOpen(o: boolean) {
-    this.isOpen = o
+  is_open = false
+  selection_mode: boolean = false
+
+  open(selection_mode?: boolean) {
+    this.is_open = true
+    this.selection_mode = selection_mode ?? false
+    this.fetch()
   }
+
+  close() {
+    this.is_open = false
+  }
+
   utxos: UtxoDto[] = []
 
   async fetch() {
@@ -36,29 +44,21 @@ class UtxoList {
   get total_value_sat() {
     return this.utxos.reduce((acc, utxo) => acc + BigInt(utxo.value), 0n)
   }
+
+  selected_utxo: number[] = []
+  select_utxo(index: number) {
+    this.selected_utxo.push(index)
+  }
+
+  reset() {
+    this.selected_utxo = []
+  }
 }
 
-export const ListUtxo = observer(() => {
-  const [store] = useState(() => new UtxoList())
-
-  useEffect(() => {
-    if (store.isOpen) {
-      store.fetch()
-    }
-  }, [store.isOpen])
-
+export const ListUtxo = observer(({ store }: { store: UtxoListVM }) => {
   return (
     <Row alignItems="center">
-      <Button
-        size="sm"
-        variant="soft"
-        sx={{ width: 'fit-content' }}
-        onClick={() => store.setIsOpen(true)}
-      >
-        Utxo
-      </Button>
-
-      <Modal open={store.isOpen} onClose={() => store.setIsOpen(false)}>
+      <Modal open={store.is_open} onClose={() => store.close()}>
         <ModalDialog
           variant="soft"
           sx={{ pr: 6, minWidth: 300 }}
@@ -99,11 +99,19 @@ export const ListUtxo = observer(() => {
                   </thead>
 
                   <tbody>
-                    {store.utxos.map(utxo => {
+                    {store.utxos.map((utxo, index) => {
                       const key = utxo.utxo_id.tx_id + utxo.utxo_id.vout
                       return (
-                        <tr key={key}>
+                        <tr
+                          key={key}
+                          onClick={() =>
+                            store.selection_mode && store.select_utxo(index)
+                          }
+                        >
                           <td>
+                            {store.selected_utxo.includes(index) && (
+                              <Chip color="primary" size="sm" />
+                            )}
                             <P fontFamily={'monospace'}>{utxo.deriv_path}</P>
                           </td>
                           <td>

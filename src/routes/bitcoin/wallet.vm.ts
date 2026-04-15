@@ -3,6 +3,8 @@ import type { BitcoinUnlockDto, BlockChain } from '../../bindings'
 import { commands } from '../../bindings/btc'
 import { AccountSelectorVM } from '../../components/account_selector'
 import { notifier } from '../../lib/notifier'
+import { UtxoListVM } from './list_utxo'
+import { BitcoinTransferVM } from './transfer.vm'
 
 export class BitcoinWalletVM {
   readonly chain: BlockChain = 'Bitcoin'
@@ -10,6 +12,8 @@ export class BitcoinWalletVM {
   readonly account_selector = new AccountSelectorVM(this.chain, async _ => {
     await this.load_account_info()
   })
+  readonly transfer = new BitcoinTransferVM()
+  readonly utxo_list = new UtxoListVM()
 
   constructor() {
     makeAutoObservable(this)
@@ -46,7 +50,7 @@ export class BitcoinWalletVM {
 
   async load_account_info() {
     const res = await commands.accountInfo()
-    if (res.status == 'error') {
+    if (res.status === 'error') {
       notifier.err(res.error)
       throw res.error
     }
