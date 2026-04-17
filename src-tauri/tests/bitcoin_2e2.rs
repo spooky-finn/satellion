@@ -12,6 +12,7 @@ use satellion_lib::{
         self,
         account::UtxoSelectionMethod,
         key_derivation::{Change, KeyDerivationPath, Proposal},
+        service,
         tx_builder::{BuildPsbtParams, build_psbt},
         utxo::OutPointDto,
     },
@@ -46,7 +47,7 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
     let wallet = sk.wallet()?;
     let account = wallet.btc.active_account()?;
     let prk = wallet.btc_prk()?;
-    let account_info = account.info(&prk, wallet.config.btc.network())?;
+    let account_info = service::get_account_info(account, &prk, wallet.config.btc.network())?;
     let key_derive_path = KeyDerivationPath::new(
         Proposal::Bip86,
         Network::Regtest,

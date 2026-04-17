@@ -1,9 +1,9 @@
-import { Chip, Modal, ModalClose, ModalDialog, Stack, Table } from '@mui/joy'
+import { Chip, Stack, Table } from '@mui/joy'
 import { makeAutoObservable } from 'mobx'
 import { observer } from 'mobx-react-lite'
 import { type UtxoDto } from '../../bindings/btc'
 import { CompactSrt } from '../../components/compact_str'
-import { P, Progress, Row } from '../../shortcuts'
+import { FullScreenModal, P, Progress, Row } from '../../shortcuts'
 import { Loader } from '../../stores/loader'
 import { root_store } from '../../stores/root'
 import { display_sat, sat2usd } from './utils/amount_formatters'
@@ -27,112 +27,109 @@ export class UtxoListVM {
   }
 
   utxo: UtxoDto[] = []
-  set_utxo(utxo: UtxoDto[]) {
-    this.utxo = utxo
-  }
 
   get total_value_sat() {
     return this.utxo.reduce((acc, utxo) => acc + BigInt(utxo.value), 0n)
   }
 
-  selected_utxo: number[] = []
+  _selected_utxo: number[] = []
   select_utxo(index: number) {
-    this.selected_utxo.push(index)
+    this._selected_utxo.push(index)
+  }
+
+  get selected_utxo(): UtxoDto[] {
+    return this._selected_utxo.map(i => this.utxo[i])
   }
 
   reset() {
-    this.selected_utxo = []
+    this._selected_utxo = []
   }
 }
 
-export const ListUtxo = observer(({ store }: { store: UtxoListVM }) => {
-  return (
-    <Row alignItems="center">
-      <Modal open={store.is_open} onClose={() => store.close()}>
-        <ModalDialog
-          variant="soft"
-          sx={{ pr: 6, minWidth: 300 }}
-          size="lg"
-          layout="fullscreen"
-        >
-          <ModalClose />
-          <P level="h3">Unspent transaction outputs</P>
+export const UtxoListModal = observer(({ store }: { store: UtxoListVM }) => (
+  <FullScreenModal open={store.is_open} onClose={() => store.close()}>
+    <UtxoList store={store} />
+  </FullScreenModal>
+))
 
-          {store.loader.loading && <Progress />}
+const UtxoList = observer(({ store }: { store: UtxoListVM }) => (
+  <>
+    <P level="h3">Unspent transaction outputs</P>
+    {store.loader.loading && <Progress />}
+    <Stack sx={{ overflow: 'auto', mt: 0 }}>
+      {store.utxo.length === 0 ? (
+        <P>No utxos yet.</P>
+      ) : (
+        <>
+          <P>
+            In total {store.utxo.length} utxo contains{' '}
+            {display_sat(store.total_value_sat)}
+          </P>
 
-          <Stack sx={{ overflow: 'auto', mt: 1 }}>
-            {store.utxo.length === 0 ? (
-              <P>No utxos yet.</P>
-            ) : (
-              <>
-                <P>Total {display_sat(store.total_value_sat)}</P>
+          <Table variant="plain" stickyHeader size="sm">
+            <thead>
+              <tr>
+                <th>
+                  <P>Derivation path</P>
+                </th>
+                <th>
+                  <P>Label</P>
+                </th>
+                <th>
+                  <P>Transaction ID</P>
+                </th>
+                <th>
+                  <P>Amount</P>
+                </th>
+                <th>
+                  <P>Value</P>
+                </th>
+              </tr>
+            </thead>
 
-                <Table variant="plain" stickyHeader>
-                  <thead>
-                    <tr>
-                      <th>
-                        <P>Derivation path</P>
-                      </th>
-                      <th>
-                        <P>Label</P>
-                      </th>
-                      <th>
-                        <P>Transaction ID</P>
-                      </th>
-                      <th>
-                        <P>Amount</P>
-                      </th>
-                      <th>
-                        <P>Value</P>
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {store.utxo.map((utxo, index) => {
-                      const key = utxo.utxo_id.tx_id + utxo.utxo_id.vout
-                      return (
-                        <tr
-                          key={key}
-                          onClick={() =>
-                            store.selection_mode && store.select_utxo(index)
-                          }
-                        >
-                          <td>
-                            {store.selected_utxo.includes(index) && (
-                              <Chip color="primary" size="sm" />
-                            )}
-                            <P fontFamily={'monospace'}>{utxo.deriv_path}</P>
-                          </td>
-                          <td>
-                            <P>{utxo.address_label}</P>
-                          </td>
-                          <td>
-                            <CompactSrt val={utxo.utxo_id.tx_id} />
-                          </td>
-                          <td>
-                            <P sx={{ fontFamily: 'monospace' }}>
-                              {display_sat(utxo.value)}
-                            </P>
-                          </td>
-                          <td>
-                            <P sx={{ fontFamily: 'monospace' }}>
-                              {sat2usd(
-                                utxo.value,
-                                root_store.wallet.btc.usd_price,
-                              )}
-                            </P>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </Table>
-              </>
-            )}
-          </Stack>
-        </ModalDialog>
-      </Modal>
-    </Row>
-  )
-})
+            <tbody>
+              {store.utxo.map((utxo, index) => {
+                const key = utxo.utxo_id.tx_id + utxo.utxo_id.vout
+                return (
+                  <tr
+                    key={key}
+                    onClick={() =>
+                      store.selection_mode && store.select_utxo(index)
+                    }
+                  >
+                    <td>
+                      <Row>
+                        {store._selected_utxo.includes(index) && (
+                          <Chip color="primary" size="sm" />
+                        )}
+                        <P fontFamily={'monospace'} level="body-xs">
+                          {utxo.deriv_path}
+                        </P>
+                      </Row>
+                    </td>
+                    <td>
+                      <P>{utxo.address_label}</P>
+                    </td>
+                    <td>
+                      <CompactSrt copy val={utxo.utxo_id.tx_id} />
+                    </td>
+                    <td>
+                      <P sx={{ fontFamily: 'monospace' }}>
+                        {display_sat(utxo.value)}
+                      </P>
+                    </td>
+                    <td>
+                      <P sx={{ fontFamily: 'monospace' }}>
+                        {sat2usd(utxo.value, root_store.wallet.btc.usd_price)}
+                      </P>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </Table>
+        </>
+      )}
+    </Stack>
+  </>
+))

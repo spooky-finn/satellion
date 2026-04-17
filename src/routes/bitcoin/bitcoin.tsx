@@ -6,10 +6,11 @@ import { AccountSelector } from '../../components/account_selector'
 import { Navbar } from '../../components/navbar'
 import { useKeyboardRefetch } from '../../components/use_keyboard_refetch'
 import { route } from '../../routes'
-import { LinkButton, P, Progress, Row } from '../../shortcuts'
+import { P, Progress, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
-import { ChildAddresses } from './list_childs'
-import { ListUtxo } from './list_utxo'
+import { ChildAddressesModal } from './list_childs'
+import { UtxoListModal } from './list_utxo'
+import { TransferModal } from './transfer'
 import { display_sat, fmt_usd, sat2usd } from './utils/amount_formatters'
 
 // const explorer_url = 'https://mempool.space/address/'
@@ -21,6 +22,7 @@ const Bitcoin = () => {
 
   useEffect(() => {
     if (!addr) navigate(route.unlock_wallet)
+    btc.load_account_info()
   }, [addr, navigate])
 
   useKeyboardRefetch(() => btc.load_account_info())
@@ -44,7 +46,15 @@ const Bitcoin = () => {
             <P fontWeight="bold">{addr}</P>
           </Stack>
           <Row>
-            <ChildAddresses />
+            <Button
+              size="sm"
+              variant="soft"
+              sx={{ width: 'fit-content' }}
+              onClick={() => btc.child_list.set_open(true)}
+            >
+              Child addresses
+            </Button>
+            <ChildAddressesModal />
 
             <Button
               size="sm"
@@ -54,11 +64,17 @@ const Bitcoin = () => {
             >
               Utxo
             </Button>
-            <ListUtxo store={btc.utxo_list} />
+            <UtxoListModal store={btc.utxo_list} />
 
-            <LinkButton to={route.bitcoin_send} sx={{ width: 'min-content' }}>
+            <Button
+              size="sm"
+              variant="soft"
+              sx={{ width: 'fit-content' }}
+              onClick={() => btc.transfer.set_open(true)}
+            >
               Send
-            </LinkButton>
+            </Button>
+            <TransferModal />
           </Row>
         </Card>
       )}

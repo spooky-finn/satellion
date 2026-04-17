@@ -1,26 +1,48 @@
 import { Button, Stack, ToggleButtonGroup } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
-import { Navbar } from '../../components/navbar'
+import { CompactSrt } from '../../components/compact_str'
 import { NumberInput } from '../../components/number_input'
-import { P, Row } from '../../shortcuts'
+import { FullScreenModal, P, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
 import { AddressInput } from '../components'
-import { ListUtxo } from './list_utxo'
+import { UtxoListModal } from './list_utxo'
 import { UtxoSelectionMethodName } from './transfer.vm'
 
-export const BitcoinTransfer = observer(() => {
+export const TransferModal = observer(() => {
+  const { transfer } = root_store.wallet.btc
+  return (
+    <FullScreenModal
+      open={transfer.is_open}
+      onClose={() => transfer.set_open(false)}
+    >
+      <TransferForm />
+    </FullScreenModal>
+  )
+})
+
+const TransferForm = observer(() => {
   const { btc } = root_store.wallet
   const state = btc.transfer
   return (
     <Stack gap={1}>
-      <Navbar />
-      <P level="h3" color="primary">
-        Send bitcoin
-      </P>
+      <P level="h3">Send bitcoin</P>
       <AddressInput state={state.address} />
       <Stack>
         <P level="body-sm">Utxo selection method</P>
         <UtxoSelectionMethod />
+        <Stack>
+          <P>Inputs</P>
+          <Stack>
+            {btc.utxo_list.selected_utxo.map(each => (
+              <Row key={each.utxo_id.tx_id}>
+                <Row flexWrap={'nowrap'}>
+                  <CompactSrt val={each.utxo_id.tx_id} /> {each.utxo_id.vout}
+                </Row>
+                <P>{each.value} sat</P>
+              </Row>
+            ))}
+          </Stack>
+        </Stack>
       </Stack>
       <Row alignItems={'center'}>
         <NumberInput
@@ -39,6 +61,7 @@ export const BitcoinTransfer = observer(() => {
 })
 
 const UtxoSelectionMethod = observer(() => {
+  const { btc } = root_store.wallet
   const state = root_store.wallet.btc.transfer
   return (
     <Row gap={1}>
@@ -53,12 +76,12 @@ const UtxoSelectionMethod = observer(() => {
       {state.show_utxo_select_button && (
         <>
           <Button
-            onClick={() => state.utxo_select_moda.open(true)}
+            onClick={() => btc.utxo_list.open(true)}
             sx={{ width: 'fit-content' }}
           >
             Select
           </Button>
-          <ListUtxo store={state.utxo_select_moda} />
+          <UtxoListModal store={btc.utxo_list} />
         </>
       )}
     </Row>

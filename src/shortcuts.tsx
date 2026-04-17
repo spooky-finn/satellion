@@ -4,10 +4,15 @@ import {
   type ButtonProps,
   LinearProgress,
   type LinearProgressProps,
+  Modal,
+  ModalClose,
+  ModalDialog,
+  type ModalProps,
   Stack,
   type StackProps,
   Typography,
 } from '@mui/joy'
+import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { route } from './routes'
 
@@ -36,3 +41,15 @@ export const NavigateUnlock = (props: ButtonProps) => {
     </Button>
   )
 }
+
+export const FullScreenModal = ({
+  children,
+  ...rest
+}: ModalProps & { children: ReactNode }) => (
+  <Modal {...rest}>
+    <ModalDialog sx={{ pr: 6, minWidth: 300 }} size="sm" layout="fullscreen">
+      <ModalClose />
+      {children}
+    </ModalDialog>
+  </Modal>
+)

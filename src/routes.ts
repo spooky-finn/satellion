@@ -9,5 +9,4 @@ export const route = {
   ethereum: '/wallet/ethereum',
   ethereum_send: '/wallet/ethereum/send',
   bitcoin: '/wallet/bitcoin',
-  bitcoin_send: '/wallet/bitcoin/send',
 } as const

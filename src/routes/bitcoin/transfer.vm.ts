@@ -1,7 +1,6 @@
 import { makeAutoObservable } from 'mobx'
 import { commands as shared_commands } from '../../bindings/index'
 import { AddressInputVM } from '../components'
-import { UtxoListVM } from './list_utxo'
 
 export enum UtxoSelectionMethodName {
   Auto = 'auto',
@@ -13,10 +12,14 @@ export class BitcoinTransferVM {
     makeAutoObservable(this)
   }
 
+  is_open = false
+  set_open(o: boolean) {
+    this.is_open = o
+  }
+
   readonly address = new AddressInputVM(addr =>
     shared_commands.validateAddress('Bitcoin', addr),
   )
-  readonly utxo_select_moda = new UtxoListVM()
 
   utxo_selection_method?: UtxoSelectionMethodName | null
   set_utxo_selection_method(v: UtxoSelectionMethodName | null) {

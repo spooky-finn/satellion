@@ -7,7 +7,6 @@ import { NotifierOverlay } from './lib/notifier/notification_overlay'
 import { theme } from './lib/notifier/theme'
 import { route } from './routes'
 import Bitcoin from './routes/bitcoin/bitcoin'
-import { BitcoinTransfer } from './routes/bitcoin/transfer'
 import { CreateWallet } from './routes/create_wallet'
 import { Ethereum } from './routes/ethereum/ethereum'
 import { EthereumTransfer } from './routes/ethereum/transfer'
@@ -32,7 +31,6 @@ const App = () => {
       <Route path={route.ethereum} element={<Ethereum />} />
       <Route path={route.ethereum_send} element={<EthereumTransfer />} />
       <Route path={route.bitcoin} element={<Bitcoin />} />
-      <Route path={route.bitcoin_send} element={<BitcoinTransfer />} />
     </Routes>
   )
 }

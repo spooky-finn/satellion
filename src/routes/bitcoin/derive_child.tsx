@@ -72,7 +72,7 @@ export const DeriveChildAddress = observer((props: { refetch: () => void }) => {
           state.getAvaiableIndex()
         }}
       >
-        Derive child
+        Derive
       </Button>
       <Modal open={state.isOpen} onClose={() => state.setIsOpen(false)}>
         <ModalDialog sx={{ pr: 6 }}>
@@ -104,7 +104,7 @@ export const DeriveChildAddress = observer((props: { refetch: () => void }) => {
             Derive
           </Button>
           <Divider />
-          {state.address && <CompactSrt val={state.address} />}
+          {state.address && <CompactSrt copy val={state.address} />}
         </ModalDialog>
       </Modal>
     </Row>
