@@ -19,5 +19,5 @@ pub fn init(
 ) {
     #[cfg(target_os = "macos")]
     macos::init_session_events(app.clone());
-    triggers::init_session_triggers(app, sk, event_emitter.into());
+    triggers::init_session_triggers(app, sk, event_emitter);
 }

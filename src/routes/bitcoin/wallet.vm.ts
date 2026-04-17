@@ -1,14 +1,15 @@
-import { makeAutoObservable } from 'mobx'
+import { makeAutoObservable, runInAction } from 'mobx'
 import type { BitcoinUnlockDto, BlockChain } from '../../bindings'
 import { commands } from '../../bindings/btc'
 import { AccountSelectorVM } from '../../components/account_selector'
 import { notifier } from '../../lib/notifier'
+import { Loader } from '../../stores/loader'
 import { UtxoListVM } from './list_utxo'
 import { BitcoinTransferVM } from './transfer.vm'
 
 export class BitcoinWalletVM {
   readonly chain: BlockChain = 'Bitcoin'
-
+  readonly loader = new Loader()
   readonly account_selector = new AccountSelectorVM(this.chain, async _ => {
     await this.load_account_info()
   })
@@ -22,6 +23,7 @@ export class BitcoinWalletVM {
   init(unlock: BitcoinUnlockDto) {
     this.account_selector.init(unlock.accounts, unlock.active_account.index)
     this.init_with_account_info(unlock.active_account)
+    this.utxo_list.set_utxo(unlock.active_account.utxo)
   }
 
   init_with_account_info(info: BitcoinUnlockDto['active_account']) {
@@ -49,12 +51,30 @@ export class BitcoinWalletVM {
   }
 
   async load_account_info() {
+    this.loader.start()
     const res = await commands.accountInfo()
+    const utxo = await this.fetch_utxo()
+
+    this.loader.stop()
     if (res.status === 'error') {
       notifier.err(res.error)
       throw res.error
     }
 
-    this.init_with_account_info(res.data)
+    runInAction(() => {
+      this.init_with_account_info(res.data)
+      this.utxo_list.set_utxo(utxo)
+    })
+  }
+
+  async fetch_utxo() {
+    this.loader.start()
+    const syncRes = await commands.syncUtxos()
+    if (syncRes.status === 'error') {
+      notifier.err(syncRes.error)
+      throw new Error(syncRes.error)
+    }
+    this.loader.stop()
+    return syncRes.data
   }
 }

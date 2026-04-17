@@ -1,15 +1,13 @@
-use serde::Serialize;
-
 use bip39::Language;
 use bitcoin::bip32::{self, Xpriv};
 
 use crate::{
     btc::{
-        account::{Account, ActiveAccountDto},
+        account::Account,
         key_derivation::{Change, KeyDerivationPath, Proposal},
         providers::electrum_adapter::ElectrumAdapter,
     },
-    chain_trait::{AccountIndex, ChainTrait, SecureKey},
+    chain_trait::{AccountIndex, SecureKey},
     config::Config,
 };
 
@@ -43,10 +41,10 @@ impl BitcoinWallet {
         let active_account = 0;
         let account = Account::new(config.btc.network(), active_account, "main".to_string());
         BitcoinWallet {
-            config,
+            config: config.clone(),
             active_account,
             accounts: vec![account],
-            server: ElectrumAdapter::new(),
+            server: ElectrumAdapter::new(config.btc),
         }
     }
 
@@ -117,48 +115,6 @@ impl BitcoinWallet {
             .find(|each| each.index == active_index)
             .ok_or("account not found".to_string())
     }
-
-    fn list_all_accounts(&self) -> Vec<AccountIdDto> {
-        self.accounts
-            .iter()
-            .map(|e| AccountIdDto {
-                index: e.index,
-                name: e.name.clone(),
-            })
-            .collect()
-    }
-}
-
-#[derive(Serialize, specta::Type)]
-pub struct AccountIdDto {
-    pub index: AccountIndex,
-    pub name: String,
-}
-
-#[derive(Serialize, specta::Type)]
-pub struct BitcoinUnlockDto {
-    pub accounts: Vec<AccountIdDto>,
-    pub active_account: ActiveAccountDto,
-}
-
-pub struct UnlockCtx {}
-
-impl ChainTrait for BitcoinWallet {
-    type Prk = Prk;
-    type AccountState = BitcoinUnlockDto;
-    type UnlockContext = ();
-
-    fn unlock(
-        &mut self,
-        _: Self::UnlockContext,
-        prk: &Self::Prk,
-    ) -> Result<Self::AccountState, String> {
-        let account = self.active_account()?;
-        Ok(BitcoinUnlockDto {
-            accounts: self.list_all_accounts(),
-            active_account: account.info(prk, self.config.btc.network())?,
-        })
-    }
 }
 
 pub mod persistence {
@@ -198,7 +154,7 @@ pub mod persistence {
                     .map(|each| each.deserialize().unwrap())
                     .collect(),
                 active_account: self.active_account,
-                server: ElectrumAdapter::new(),
+                server: ElectrumAdapter::new(config.btc.clone()),
                 config,
             })
         }

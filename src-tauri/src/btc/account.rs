@@ -1,14 +1,15 @@
 use std::collections::{HashMap, HashSet};
 
 use bitcoin::{Address, Network, address::NetworkChecked};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use specta::Type;
 
 use crate::{
     btc::{
         Prk,
         key_derivation::{
-            Change, ChildKeyDeriviationScheme, KeyDerivationPath, KeyDeriviationPathSlice, Proposal,
+            Change, Child, ChildKeyDeriviationScheme, KeyDerivationPath, KeyDeriviationPathSlice,
+            Proposal,
         },
         utxo::{self, OutPointDto, Utxo},
     },
@@ -29,14 +30,6 @@ pub struct Account {
 pub enum UtxoSelectionMethod {
     Manual(Vec<OutPointDto>),
     Automatic(u32),
-}
-
-#[derive(Serialize, specta::Type)]
-pub struct ActiveAccountDto {
-    pub index: u32,
-    /** main external address to accept payments */
-    pub address: String,
-    pub total_balance: String,
 }
 
 impl Account {
@@ -70,18 +63,17 @@ impl Account {
         }
     }
 
-    pub fn info(&self, prk: &Prk, network: Network) -> Result<ActiveAccountDto, String> {
-        let main_key_path =
+    pub fn main_key(
+        &self,
+        prk: &Prk,
+        network: Network,
+    ) -> Result<(Child, KeyDerivationPath), String> {
+        let main_key_derive_path =
             KeyDerivationPath::new(Proposal::Bip86, network, self.index, Change::External, 0);
-        let mainkey = main_key_path
+        let child = main_key_derive_path
             .derive(prk.expose())
             .map_err(|e| e.to_string())?;
-
-        Ok(ActiveAccountDto {
-            index: self.index,
-            address: mainkey.taproot_address.to_string(),
-            total_balance: self.total_balance().to_string(),
-        })
+        Ok((child, main_key_derive_path))
     }
 
     pub fn is_deriviation_path_available(&self, path: KeyDerivationPath) -> bool {
@@ -130,8 +122,12 @@ impl Account {
             .collect()
     }
 
-    pub fn derive_address_path_map(&self, prk: &Prk) -> AddressPathMap {
-        self.addresses
+    pub fn derive_address_path_map(&self, prk: &Prk, network: Network) -> AddressPathMap {
+        let main_addr = self
+            .main_key(prk, network)
+            .expect("failed to derive main key");
+        let mut map: AddressPathMap = self
+            .addresses
             .iter()
             .filter_map(|schema| {
                 schema
@@ -140,7 +136,9 @@ impl Account {
                     .ok()
                     .map(|child| (child.taproot_address, schema.path.clone()))
             })
-            .collect()
+            .collect();
+        map.insert(main_addr.0.taproot_address, main_addr.1);
+        map
     }
 
     pub fn choose_utxo(&self, method: UtxoSelectionMethod) -> Vec<&Utxo> {

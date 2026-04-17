@@ -128,7 +128,7 @@ pub async fn switch_account(
 #[derive(Type, Serialize)]
 pub struct UnlockDto {
     ethereum: eth::wallet::EthereumUnlockDto,
-    bitcoin: btc::wallet::BitcoinUnlockDto,
+    bitcoin: btc::service::BitcoinUnlockDto,
     last_used_chain: BlockChain,
 }
 
@@ -176,7 +176,7 @@ pub async fn unlock_wallet(
 
     let (ethereum, bitcoin) = (
         wallet.eth.unlock((), &eth_prk)?,
-        wallet.btc.unlock((), &btc_prk)?,
+        btc::service::unlock(&wallet.btc, &btc_prk)?,
     );
 
     let session = Session::new(wallet).with_inactivity_timeout(config.session_inactivity_timeout());

@@ -41,6 +41,7 @@ impl Config {
             tracing::error!("fail to deserialize config {}", e);
             Self::default()
         });
+        tracing::debug!("config {:?}", json_config);
         Ok(json_config)
     }
 

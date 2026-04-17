@@ -1,14 +1,15 @@
-use std::str::FromStr;
+use std::{str::FromStr, time::Duration};
 
 use bitcoin::{TxOut, Txid};
-use rustywallet_electrum::{Balance, ElectrumClient, ElectrumError};
+use rustywallet_electrum::{Balance, ClientConfig, ElectrumClient, ElectrumError};
 use tokio::sync::OnceCell;
 
-use crate::btc::{account::AddressPathMap, utxo::Utxo};
+use crate::btc::{account::AddressPathMap, config::BitcoinConfig, utxo::Utxo};
 
 #[derive(Default)]
 pub struct ElectrumAdapter {
     connection: OnceCell<ElectrumClient>,
+    config: BitcoinConfig,
 }
 
 /// DNS seeds for discovering Electrum servers.
@@ -24,18 +25,39 @@ const DNS_SEEDS: &[&str] = &[
 ];
 
 impl ElectrumAdapter {
-    pub fn new() -> Self {
-        ElectrumAdapter::default()
+    pub fn new(config: BitcoinConfig) -> Self {
+        ElectrumAdapter {
+            connection: OnceCell::default(),
+            config,
+        }
+    }
+
+    async fn create_client(&self) -> Result<ElectrumClient, ElectrumError> {
+        match self.config.regtest {
+            true => {
+                ElectrumClient::with_config(ClientConfig {
+                    server: "127.0.0.1".to_string(),
+                    port: 50002,
+                    use_tls: false,
+                    timeout: Duration::from_secs(5),
+                    retry_count: 2,
+                    retry_delay: Duration::from_secs(1),
+                    skip_tls_verify: true,
+                })
+                .await
+            }
+            false => ElectrumClient::new(DNS_SEEDS[0]).await,
+        }
     }
 
     /// Ensure the connection is initialized before use
     async fn get_conn(&self) -> Result<&ElectrumClient, ElectrumError> {
         self.connection
             .get_or_try_init(|| async {
-                // Pick the first seed for now; you might want a retry loop here
-                ElectrumClient::new(DNS_SEEDS[0])
-                    .await
-                    .map_err(|_| ElectrumError::Disconnected)
+                self.create_client().await.map_err(|e| {
+                    tracing::error!("conn err {}", e);
+                    ElectrumError::Disconnected
+                })
             })
             .await
     }
@@ -74,7 +96,7 @@ impl ElectrumAdapter {
                 address_str
                     .parse::<bitcoin::Address<_>>()
                     .ok()
-                    .and_then(|address| address.require_network(bitcoin::Network::Bitcoin).ok())
+                    .and_then(|address| address.require_network(self.config.network()).ok())
                     .and_then(|address| {
                         address_path_map.get(&address).map(|derivation| Utxo {
                             tx_id: Txid::from_str(&utxo.txid).expect("invalid txid"),
@@ -119,9 +141,16 @@ mod test {
         }
     }
 
+    fn get_config() -> BitcoinConfig {
+        let mut c = BitcoinConfig::default();
+        c.regtest = true;
+        c
+    }
+
     #[tokio::test]
     async fn get_balances() {
-        let client = ElectrumAdapter::new();
+        let config = get_config();
+        let client = ElectrumAdapter::new(config);
         let address = derive_address_from_test_mnemonic(0, Change::External);
 
         let balances = client
@@ -133,7 +162,8 @@ mod test {
 
     #[tokio::test]
     async fn get_utxos() {
-        let client = ElectrumAdapter::new();
+        let config = get_config();
+        let client = ElectrumAdapter::new(config);
         let addr0 = derive_address_from_test_mnemonic(0, Change::External);
         let addr1 = derive_address_from_test_mnemonic(1, Change::External);
         let addresses = HashMap::from([

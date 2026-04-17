@@ -6,10 +6,12 @@ use specta::{Type, specta};
 
 use crate::{
     btc::{
-        account::{ActiveAccountDto, UtxoSelectionMethod},
+        account::UtxoSelectionMethod,
         key_derivation::{Change, Proposal},
+        service,
+        service::UtxoDto,
         tx_builder::{BuildPsbtParams, build_psbt},
-        utxo::{self, Utxo},
+        utxo::{self},
     },
     chain_trait::SecureKey,
     session::SK,
@@ -17,12 +19,12 @@ use crate::{
 
 #[specta]
 #[tauri::command]
-pub async fn account_info(sk: tauri::State<'_, SK>) -> Result<ActiveAccountDto, String> {
+pub async fn account_info(sk: tauri::State<'_, SK>) -> Result<service::ActiveAccountDto, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let prk = wallet.btc_prk()?;
     let account = wallet.btc.active_account()?;
-    account.info(&prk, wallet.config.btc.network())
+    service::get_account_info(account, &prk, wallet.config.btc.network())
 }
 
 #[specta]
@@ -123,40 +125,21 @@ pub async fn get_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String>
     Ok(utxos.into_iter().take(UTXO_DISPLAY_LIMIT).collect())
 }
 
-#[derive(Type, Serialize)]
-pub struct UtxoDto {
-    pub utxo_id: utxo::OutPointDto,
-    pub value: String,
-    pub deriv_path: String,
-    pub address_label: Option<String>,
-}
-
-impl Utxo {
-    fn to_dto(
-        &self,
-        address_label_map: &crate::btc::account::KeyDerivationPathLabelMap,
-    ) -> UtxoDto {
-        UtxoDto {
-            value: self.output.value.to_sat().to_string(),
-            utxo_id: self.outpoint(),
-            deriv_path: self.derivation.to_string(),
-            address_label: self.label(address_label_map),
-        }
-    }
-}
-
 #[specta]
 #[tauri::command]
 pub async fn sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let prk = wallet.btc_prk()?;
-    let address_path_map = wallet.btc.active_account()?.derive_address_path_map(&prk);
+    let address_path_map = wallet
+        .btc
+        .active_account()?
+        .derive_address_path_map(&prk, wallet.config.btc.network());
 
     let received_utxos = wallet
         .btc
         .server
-        .get_utxos(address_path_map)
+        .get_utxos(address_path_map.clone())
         .await
         .map_err(|e| e.to_string())?;
 

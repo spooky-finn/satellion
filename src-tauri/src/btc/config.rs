@@ -1,13 +1,10 @@
-use std::{net::SocketAddrV4, str::FromStr};
-
 use bitcoin::Network;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct BitcoinConfig {
     pub regtest: bool,
-    regtest_peer_socket: String,
 }
 
 impl BitcoinConfig {
@@ -16,20 +13,6 @@ impl BitcoinConfig {
             Network::Regtest
         } else {
             Network::Bitcoin
-        }
-    }
-
-    pub fn regtest_peer_socket(&self) -> SocketAddrV4 {
-        SocketAddrV4::from_str(&self.regtest_peer_socket)
-            .expect("invalid config value regtest_peer_socket")
-    }
-}
-
-impl Default for BitcoinConfig {
-    fn default() -> Self {
-        Self {
-            regtest: false,
-            regtest_peer_socket: "127.0.0.1:18444".to_string(),
         }
     }
 }

@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!!**/dist", "!!**/bindings.ts"]
+    "includes": ["**", "!!**/dist", "!!**/bindings/*"]
   },
   "formatter": {
     "enabled": true,

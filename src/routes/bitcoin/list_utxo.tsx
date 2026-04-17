@@ -1,9 +1,8 @@
 import { Chip, Modal, ModalClose, ModalDialog, Stack, Table } from '@mui/joy'
 import { makeAutoObservable } from 'mobx'
 import { observer } from 'mobx-react-lite'
-import { commands, type UtxoDto } from '../../bindings/btc'
+import { type UtxoDto } from '../../bindings/btc'
 import { CompactSrt } from '../../components/compact_str'
-import { notifier } from '../../lib/notifier'
 import { P, Progress, Row } from '../../shortcuts'
 import { Loader } from '../../stores/loader'
 import { root_store } from '../../stores/root'
@@ -21,28 +20,19 @@ export class UtxoListVM {
   open(selection_mode?: boolean) {
     this.is_open = true
     this.selection_mode = selection_mode ?? false
-    this.fetch()
   }
 
   close() {
     this.is_open = false
   }
 
-  utxos: UtxoDto[] = []
-
-  async fetch() {
-    this.loader.start()
-    const syncRes = await commands.syncUtxos()
-    if (syncRes.status === 'error') {
-      notifier.err(syncRes.error)
-      throw new Error(syncRes.error)
-    }
-    this.utxos = syncRes.data
-    this.loader.stop()
+  utxo: UtxoDto[] = []
+  set_utxo(utxo: UtxoDto[]) {
+    this.utxo = utxo
   }
 
   get total_value_sat() {
-    return this.utxos.reduce((acc, utxo) => acc + BigInt(utxo.value), 0n)
+    return this.utxo.reduce((acc, utxo) => acc + BigInt(utxo.value), 0n)
   }
 
   selected_utxo: number[] = []
@@ -71,7 +61,7 @@ export const ListUtxo = observer(({ store }: { store: UtxoListVM }) => {
           {store.loader.loading && <Progress />}
 
           <Stack sx={{ overflow: 'auto', mt: 1 }}>
-            {store.utxos.length === 0 ? (
+            {store.utxo.length === 0 ? (
               <P>No utxos yet.</P>
             ) : (
               <>
@@ -99,7 +89,7 @@ export const ListUtxo = observer(({ store }: { store: UtxoListVM }) => {
                   </thead>
 
                   <tbody>
-                    {store.utxos.map((utxo, index) => {
+                    {store.utxo.map((utxo, index) => {
                       const key = utxo.utxo_id.tx_id + utxo.utxo_id.vout
                       return (
                         <tr

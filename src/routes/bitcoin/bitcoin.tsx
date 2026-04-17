@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { AccountSelector } from '../../components/account_selector'
 import { Navbar } from '../../components/navbar'
+import { useKeyboardRefetch } from '../../components/use_keyboard_refetch'
 import { route } from '../../routes'
 import { LinkButton, P, Progress, Row } from '../../shortcuts'
 import { root_store } from '../../stores/root'
@@ -22,6 +23,11 @@ const Bitcoin = () => {
     if (!addr) navigate(route.unlock_wallet)
   }, [addr, navigate])
 
+  useKeyboardRefetch(() => btc.load_account_info())
+
+  const loading =
+    btc.loader.loading || btc.account_selector.account_loader.loading
+
   return (
     <Stack gap={1}>
       <Navbar />
@@ -31,7 +37,7 @@ const Bitcoin = () => {
         </P>
         <AccountSelector vm={btc.account_selector} />
       </Row>
-      {btc.account_selector.account_loader.loading && <Progress size="sm" />}
+      {loading && <Progress size="sm" />}
       {addr && (
         <Card size="sm" variant="soft">
           <Stack>
