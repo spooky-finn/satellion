@@ -7,12 +7,12 @@ use alloy::{
 };
 use alloy_provider::DynProvider;
 
-use crate::eth::token::Token;
+use crate::chain::eth::token::Token;
 
 sol!(
     #[sol(rpc)]
     Erc20Contract,
-    "src/eth/abi/erc20.json"
+    "src/chain/eth/abi/erc20.json"
 );
 
 pub fn new_contract_api(

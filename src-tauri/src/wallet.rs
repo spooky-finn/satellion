@@ -1,7 +1,7 @@
 use shush_rs::{ExposeSecret, SecretBox};
 
 use crate::{
-    btc,
+    chain::btc,
     config::{Config, constants::BlockChain},
     eth, mnemonic,
     wallet_keeper::WalletKeeper,

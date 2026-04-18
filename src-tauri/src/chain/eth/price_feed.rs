@@ -7,7 +7,7 @@ use alloy_provider::DynProvider;
 sol!(
     #[sol(rpc)]
     ChainlinkPriceFeed,
-    "src/eth/abi/chainlink.json"
+    "src/chain/eth/abi/chainlink.json"
 );
 
 #[derive(Clone)]

@@ -2,7 +2,7 @@ use std::{fs, str::FromStr, thread, time::Duration};
 
 use corepc_client::{bitcoin::Address, client_sync::Error};
 use corepc_node::{Client, Conf, Node, client::bitcoin::Amount};
-use satellion_lib::btc::{self, key_derivation::KeyDerivationPath, utxo};
+use satellion_lib::chain::btc::{self, key_derivation::KeyDerivationPath, utxo};
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]

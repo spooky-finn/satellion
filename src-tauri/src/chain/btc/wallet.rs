@@ -2,7 +2,7 @@ use bip39::Language;
 use bitcoin::bip32::{self, Xpriv};
 
 use crate::{
-    btc::{
+    chain::btc::{
         account::Account,
         key_derivation::{Change, KeyDerivationPath, Proposal},
         providers::electrum_adapter::ElectrumAdapter,
@@ -121,7 +121,9 @@ pub mod persistence {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        btc::{BitcoinWallet, account::persistence, providers::electrum_adapter::ElectrumAdapter},
+        chain::btc::{
+            BitcoinWallet, account::persistence, providers::electrum_adapter::ElectrumAdapter,
+        },
         chain_trait::AccountIndex,
         config::Config,
     };

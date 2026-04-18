@@ -4,7 +4,7 @@ use std::str::FromStr;
 use zeroize::Zeroize;
 
 use crate::{
-    btc::{self},
+    chain::btc,
     chain_trait::{AccountIndex, ChainTrait},
     config::{BlockChain, Config, constants},
     eth::{

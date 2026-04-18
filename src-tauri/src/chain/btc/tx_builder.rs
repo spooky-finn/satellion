@@ -9,7 +9,7 @@ use bitcoin::{
 };
 
 use crate::{
-    btc::{
+    chain::btc::{
         Prk,
         account::{Account, UtxoSelectionMethod},
         config::BitcoinConfig,

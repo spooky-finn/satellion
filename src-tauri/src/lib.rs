@@ -1,11 +1,10 @@
-pub mod btc;
+pub mod chain;
 pub mod chain_trait;
 pub mod codegen;
 pub mod commands;
 pub mod config;
 pub mod db;
 pub mod encryptor;
-pub mod eth;
 pub mod event_emitter;
 pub mod mnemonic;
 pub mod persistence;
@@ -24,7 +23,7 @@ use tauri::Manager;
 use tokio::sync::Mutex;
 
 use crate::{
-    config::Config, event_emitter::EventEmitter, session::SessionKeeper,
+    chain::btc, chain::eth, config::Config, event_emitter::EventEmitter, session::SessionKeeper,
     wallet_keeper::WalletKeeper,
 };
 

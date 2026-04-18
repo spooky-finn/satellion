@@ -5,7 +5,7 @@ use serde::Deserialize;
 use specta::Type;
 
 use crate::{
-    btc::{
+    chain::btc::{
         Prk,
         key_derivation::{
             Change, Child, ChildKeyDeriviationScheme, KeyDerivationPath, KeyDeriviationPathSlice,
@@ -170,7 +170,7 @@ pub mod persistence {
     use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
 
-    use crate::btc::{
+    use crate::chain::btc::{
         account::{Account, AccountIndex},
         key_derivation::{ChildKeyDeriviationScheme, KeyDerivationPath, KeyDeriviationPathSlice},
         utxo::{OutPointDto, Utxo, persistence::UtxoData},

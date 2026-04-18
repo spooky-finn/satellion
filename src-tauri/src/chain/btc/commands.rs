@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use specta::{Type, specta};
 
 use crate::{
-    btc::{
+    chain::btc::{
         account::UtxoSelectionMethod,
         key_derivation::{Change, Proposal},
         service,

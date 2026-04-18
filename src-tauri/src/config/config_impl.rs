@@ -2,7 +2,7 @@ use std::{fs, path::PathBuf, time::Duration};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{btc::config::BitcoinConfig, eth::config::EthereumConfig};
+use crate::chain::{btc::config::BitcoinConfig, eth::config::EthereumConfig};
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]

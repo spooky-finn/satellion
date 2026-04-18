@@ -4,7 +4,7 @@ use bitcoin::{TxOut, Txid};
 use rustywallet_electrum::{Balance, ClientConfig, ElectrumClient, ElectrumError};
 use tokio::sync::OnceCell;
 
-use crate::btc::{account::AddressPathMap, config::BitcoinConfig, utxo::Utxo};
+use crate::chain::btc::{account::AddressPathMap, config::BitcoinConfig, utxo::Utxo};
 
 #[derive(Default)]
 pub struct ElectrumAdapter {
@@ -120,7 +120,7 @@ mod test {
     use std::collections::HashMap;
 
     use crate::{
-        btc::key_derivation::{Change, DerivedAddress, KeyDerivationPath, Proposal},
+        chain::btc::key_derivation::{Change, DerivedAddress, KeyDerivationPath, Proposal},
         mnemonic::TEST_MNEMONIC,
     };
 

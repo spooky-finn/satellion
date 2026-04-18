@@ -3,7 +3,7 @@ use serde::Serialize;
 use specta::Type;
 
 use crate::{
-    btc::{
+    chain::btc::{
         BitcoinWallet, Prk,
         account::Account,
         utxo::{OutPointDto, Utxo},
@@ -22,7 +22,7 @@ pub struct UtxoDto {
 impl Utxo {
     pub fn to_dto(
         &self,
-        address_label_map: &crate::btc::account::KeyDerivationPathLabelMap,
+        address_label_map: &crate::chain::btc::account::KeyDerivationPathLabelMap,
     ) -> UtxoDto {
         UtxoDto {
             value: self.output.value.to_sat().to_string(),

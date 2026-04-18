@@ -2,7 +2,7 @@ use bitcoin::{BlockHash, TxOut, Txid};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use crate::btc::{
+use crate::chain::btc::{
     account::KeyDerivationPathLabelMap,
     key_derivation::{Change, KeyDerivationPath},
 };
@@ -54,7 +54,7 @@ impl std::fmt::Display for OutPointDto {
 }
 
 pub mod persistence {
-    use crate::btc::{
+    use crate::chain::btc::{
         key_derivation::{KeyDerivationPath, KeyDeriviationPathSlice},
         utxo::Utxo,
     };

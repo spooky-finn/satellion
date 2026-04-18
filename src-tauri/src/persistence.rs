@@ -203,11 +203,11 @@ mod tests {
             birth_date: None,
             version: 0,
             last_used_chain: 1,
-            bitcoin_data: crate::btc::persistence::WalletData {
+            bitcoin_data: crate::chain::btc::persistence::WalletData {
                 active_account: 0,
                 accounts: vec![]
             },
-            ethereum_data: crate::eth::persistence::WalletData {
+            ethereum_data: crate::chain::eth::persistence::WalletData {
                 tracked_tokens: vec![crate::eth::persistence::Token {
                     address: USDT.address.to_string(),
                     decimals: 4,

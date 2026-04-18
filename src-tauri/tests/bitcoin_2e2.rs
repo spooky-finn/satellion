@@ -8,7 +8,7 @@ use shush_rs::SecretBox;
 
 use crate::bitcoind::BitcoindHarness;
 use satellion_lib::{
-    btc::{
+    chain::btc::{
         self,
         account::UtxoSelectionMethod,
         key_derivation::{Change, KeyDerivationPath, Proposal},

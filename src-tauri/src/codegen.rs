@@ -1,10 +1,15 @@
 use specta_typescript::Typescript;
 
-use crate::{btc, commands, config, eth, event_emitter};
+use crate::{
+    chain::{btc, eth},
+    commands, config, event_emitter,
+};
 
 pub fn handlers() -> tauri_specta::Builder {
     #[cfg(debug_assertions)]
     {
+        use crate::chain::{btc, eth};
+
         let lang = Typescript::default().formatter(specta_typescript::formatter::biome);
         tauri_specta::Builder::<tauri::Wry>::new()
             .commands(tauri_specta::collect_commands![
