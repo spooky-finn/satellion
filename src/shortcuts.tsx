@@ -7,7 +7,6 @@ import {
   Modal,
   ModalClose,
   ModalDialog,
-  type ModalProps,
   Stack,
   type StackProps,
   Typography,
@@ -44,9 +43,14 @@ export const NavigateUnlock = (props: ButtonProps) => {
 
 export const FullScreenModal = ({
   children,
-  ...rest
-}: ModalProps & { children: ReactNode }) => (
-  <Modal {...rest}>
+  open,
+  onClose,
+}: {
+  children: ReactNode
+  open: boolean
+  onClose: () => void
+}) => (
+  <Modal open={open} onClose={onClose}>
     <ModalDialog sx={{ pr: 6, minWidth: 300 }} size="sm" layout="fullscreen">
       <ModalClose />
       {children}

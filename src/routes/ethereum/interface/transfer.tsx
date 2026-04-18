@@ -9,17 +9,24 @@ import {
 import { observer } from 'mobx-react-lite'
 import type { FeeMode } from '../../../bindings/eth'
 import { AddressInput } from '../../../components/address_input'
-import { Navbar } from '../../../components/navbar'
 import { handle_err } from '../../../lib/handle_err'
-import { P, Row } from '../../../shortcuts'
+import { FullScreenModal, P, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
 import { OpenExplorerButton } from '../utils/shared'
 
-export const EthereumTransfer = observer(() => {
+export const TransferModal = observer(() => {
+  const state = root_store.wallet.eth.transfer
+  return (
+    <FullScreenModal open={state.is_open} onClose={() => state.set_open(false)}>
+      <Transfer />
+    </FullScreenModal>
+  )
+})
+
+const Transfer = observer(() => {
   const state = root_store.wallet.eth.transfer
   return (
     <Stack gap={1}>
-      <Navbar />
       <P level="h3" color="primary">
         Transact on Ethereum
       </P>

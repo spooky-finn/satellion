@@ -68,7 +68,6 @@ const BitcoinWallet = () => {
 
             <Button
               size="sm"
-              variant="soft"
               sx={{ width: 'fit-content' }}
               onClick={() => btc.transfer.set_open(true)}
             >

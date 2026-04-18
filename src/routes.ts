@@ -7,6 +7,5 @@ export const route = {
   create_wallet: '/create_wallet',
   // chain specific routes
   ethereum: '/wallet/ethereum',
-  ethereum_send: '/wallet/ethereum/send',
   bitcoin: '/wallet/bitcoin',
 } as const

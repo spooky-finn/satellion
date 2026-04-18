@@ -14,6 +14,11 @@ export class TransferVM {
     makeAutoObservable(this)
   }
 
+  is_open: boolean = false
+  set_open(v: boolean) {
+    this.is_open = v
+  }
+
   readonly address = new AddressInputVM(addr =>
     shared_commands.validateAddress('Ethereum', addr),
   )

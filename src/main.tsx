@@ -9,7 +9,6 @@ import { route } from './routes'
 import BitcoinWallet from './routes/bitcoin/interface/main'
 import { CreateWallet } from './routes/create_wallet'
 import { EthereumWallet } from './routes/ethereum/interface/main'
-import { EthereumTransfer } from './routes/ethereum/interface/transfer'
 import UnlockWallet from './routes/unlock_wallet'
 
 const App = () => {
@@ -29,7 +28,6 @@ const App = () => {
       <Route path={route.unlock_wallet} element={<UnlockWallet />} />
       <Route path={route.create_wallet} element={<CreateWallet />} />
       <Route path={route.ethereum} element={<EthereumWallet />} />
-      <Route path={route.ethereum_send} element={<EthereumTransfer />} />
       <Route path={route.bitcoin} element={<BitcoinWallet />} />
     </Routes>
   )

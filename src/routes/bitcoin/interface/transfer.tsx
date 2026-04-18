@@ -5,6 +5,7 @@ import { CompactSrt } from '../../../components/compact_str'
 import { NumberInput } from '../../../components/number_input'
 import { FullScreenModal, P, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
+import { sat2usd } from '../utils/amount_formatters'
 import { UtxoSelectionMethodName } from '../view_model/transfer.vm'
 import { UtxoListModal } from './list_utxo'
 
@@ -69,7 +70,13 @@ const SelectedInputsSummary = observer(() => {
         ))}
         <Divider />
         <P>Total</P>
-        <P>{utxo_list.selected_utxo_total_value} sat ~ </P>
+        <P>
+          {utxo_list.selected_utxo_total_value} sat ~
+          {sat2usd(
+            utxo_list.selected_utxo_total_value.toString(),
+            root_store.wallet.btc.usd_price,
+          )}{' '}
+        </P>
       </Stack>
     </Stack>
   )
