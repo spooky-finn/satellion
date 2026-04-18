@@ -50,7 +50,6 @@ const BlockchainLink = (props: {
 }) => (
   <Link to={props.to}>
     <Button
-      size="sm"
       color="neutral"
       variant="soft"
       startDecorator={

@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { AccountSelector } from '../../../components/account_selector'
+import { CompactSrt } from '../../../components/compact_str'
 import { Navbar } from '../../../components/navbar'
 import { useKeyboardRefetch } from '../../../components/use_keyboard_refetch'
 import { route } from '../../../routes'
@@ -42,37 +43,24 @@ const BitcoinWallet = () => {
       {loading && <Progress size="sm" />}
       {addr && (
         <Card size="sm" variant="soft">
-          <Stack>
-            <P fontWeight="bold">{addr}</P>
-          </Stack>
+          <P fontWeight="bold">
+            <CompactSrt copy val={addr} />
+          </P>
           <Row>
             <Button
-              size="sm"
               variant="soft"
-              sx={{ width: 'fit-content' }}
               onClick={() => btc.child_list.set_open(true)}
             >
               Child addresses
             </Button>
             <ChildAddressesModal />
 
-            <Button
-              size="sm"
-              variant="soft"
-              sx={{ width: 'fit-content' }}
-              onClick={() => btc.utxo_list.open()}
-            >
+            <Button variant="soft" onClick={() => btc.utxo_list.open()}>
               Utxo
             </Button>
             <UtxoListModal store={btc.utxo_list} />
 
-            <Button
-              size="sm"
-              sx={{ width: 'fit-content' }}
-              onClick={() => btc.transfer.set_open(true)}
-            >
-              Send
-            </Button>
+            <Button onClick={() => btc.transfer.set_open(true)}>Send</Button>
             <TransferModal />
           </Row>
         </Card>

@@ -69,8 +69,6 @@ const UnlockWallet = () => {
         ))}
         <Divider orientation="vertical" />
         <Button
-          size="sm"
-          sx={{ width: 'min-content' }}
           variant="plain"
           color="neutral"
           onClick={() => {

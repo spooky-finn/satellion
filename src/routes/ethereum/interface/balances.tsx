@@ -163,7 +163,6 @@ const SpecifyTokenToTrack = observer(() => {
     <>
       <Button
         variant="plain"
-        size="sm"
         onClick={() => {
           setOpen(true)
           setData(null)

@@ -8,6 +8,9 @@ export const theme = extendTheme({
     JoyButton: {
       defaultProps: {
         size: 'sm',
+        sx: {
+          width: 'fit-content',
+        },
       },
     },
     JoyInput: {

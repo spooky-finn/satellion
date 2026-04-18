@@ -97,12 +97,7 @@ const UtxoSelectionMethod = observer(() => {
       </ToggleButtonGroup>
       {state.show_utxo_select_button && (
         <>
-          <Button
-            onClick={() => btc.utxo_list.open(true)}
-            sx={{ width: 'fit-content' }}
-          >
-            Select
-          </Button>
+          <Button onClick={() => btc.utxo_list.open(true)}>Select</Button>
           <UtxoListModal store={btc.utxo_list} />
         </>
       )}

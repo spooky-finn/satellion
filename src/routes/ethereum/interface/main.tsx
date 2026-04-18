@@ -36,7 +36,6 @@ export const EthereumWallet = observer(() => {
                   onClick={() => {
                     eth.transfer.set_open(true)
                   }}
-                  sx={{ width: 'min-content' }}
                 >
                   Send
                 </Button>

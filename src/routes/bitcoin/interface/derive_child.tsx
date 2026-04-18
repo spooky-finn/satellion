@@ -18,9 +18,6 @@ export const DeriveChildAddress = observer((props: { refetch: () => void }) => {
   return (
     <Row alignItems={'center'}>
       <Button
-        size="sm"
-        variant="soft"
-        sx={{ width: 'fit-content' }}
         onClick={() => {
           state.setIsOpen(true)
           state.getAvaiableIndex()
@@ -50,9 +47,7 @@ export const DeriveChildAddress = observer((props: { refetch: () => void }) => {
           />
           <Button
             loading={state.loader.loading}
-            sx={{ width: 'fit-content' }}
             disabled={!state.label || !state.index}
-            size="sm"
             onClick={() => state.derive().then(props.refetch)}
           >
             Derive

@@ -26,7 +26,6 @@ export const VerifyMnemonic = observer(({ flow }: { flow: FlowState }) => (
           <Button
             variant="soft"
             color="primary"
-            sx={{ width: 'min-content' }}
             onClick={() => {
               const status = store.verify()
               if (status) {

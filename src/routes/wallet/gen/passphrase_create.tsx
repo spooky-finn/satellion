@@ -49,7 +49,6 @@ export const CreatePassphrase = observer(() => {
             </P>
           )}
           <Button
-            sx={{ width: 'min-content' }}
             disabled={!passphrase_store.is_passphrase_matched}
             onClick={() => {
               if (passphrase_store.is_mismatch) {

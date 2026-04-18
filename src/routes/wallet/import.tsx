@@ -41,11 +41,7 @@ export const ImportMnemonic = observer(() => {
           value={passphrase}
           onChange={e => setPassphrase(e.target.value)}
         />
-        <Button
-          sx={{ width: 'min-content' }}
-          onClick={handleImport}
-          disabled={!st.is_input_completed}
-        >
+        <Button onClick={handleImport} disabled={!st.is_input_completed}>
           Import
         </Button>
       </Stack>

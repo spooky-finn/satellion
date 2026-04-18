@@ -38,8 +38,6 @@ const Transfer = observer(() => {
       <Button
         loading={state.is_estimating}
         disabled={state.disabled}
-        sx={{ width: 'min-content' }}
-        size="sm"
         onClick={() => state.estimate().catch(handle_err)}
       >
         Estimate
@@ -129,12 +127,7 @@ const SendTransaction = observer(() => {
     return null
   }
   return (
-    <Button
-      loading={state.sending}
-      onClick={() => state.execute()}
-      sx={{ width: 'max-content' }}
-      size="sm"
-    >
+    <Button loading={state.sending} onClick={() => state.execute()}>
       Send
     </Button>
   )
