@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router'
 import { PassphraseInput } from '../components/passphrase_input'
 import { route } from '../routes'
 import { P, Progress } from '../shortcuts'
-import { root_store } from '../stores/root'
+import { root_store } from '../view_model/root'
 
 const UnlockWallet = () => {
   const { unlock, wallet } = root_store

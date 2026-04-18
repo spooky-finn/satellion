@@ -1,50 +1,10 @@
 import { Chip, Stack, Table } from '@mui/joy'
-import { makeAutoObservable } from 'mobx'
 import { observer } from 'mobx-react-lite'
-import { type UtxoDto } from '../../bindings/btc'
-import { CompactSrt } from '../../components/compact_str'
-import { FullScreenModal, P, Progress, Row } from '../../shortcuts'
-import { Loader } from '../../stores/loader'
-import { root_store } from '../../stores/root'
-import { display_sat, sat2usd } from './utils/amount_formatters'
-
-export class UtxoListVM {
-  readonly loader = new Loader()
-  constructor() {
-    makeAutoObservable(this)
-  }
-
-  is_open = false
-  selection_mode: boolean = false
-
-  open(selection_mode?: boolean) {
-    this.is_open = true
-    this.selection_mode = selection_mode ?? false
-  }
-
-  close() {
-    this.is_open = false
-  }
-
-  utxo: UtxoDto[] = []
-
-  get total_value_sat() {
-    return this.utxo.reduce((acc, utxo) => acc + BigInt(utxo.value), 0n)
-  }
-
-  _selected_utxo: number[] = []
-  select_utxo(index: number) {
-    this._selected_utxo.push(index)
-  }
-
-  get selected_utxo(): UtxoDto[] {
-    return this._selected_utxo.map(i => this.utxo[i])
-  }
-
-  reset() {
-    this._selected_utxo = []
-  }
-}
+import { CompactSrt } from '../../../components/compact_str'
+import { FullScreenModal, P, Progress, Row } from '../../../shortcuts'
+import { root_store } from '../../../view_model/root'
+import { display_sat, sat2usd } from '../utils/amount_formatters'
+import type { UtxoListVM } from '../view_model/utxo_list.vm'
 
 export const UtxoListModal = observer(({ store }: { store: UtxoListVM }) => (
   <FullScreenModal open={store.is_open} onClose={() => store.close()}>
@@ -92,6 +52,9 @@ const UtxoList = observer(({ store }: { store: UtxoListVM }) => (
                 const key = utxo.utxo_id.tx_id + utxo.utxo_id.vout
                 return (
                   <tr
+                    style={{
+                      cursor: store.selection_mode ? 'pointer' : 'auto',
+                    }}
                     key={key}
                     onClick={() =>
                       store.selection_mode && store.select_utxo(index)
@@ -100,7 +63,7 @@ const UtxoList = observer(({ store }: { store: UtxoListVM }) => (
                     <td>
                       <Row>
                         {store._selected_utxo.includes(index) && (
-                          <Chip color="primary" size="sm" />
+                          <Chip color="danger" size="sm" variant="solid" />
                         )}
                         <P fontFamily={'monospace'} level="body-xs">
                           {utxo.deriv_path}

@@ -6,58 +6,12 @@ import {
   ModalClose,
   ModalDialog,
 } from '@mui/joy'
-import { makeAutoObservable, runInAction } from 'mobx'
 import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
-import { commands } from '../../bindings/btc'
-import { CompactSrt } from '../../components/compact_str'
-import { NumberInput } from '../../components/number_input'
-import { unwrap_result } from '../../lib/handle_err'
-import { P, Row } from '../../shortcuts'
-import { Loader } from '../../stores/loader'
-
-class DeriveChildVM {
-  readonly loader = new Loader()
-  constructor() {
-    makeAutoObservable(this)
-  }
-  isOpen = false
-  setIsOpen(o: boolean) {
-    this.isOpen = o
-  }
-  label?: string
-  setLabel(l: string) {
-    this.label = l
-  }
-  index: number | null = null
-  setIndex(i: number | null) {
-    this.index = i
-  }
-  address: string | null = null
-
-  async getAvaiableIndex() {
-    const index = await commands
-      .unoccupiedDeriviationIndex()
-      .then(unwrap_result)
-    runInAction(() => {
-      this.index = index
-    })
-  }
-
-  async derive() {
-    if (!this.label) throw Error('label is not set')
-    if (!this.index) throw Error('index is not set')
-
-    this.address = null
-    this.loader.start()
-    const address = await commands
-      .deriveExternalAddress(this.label, this.index)
-      .then(unwrap_result)
-      .finally(() => this.loader.stop())
-
-    this.address = address
-  }
-}
+import { CompactSrt } from '../../../components/compact_str'
+import { NumberInput } from '../../../components/number_input'
+import { P, Row } from '../../../shortcuts'
+import { DeriveChildVM } from '../view_model/derive_child.vm'
 
 export const DeriveChildAddress = observer((props: { refetch: () => void }) => {
   const [state] = useState(() => new DeriveChildVM())

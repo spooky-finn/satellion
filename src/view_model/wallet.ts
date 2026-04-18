@@ -1,8 +1,8 @@
 import { makeAutoObservable } from 'mobx'
 import { commands, type UnlockDto } from '../bindings'
 import { notifier } from '../lib/notifier'
-import { BitcoinWalletVM } from '../routes/bitcoin/wallet.vm'
-import { EthereumWalletVM } from '../routes/ethereum/wallet.vm'
+import { BitcoinWalletVM } from '../routes/bitcoin/view_model/wallet.vm'
+import { EthereumWalletVM } from '../routes/ethereum/view_model/wallet.vm'
 
 export class Wallet {
   readonly eth = new EthereumWalletVM()

@@ -1,13 +1,13 @@
 import { makeAutoObservable } from 'mobx'
-import { commands as shared_commands } from '../../bindings/index'
-import { AddressInputVM } from '../components'
+import { commands as shared_commands } from '../../../bindings/index'
+import { AddressInputVM } from '../../../components/address_input'
 
 export enum UtxoSelectionMethodName {
   Auto = 'auto',
   Manual = 'manual',
 }
 
-export class BitcoinTransferVM {
+export class TransferVM {
   constructor() {
     makeAutoObservable(this)
   }

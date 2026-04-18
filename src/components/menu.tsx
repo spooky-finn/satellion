@@ -2,7 +2,7 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import { Dropdown, Menu, MenuButton, MenuItem } from '@mui/joy'
 import { useNavigate } from 'react-router'
 import { route } from '../routes'
-import { root_store } from '../stores/root'
+import { root_store } from '../view_model/root'
 
 export const AppMenu = () => {
   const navigate = useNavigate()

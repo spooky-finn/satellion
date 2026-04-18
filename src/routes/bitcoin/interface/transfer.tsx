@@ -1,12 +1,12 @@
-import { Button, Stack, ToggleButtonGroup } from '@mui/joy'
+import { Button, Divider, Stack, ToggleButtonGroup } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
-import { CompactSrt } from '../../components/compact_str'
-import { NumberInput } from '../../components/number_input'
-import { FullScreenModal, P, Row } from '../../shortcuts'
-import { root_store } from '../../stores/root'
-import { AddressInput } from '../components'
+import { AddressInput } from '../../../components/address_input'
+import { CompactSrt } from '../../../components/compact_str'
+import { NumberInput } from '../../../components/number_input'
+import { FullScreenModal, P, Row } from '../../../shortcuts'
+import { root_store } from '../../../view_model/root'
+import { UtxoSelectionMethodName } from '../view_model/transfer.vm'
 import { UtxoListModal } from './list_utxo'
-import { UtxoSelectionMethodName } from './transfer.vm'
 
 export const TransferModal = observer(() => {
   const { transfer } = root_store.wallet.btc
@@ -30,19 +30,7 @@ const TransferForm = observer(() => {
       <Stack>
         <P level="body-sm">Utxo selection method</P>
         <UtxoSelectionMethod />
-        <Stack>
-          <P>Inputs</P>
-          <Stack>
-            {btc.utxo_list.selected_utxo.map(each => (
-              <Row key={each.utxo_id.tx_id}>
-                <Row flexWrap={'nowrap'}>
-                  <CompactSrt val={each.utxo_id.tx_id} /> {each.utxo_id.vout}
-                </Row>
-                <P>{each.value} sat</P>
-              </Row>
-            ))}
-          </Stack>
-        </Stack>
+        <SelectedInputsSummary />
       </Stack>
       <Row alignItems={'center'}>
         <NumberInput
@@ -56,6 +44,33 @@ const TransferForm = observer(() => {
         />
         <P>{state.estimated_transfer_value(btc.usd_price)}</P>
       </Row>
+    </Stack>
+  )
+})
+
+const SelectedInputsSummary = observer(() => {
+  const { utxo_list } = root_store.wallet.btc
+
+  if (!utxo_list.selected_utxo.length) return
+  return (
+    <Stack>
+      <P>Inputs</P>
+      <Stack>
+        {utxo_list.selected_utxo.map(each => (
+          <Row key={each.utxo_id.tx_id}>
+            <Row flexWrap={'nowrap'}>
+              <CompactSrt
+                level="body-xs"
+                val={`${each.utxo_id.tx_id}_${each.utxo_id.vout}`}
+              />
+            </Row>
+            <P>{each.value} sat</P>
+          </Row>
+        ))}
+        <Divider />
+        <P>Total</P>
+        <P>{utxo_list.selected_utxo_total_value} sat ~ </P>
+      </Stack>
     </Stack>
   )
 })

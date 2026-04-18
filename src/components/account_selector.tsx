@@ -6,7 +6,7 @@ import { type BlockChain, commands } from '../bindings'
 import { unwrap_result } from '../lib/handle_err'
 import { notifier } from '../lib/notifier'
 import { P, Row } from '../shortcuts'
-import { Loader } from '../stores/loader'
+import { Loader } from '../view_model/loader'
 
 export interface Account {
   index: number

@@ -1,15 +1,17 @@
 import { makeAutoObservable } from 'mobx'
-import { type EthereumUnlockDto } from '../../bindings'
+import type { EthereumUnlockDto } from '../../../bindings'
 import {
   commands,
   type NetworkStatus,
   type WalletBalance,
-} from '../../bindings/eth'
-import { notifier } from '../../lib/notifier'
-import { Loader } from '../../stores/loader'
+} from '../../../bindings/eth'
+import { notifier } from '../../../lib/notifier'
+import { Loader } from '../../../view_model/loader'
+import { TransferVM } from './transfer.vm'
 
 export class EthereumWalletVM {
   readonly balance = new Loader<WalletBalance>()
+  readonly transfer = new TransferVM()
 
   constructor() {
     makeAutoObservable(this)

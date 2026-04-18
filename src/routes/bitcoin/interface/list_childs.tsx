@@ -1,35 +1,9 @@
 import { Stack, Table } from '@mui/joy'
-import { makeAutoObservable, runInAction } from 'mobx'
 import { observer } from 'mobx-react-lite'
-import { commands, type DerivedAddressDto } from '../../bindings/btc'
-import { CompactSrt } from '../../components/compact_str'
-import { unwrap_result } from '../../lib/handle_err'
-import { FullScreenModal, P, Progress, Row } from '../../shortcuts'
-import { Loader } from '../../stores/loader'
-import { root_store } from '../../stores/root'
+import { CompactSrt } from '../../../components/compact_str'
+import { FullScreenModal, P, Progress, Row } from '../../../shortcuts'
+import { root_store } from '../../../view_model/root'
 import { DeriveChildAddress } from './derive_child'
-
-export class ChildAddressListVM {
-  readonly loader = new Loader()
-
-  constructor() {
-    makeAutoObservable(this)
-  }
-
-  is_open = false
-  set_open(o: boolean) {
-    this.is_open = o
-  }
-
-  addresses: DerivedAddressDto[] = []
-
-  async fetch() {
-    const addresses = await commands.getExternalAddresess().then(unwrap_result)
-    runInAction(() => {
-      this.addresses = addresses
-    })
-  }
-}
 
 export const ChildAddressesModal = observer(() => {
   const store = root_store.wallet.btc.child_list

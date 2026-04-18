@@ -2,20 +2,20 @@ import { Button, Card, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
-import { AccountSelector } from '../../components/account_selector'
-import { Navbar } from '../../components/navbar'
-import { useKeyboardRefetch } from '../../components/use_keyboard_refetch'
-import { route } from '../../routes'
-import { P, Progress, Row } from '../../shortcuts'
-import { root_store } from '../../stores/root'
+import { AccountSelector } from '../../../components/account_selector'
+import { Navbar } from '../../../components/navbar'
+import { useKeyboardRefetch } from '../../../components/use_keyboard_refetch'
+import { route } from '../../../routes'
+import { P, Progress, Row } from '../../../shortcuts'
+import { root_store } from '../../../view_model/root'
+import { display_sat, fmt_usd, sat2usd } from '../utils/amount_formatters'
 import { ChildAddressesModal } from './list_childs'
 import { UtxoListModal } from './list_utxo'
 import { TransferModal } from './transfer'
-import { display_sat, fmt_usd, sat2usd } from './utils/amount_formatters'
 
 // const explorer_url = 'https://mempool.space/address/'
 
-const Bitcoin = () => {
+const BitcoinWallet = () => {
   const navigate = useNavigate()
   const { btc } = root_store.wallet
   const addr = btc.address
@@ -23,7 +23,7 @@ const Bitcoin = () => {
   useEffect(() => {
     if (!addr) navigate(route.unlock_wallet)
     btc.load_account_info()
-  }, [addr, navigate])
+  }, [addr, navigate, btc.load_account_info])
 
   useKeyboardRefetch(() => btc.load_account_info())
 
@@ -93,4 +93,4 @@ const Bitcoin = () => {
   )
 }
 
-export default observer(Bitcoin)
+export default observer(BitcoinWallet)

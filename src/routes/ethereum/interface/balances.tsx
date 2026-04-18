@@ -18,10 +18,10 @@ import {
   commands,
   type TokenBalance,
   type TrackedTokenInfo,
-} from '../../bindings/eth'
-import { notifier } from '../../lib/notifier'
-import { P, Progress, Row } from '../../shortcuts'
-import { root_store } from '../../stores/root'
+} from '../../../bindings/eth'
+import { notifier } from '../../../lib/notifier'
+import { P, Progress, Row } from '../../../shortcuts'
+import { root_store } from '../../../view_model/root'
 
 export const BalanceCard = observer(() => (
   <Card variant="soft" size="sm">

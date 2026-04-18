@@ -1,13 +1,13 @@
 import { makeAutoObservable, runInAction } from 'mobx'
-import type { BitcoinUnlockDto, BlockChain } from '../../bindings'
-import { commands } from '../../bindings/btc'
-import { AccountSelectorVM } from '../../components/account_selector'
-import { unwrap_result } from '../../lib/handle_err'
-import { notifier } from '../../lib/notifier'
-import { Loader } from '../../stores/loader'
-import { ChildAddressListVM } from './list_childs'
-import { UtxoListVM } from './list_utxo'
-import { BitcoinTransferVM } from './transfer.vm'
+import type { BitcoinUnlockDto, BlockChain } from '../../../bindings'
+import { commands } from '../../../bindings/btc'
+import { AccountSelectorVM } from '../../../components/account_selector'
+import { unwrap_result } from '../../../lib/handle_err'
+import { notifier } from '../../../lib/notifier'
+import { Loader } from '../../../view_model/loader'
+import { ChildAddressListVM } from './child_address_list.vm'
+import { TransferVM } from './transfer.vm'
+import { UtxoListVM } from './utxo_list.vm'
 
 export class BitcoinWalletVM {
   readonly chain: BlockChain = 'Bitcoin'
@@ -15,7 +15,7 @@ export class BitcoinWalletVM {
   readonly account_selector = new AccountSelectorVM(this.chain, async _ => {
     await this.load_account_info()
   })
-  readonly transfer = new BitcoinTransferVM()
+  readonly transfer = new TransferVM()
   readonly utxo_list = new UtxoListVM()
   readonly child_list = new ChildAddressListVM()
 
@@ -42,15 +42,7 @@ export class BitcoinWalletVM {
   }
 
   height?: number
-  setHeight(h: number) {
-    this.height = h
-    this.warning = undefined
-  }
-
   total_balance_sat: string = '0'
-  set_total_balance_sat(s: string) {
-    this.total_balance_sat = s
-  }
 
   async load_account_info() {
     this.loader.start()

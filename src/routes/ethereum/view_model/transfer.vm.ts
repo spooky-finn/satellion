@@ -3,13 +3,13 @@ import {
   commands,
   type FeeMode,
   type TransferEstimation,
-} from '../../bindings/eth'
-import { commands as shared_commands } from '../../bindings/index'
-import { unwrap_result } from '../../lib/handle_err'
-import { notifier } from '../../lib/notifier'
-import { AddressInputVM } from '../components'
+} from '../../../bindings/eth'
+import { commands as shared_commands } from '../../../bindings/index'
+import { AddressInputVM } from '../../../components/address_input'
+import { unwrap_result } from '../../../lib/handle_err'
+import { notifier } from '../../../lib/notifier'
 
-export class EthereumTransferVM {
+export class TransferVM {
   constructor() {
     makeAutoObservable(this)
   }
