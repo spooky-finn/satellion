@@ -6,7 +6,10 @@ import { NumberInput } from '../../../components/number_input'
 import { FullScreenModal, P, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
 import { sat2usd } from '../utils/amount_formatters'
-import { UtxoSelectionMethodName } from '../view_model/transfer.vm'
+import {
+  TransferState,
+  UtxoSelectionMethodName,
+} from '../view_model/transfer.vm'
 import { UtxoListModal } from './list_utxo'
 
 export const TransferModal = observer(() => {
@@ -23,11 +26,11 @@ export const TransferModal = observer(() => {
 
 const TransferForm = observer(() => {
   const { btc } = root_store.wallet
-  const state = btc.transfer
+  const { transfer } = btc
   return (
     <Stack gap={1}>
       <P level="h3">Send bitcoin</P>
-      <AddressInput state={state.address} />
+      <AddressInput state={transfer.address} />
       <Stack>
         <P level="body-sm">Utxo selection method</P>
         <UtxoSelectionMethod />
@@ -36,15 +39,23 @@ const TransferForm = observer(() => {
       <Row alignItems={'center'}>
         <NumberInput
           placeholder="Transfer amount"
-          value={state.transfer_amount}
+          value={transfer.transfer_amount}
           onChange={v => {
-            state.set_transfer_amount(v)
+            transfer.set_transfer_amount(v)
           }}
           width={300}
           endDecorator={<P>SAT</P>}
         />
-        <P>{state.estimated_transfer_value(btc.usd_price)}</P>
+        <P>{transfer.estimated_transfer_value(btc.usd_price)}</P>
       </Row>
+      {transfer.state === TransferState.Estimate && (
+        <Button onClick={() => transfer.estimate(btc.utxo_list.selected_utxo)}>
+          Estimate
+        </Button>
+      )}
+      {transfer.state === TransferState.Sending && (
+        <Button onClick={() => transfer.execute()}>Send</Button>
+      )}
     </Stack>
   )
 })

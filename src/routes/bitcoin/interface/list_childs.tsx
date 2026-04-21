@@ -48,7 +48,9 @@ const ChildAddresses = observer(() => {
                     <P>{addr.label}</P>
                   </td>
                   <td>
-                    <P fontFamily="monospace">{addr.path}</P>
+                    <P fontFamily="monospace" level="body-xs">
+                      {addr.path}
+                    </P>
                   </td>
                   <td>
                     <CompactSrt val={addr.address} copy />

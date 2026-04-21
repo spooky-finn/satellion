@@ -46,8 +46,8 @@ bitcoin-cli -regtest -rpcport=18443 generatetoaddress 10 $BTC_ADDRESS
 
 ## 6. Start electrum
 ```bash
-./target/release/electrs \
+./electrs/target/release/electrs \
   --network regtest \
   --daemon-dir "$HOME/Library/Application Support/Bitcoin" \
-  --electrum-rpc-addr="127.0.0.1:50001"
+  --electrum-rpc-addr="127.0.0.1:50002"
 ```

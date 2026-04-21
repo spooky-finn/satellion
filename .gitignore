@@ -27,3 +27,4 @@ dist-ssr
 .react-router/
 target/rust-analyzer/flycheck0/*
 .qwen/settings.json
+db/

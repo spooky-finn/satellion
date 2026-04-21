@@ -11,7 +11,6 @@ use crate::{
         service,
         service::UtxoDto,
         tx_builder::{BuildPsbtParams, build_psbt},
-        utxo::{self},
     },
     chain_trait::SecureKey,
     session::SK,
@@ -166,9 +165,6 @@ pub async fn sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String
 
 #[derive(Type, Deserialize)]
 pub struct BuildTx {
-    #[serde(default)]
-    pub utxo_auto_selection: bool,
-    pub selected_utxos: Option<Vec<utxo::OutPointDto>>,
     pub value: String,
     pub recipient: String,
     pub utxo_selection_method: UtxoSelectionMethod,

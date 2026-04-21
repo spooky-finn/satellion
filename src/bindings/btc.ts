@@ -87,7 +87,7 @@ export type ActiveAccountDto = { index: number;
  */
 address: string; total_balance: string; utxo: UtxoDto[] }
 export type BtcSendTx = Record<string, never>
-export type BuildTx = { utxo_auto_selection?: boolean; selected_utxos: OutPointDto[] | null; value: string; recipient: string; utxo_selection_method: UtxoSelectionMethod }
+export type BuildTx = { value: string; recipient: string; utxo_selection_method: UtxoSelectionMethod }
 export type BuildTxResult = Record<string, never>
 export type DerivedAddressDto = { label: string; path: string; address: string }
 export type OutPointDto = { tx_id: string; vout: string }
