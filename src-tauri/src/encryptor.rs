@@ -55,9 +55,10 @@ pub struct Envelope {
     pub ciphertext: Vec<u8>,
     pub wrapped_key: Vec<u8>,
     pub kdf_salt: Vec<u8>,
+    pub version: u16,
 }
 
-pub fn encrypt(plaintext: &[u8], passphrase: &[u8]) -> Result<Envelope, String> {
+pub fn encrypt(plaintext: &[u8], passphrase: &[u8], version: u16) -> Result<Envelope, String> {
     let mut dek = rand::random::<[u8; KEY_SIZE]>();
     let dek_nonce = rand::random::<[u8; NONCE_SIZE]>();
     let kek_nonce = rand::random::<[u8; NONCE_SIZE]>();
@@ -81,6 +82,7 @@ pub fn encrypt(plaintext: &[u8], passphrase: &[u8]) -> Result<Envelope, String> 
         ciphertext,
         wrapped_key,
         kdf_salt: kdf_salt.to_vec(),
+        version,
     })
 }
 
@@ -163,7 +165,7 @@ mod tests {
     fn test_encrypt_decrypt_bytes() {
         let plaintext = b"secret data";
         let passphrase = b"my_secure_passphrase";
-        let encrypted = encrypt(plaintext, passphrase).unwrap();
+        let encrypted = encrypt(plaintext, passphrase, 1).unwrap();
         let decrypted = decrypt(&encrypted, passphrase).unwrap();
         assert_eq!(decrypted, plaintext);
     }
@@ -171,7 +173,7 @@ mod tests {
     fn test_wrong_passphrase() {
         let plaintext = b"secret data";
         let passphrase = b"correct_passphrase";
-        let encrypted = encrypt(plaintext, passphrase).unwrap();
+        let encrypted = encrypt(plaintext, passphrase, 1).unwrap();
         let result = decrypt(&encrypted, b"wrong_passphrase");
         assert!(result.is_err());
     }
@@ -179,7 +181,7 @@ mod tests {
     fn test_tampered_ciphertext() {
         let plaintext = b"secret data";
         let passphrase = b"passphrase";
-        let mut encrypted = encrypt(plaintext, passphrase).unwrap();
+        let mut encrypted = encrypt(plaintext, passphrase, 1).unwrap();
         encrypted.ciphertext[20] ^= 0xFF;
         let result = decrypt(&encrypted, passphrase);
         assert!(result.is_err());
@@ -188,7 +190,7 @@ mod tests {
     fn test_large_data() {
         let plaintext = vec![42u8; 10000];
         let passphrase = b"passphrase";
-        let encrypted = encrypt(&plaintext, passphrase).unwrap();
+        let encrypted = encrypt(&plaintext, passphrase, 1).unwrap();
         let decrypted = decrypt(&encrypted, passphrase).unwrap();
         assert_eq!(decrypted, plaintext);
     }

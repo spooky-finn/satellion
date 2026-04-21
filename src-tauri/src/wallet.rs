@@ -13,7 +13,7 @@ pub struct Wallet {
     pub passphrase: SecretBox<String>,
     pub last_used_chain: BlockChain,
     pub birth_date: Option<u64>,
-    pub version: u8,
+    pub version: u16,
 
     pub btc: btc::BitcoinWallet,
     pub eth: eth::EthereumWallet,
@@ -60,7 +60,7 @@ impl Wallet {
     }
 
     pub fn persist(&self) -> Result<(), String> {
-        self.keeper.save(self)
+        self.keeper.repository.save(self)
     }
 
     pub fn mutate_btc<F, T>(&mut self, f: F) -> Result<T, String>

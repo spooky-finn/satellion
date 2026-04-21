@@ -160,12 +160,15 @@ pub async fn price_feed(price_feed: tauri::State<'_, PriceFeed>) -> Result<Price
 #[tauri::command]
 pub async fn unlock_wallet(
     wallet_name: String,
-    passphrase: String,
+    mut passphrase: String,
     wallet_keeper: tauri::State<'_, WalletKeeper>,
     sk: tauri::State<'_, SK>,
     config: tauri::State<'_, Config>,
 ) -> Result<UnlockDto, String> {
-    let mut wallet = wallet_keeper.load(config.inner().clone(), &wallet_name, &passphrase)?;
+    let mut wallet =
+        wallet_keeper
+            .repository
+            .load(config.inner().clone(), &wallet_name, &passphrase)?;
 
     let (eth_prk, btc_prk, last_used_chain) = {
         let eth_prk = wallet.eth_prk()?;
@@ -182,6 +185,7 @@ pub async fn unlock_wallet(
     let session = Session::new(wallet).with_inactivity_timeout(config.session_inactivity_timeout());
     sk.lock().await.set(session);
 
+    passphrase.zeroize();
     Ok(UnlockDto {
         ethereum,
         bitcoin,
@@ -198,6 +202,7 @@ pub async fn forget_wallet(
 ) -> Result<(), String> {
     sk.lock().await.terminate();
     wallet_keeper
+        .repository
         .delete(&wallet_name)
         .map_err(|e| e.to_string())?;
     Ok(())

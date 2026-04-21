@@ -11,13 +11,13 @@ pub enum CreationFlow {
 }
 
 pub struct WalletKeeper {
-    repository: persistence::Repository,
+    pub repository: persistence::WalletRepository,
 }
 
 impl Default for WalletKeeper {
     fn default() -> Self {
         Self {
-            repository: persistence::Repository,
+            repository: persistence::WalletRepository,
         }
     }
 }
@@ -51,27 +51,8 @@ impl WalletKeeper {
             SecretBox::new(Box::new(passphrase.to_string())),
             birth_date,
         )?;
-        self.repository.store(&wallet)?;
+        self.repository.save(&wallet)?;
         Ok(wallet)
-    }
-
-    pub fn load(
-        &self,
-        config: Config,
-        wallet_name: &str,
-        pasphrase: &str,
-    ) -> Result<Wallet, String> {
-        let pasphrase = SecretBox::new(Box::new(pasphrase.to_string()));
-        let raw_wallet = self.repository.load(wallet_name, &pasphrase)?;
-        raw_wallet.to_model(config, pasphrase)
-    }
-
-    pub fn save(&self, wallet: &Wallet) -> Result<(), String> {
-        self.repository.store(wallet)
-    }
-
-    pub fn delete(&self, wallet_name: &str) -> Result<(), std::io::Error> {
-        self.repository.delete(wallet_name)
     }
 
     fn gen_wallet_name(&self) -> Result<String, String> {
