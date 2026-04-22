@@ -74,6 +74,7 @@ export class AccountSelectorVM {
       this.set_active_account(res.data)
       this.create.reset()
     })
+    await this.switch_handler(res.data)
   }
 
   handle_plus_button_click() {

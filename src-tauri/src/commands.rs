@@ -101,7 +101,7 @@ pub async fn add_account(
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let account_index = match chain {
-        BlockChain::Bitcoin => wallet.btc.add_account(label),
+        BlockChain::Bitcoin => wallet.btc.create_account(label),
         BlockChain::Ethereum => todo!(),
     };
     wallet.persist()?;

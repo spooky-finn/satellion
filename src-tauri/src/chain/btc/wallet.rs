@@ -71,7 +71,7 @@ impl BitcoinWallet {
             .ok_or("account not found".to_string())
     }
 
-    pub fn add_account(&mut self, label: String) -> AccountIndex {
+    pub fn create_account(&mut self, label: String) -> AccountIndex {
         let next_index = self
             .accounts
             .iter()
@@ -81,6 +81,7 @@ impl BitcoinWallet {
             .unwrap_or(0);
         let account = Account::new(self.config.btc.network(), next_index, label);
         self.accounts.push(account);
+        self.switch_account(next_index);
         next_index
     }
 
