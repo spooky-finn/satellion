@@ -111,6 +111,8 @@ impl WalletRepository {
 
 struct FsRepository;
 
+const EXTENSION: &str = "satellion";
+
 impl FsRepository {
     fn ls(&self) -> io::Result<Vec<String>> {
         let wallets_dir = Config::wallets_dir();
@@ -119,7 +121,7 @@ impl FsRepository {
             let entry = entry?;
             let path = entry.path();
             // Only process .json files
-            if path.extension().and_then(|s| s.to_str()) != Some("json") {
+            if path.extension().and_then(|s| s.to_str()) != Some(EXTENSION) {
                 continue;
             }
             let wname = path
@@ -168,7 +170,7 @@ impl FsRepository {
     /// Get the file path for a wallet with the given name
     fn get_file_path(&self, wallet_name: &str) -> PathBuf {
         let mut path = Config::wallets_dir();
-        let filename = format!("{}.json", self.sanitize_filename(wallet_name));
+        let filename = format!("{}.{EXTENSION}", self.sanitize_filename(wallet_name));
         path.push(filename);
         path
     }
