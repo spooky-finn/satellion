@@ -11,11 +11,16 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize)]
+pub struct ChainSet {
+    pub bitcoin: crate::btc::persistence::WalletData,
+    pub ethereum: crate::eth::persistence::WalletData,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct WalletEntity {
     pub name: String,
     pub mnemonic: String,
-    pub bitcoin_data: crate::btc::persistence::WalletData,
-    pub ethereum_data: crate::eth::persistence::WalletData,
+    pub chain_set: ChainSet,
     pub last_used_chain: u16,
     pub birth_date: Option<u64>,
     pub version: u16,
@@ -28,9 +33,9 @@ impl WalletEntity {
             name: self.name.clone(),
             mnemonic: SecretBox::new(Box::new(self.mnemonic.clone())),
             passphrase: SecretBox::new(Box::new(passphrase.to_string())),
-            btc: self.bitcoin_data.deserialize(config.clone())?,
+            btc: self.chain_set.bitcoin.deserialize(config.clone())?,
             eth: crate::eth::EthereumWallet::deserialize(
-                self.ethereum_data.clone(),
+                self.chain_set.ethereum.clone(),
                 config.clone(),
             )?,
             last_used_chain: BlockChain::from(self.last_used_chain),
@@ -44,14 +49,16 @@ impl WalletEntity {
         WalletEntity {
             name: wallet.name.clone(),
             mnemonic: wallet.mnemonic.expose_secret().to_string(),
-            bitcoin_data: wallet
-                .btc
-                .serialize()
-                .expect("Failed to serialize Bitcoin wallet data"),
-            ethereum_data: wallet
-                .eth
-                .serialize()
-                .expect("Failed to serialize Ethereum wallet data"),
+            chain_set: ChainSet {
+                bitcoin: wallet
+                    .btc
+                    .serialize()
+                    .expect("Failed to serialize Bitcoin wallet data"),
+                ethereum: wallet
+                    .eth
+                    .serialize()
+                    .expect("Failed to serialize Ethereum wallet data"),
+            },
             last_used_chain: u16::from(wallet.last_used_chain),
             birth_date: wallet.birth_date,
             version: wallet.version,
@@ -199,18 +206,19 @@ mod tests {
             mnemonic: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about".to_string(),
             birth_date: None,
             last_used_chain: 1,
-            bitcoin_data: crate::chain::btc::persistence::WalletData {
-                active_account: 0,
-                accounts: vec![]
+            chain_set: ChainSet {  
+                bitcoin: crate::chain::btc::persistence::WalletData {
+                    active_account: 0,
+                    accounts: vec![]
             },
-            ethereum_data: crate::chain::eth::persistence::WalletData {
+            ethereum: crate::chain::eth::persistence::WalletData {
                 tracked_tokens: vec![crate::eth::persistence::Token {
                     address: USDT.address.to_string(),
                     decimals: 4,
                     symbol: "USDT".to_string()
 
                 }],
-            },
+            }, },
             version: 1
         };
 
