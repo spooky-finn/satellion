@@ -6,6 +6,7 @@ use crate::{
         account::Account,
         key_derivation::{Change, KeyDerivationPath, Proposal},
         providers::electrum_adapter::ElectrumAdapter,
+        tx_builder::BuildTxResult,
     },
     chain_trait::{AccountIndex, SecureKey},
     config::Config,
@@ -34,6 +35,7 @@ pub struct BitcoinWallet {
     pub accounts: Vec<Account>,
     pub server: ElectrumAdapter,
     pub config: Config,
+    pub pending_tx: Option<BuildTxResult>,
 }
 
 impl BitcoinWallet {
@@ -45,6 +47,7 @@ impl BitcoinWallet {
             active_account,
             accounts: vec![account],
             server: ElectrumAdapter::new(config.btc),
+            pending_tx: None,
         }
     }
 
@@ -159,6 +162,7 @@ pub mod persistence {
                 active_account: self.active_account,
                 server: ElectrumAdapter::new(config.btc.clone()),
                 config,
+                pending_tx: None,
             })
         }
     }

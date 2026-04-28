@@ -60,6 +60,7 @@ shush-rs = "0.1.11"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.0", features = ["fmt", "env-filter"] }
 tracing-appender = "0.2"
+miniscript = "13.0.0"
 # Mac os system
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.4"

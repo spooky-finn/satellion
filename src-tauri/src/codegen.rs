@@ -39,7 +39,7 @@ pub fn handlers() -> tauri_specta::Builder {
                 btc::commands::sync_utxos,
                 btc::commands::account_info,
                 btc::commands::build_tx,
-                btc::commands::send_tx,
+                btc::commands::broadcast_tx,
             ])
             .export(lang.clone(), "../src/bindings/btc.ts")
             .expect("Failed to export TypeScript bindings");
@@ -79,7 +79,7 @@ pub fn handlers() -> tauri_specta::Builder {
         btc::commands::sync_utxos,
         btc::commands::account_info,
         btc::commands::build_tx,
-        btc::commands::send_tx,
+        btc::commands::broadcast_tx,
         //
         eth::commands::get_network_status,
         eth::commands::get_wallet_balance,

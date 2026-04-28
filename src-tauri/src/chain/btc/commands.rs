@@ -8,9 +8,8 @@ use crate::{
     chain::btc::{
         account::UtxoSelectionMethod,
         key_derivation::{Change, Proposal},
-        service,
-        service::UtxoDto,
-        tx_builder::{BuildPsbtParams, build_psbt},
+        service::{self, UtxoDto},
+        tx_builder::{BuildPsbtParams, build_psbt, sign_psbt},
     },
     chain_trait::SecureKey,
     session::SK,
@@ -193,7 +192,7 @@ pub async fn build_tx(req: BuildTx, sk: tauri::State<'_, SK>) -> Result<BuildTxR
         .map_err(|e| format!("invalid value: {e}"))?;
 
     let miner_fee_vbytes = wallet.btc.server.estimate_fee(1).await.unwrap();
-    let _build_res = build_psbt(&BuildPsbtParams {
+    let pending_tx = build_psbt(&BuildPsbtParams {
         send_value_sat,
         recipient,
         utxo_selection_method: req.utxo_selection_method,
@@ -203,19 +202,39 @@ pub async fn build_tx(req: BuildTx, sk: tauri::State<'_, SK>) -> Result<BuildTxR
         xpriv,
     })
     .map_err(|e| format!("failed to build PSBT: {e}"))?;
+    wallet.btc.pending_tx = Some(pending_tx);
 
     Ok(BuildTxResult {})
 }
 
 #[derive(Type, Deserialize)]
-pub struct BtcSendTx {}
+pub struct SendTx {}
+
+#[derive(Type, Serialize)]
+pub struct BroadcastResult {
+    tx_id: String,
+}
 
 #[specta]
 #[tauri::command]
-pub async fn send_tx(_req: BtcSendTx, sk: tauri::State<'_, SK>) -> Result<(), String> {
+pub async fn broadcast_tx(
+    _req: SendTx,
+    sk: tauri::State<'_, SK>,
+) -> Result<BroadcastResult, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
-    let _prk = wallet.btc_prk()?;
+    let prk = wallet.btc_prk()?;
 
-    Ok(())
+    let tx_build_res = wallet.btc.pending_tx.take().expect("pending tx not found");
+    let psbt = tx_build_res.psbt;
+    let tx = sign_psbt(psbt, &prk)?;
+
+    let tx_id = wallet
+        .btc
+        .server
+        .broadcast_tx(&tx)
+        .await
+        .map_err(|e| format!("fail to broadcast tx: {}", e))?;
+
+    Ok(BroadcastResult { tx_id })
 }

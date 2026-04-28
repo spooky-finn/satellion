@@ -1,4 +1,4 @@
-use std::{fs, str::FromStr, thread, time::Duration};
+use std::{str::FromStr, thread, time::Duration};
 
 use corepc_client::{bitcoin::Address, client_sync::Error};
 use corepc_node::{Client, Conf, Node, client::bitcoin::Amount};
@@ -59,20 +59,18 @@ pub struct BitcoindHarness {
 
 impl BitcoindHarness {
     pub fn start() -> Result<Self, String> {
-        Self::prepare();
         let exe = std::path::PathBuf::from(
             std::env::var("BITCOIND_EXE")
                 .unwrap_or_else(|_| "/opt/homebrew/bin/bitcoind".to_string()),
         );
 
         let mut conf = Conf::default();
-
         conf.wallet = None;
         conf.attempts = 1;
+        conf.view_stdout = false;
+
         conf.args.extend([
             "-txindex",
-            "-blockfilterindex=1",
-            "-peerblockfilters",
             "-connect=0", // CRITICAL: Don't connect to other nodes
             "-listen=1",  // Ensure we are the master
         ]);
@@ -156,22 +154,6 @@ impl BitcoindHarness {
 
     pub fn balance(&self) -> Result<Amount, Error> {
         Ok(self.client().get_balance()?.balance().unwrap())
-    }
-
-    fn prepare() {
-        if let Some(home_dir) = std::env::home_dir() {
-            let nakamoto_path = home_dir.join(".nakamoto").join("regtest");
-
-            if nakamoto_path.exists() {
-                if let Err(e) = fs::remove_dir_all(&nakamoto_path) {
-                    eprintln!("Failed to clean nakamoto dir at {:?}: {}", nakamoto_path, e);
-                } else {
-                    println!("Successfully cleaned: {:?}", nakamoto_path);
-                }
-            }
-        } else {
-            eprintln!("Could not resolve user home directory.");
-        }
     }
 
     pub fn scanutxoset(

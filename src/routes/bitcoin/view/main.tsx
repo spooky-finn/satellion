@@ -43,9 +43,7 @@ const BitcoinWallet = () => {
       {loading && <Progress size="sm" />}
       {addr && (
         <Card size="sm" variant="soft">
-          <P fontWeight="bold">
-            <CompactSrt copy val={addr} />
-          </P>
+          <CompactSrt copy val={addr} />
           <Row>
             <Button
               variant="soft"

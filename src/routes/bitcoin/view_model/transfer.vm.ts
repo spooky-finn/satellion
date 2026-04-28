@@ -1,5 +1,6 @@
 import { makeAutoObservable } from 'mobx'
 import {
+  type BroadcastResult,
   commands,
   type UtxoDto,
   type UtxoSelectionMethod,
@@ -48,6 +49,8 @@ export class TransferVM {
   }
 
   state = TransferState.Estimate
+  broadcast_result?: BroadcastResult
+  error?: string
 
   estimated_transfer_value(btc_price: number): string {
     if (!this.transfer_amount) return ''
@@ -75,17 +78,22 @@ export class TransferVM {
       .then(() => {
         this.state = TransferState.Sending
       })
+      .catch(e => {
+        this.error = e
+      })
   }
 
   async execute() {
     await commands
-      .sendTx({})
+      .broadcastTx({})
       .then(unwrap_result)
-      .then(() => {
+      .then(r => {
         this.state = TransferState.Result
+        this.broadcast_result = r
       })
-      .catch(() => {
-        this.state = TransferState.Error
+      .catch(e => {
+        this.state = TransferState.Estimate
+        this.error = e
       })
   }
 
@@ -93,5 +101,6 @@ export class TransferVM {
     this.address.reset()
     this.transfer_amount = undefined
     this.state = TransferState.Estimate
+    this.broadcast_result = undefined
   }
 }

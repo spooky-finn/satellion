@@ -61,9 +61,9 @@ async buildTx(req: BuildTx) : Promise<Result<BuildTxResult, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async sendTx(req: BtcSendTx) : Promise<Result<null, string>> {
+async broadcastTx(req: SendTx) : Promise<Result<BroadcastResult, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("send_tx", { req }) };
+    return { status: "ok", data: await TAURI_INVOKE("broadcast_tx", { req }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -86,11 +86,12 @@ export type ActiveAccountDto = { index: number;
  * main external address to accept payments
  */
 address: string; total_balance: string; utxo: UtxoDto[] }
-export type BtcSendTx = Record<string, never>
+export type BroadcastResult = { tx_id: string }
 export type BuildTx = { value: string; recipient: string; utxo_selection_method: UtxoSelectionMethod }
 export type BuildTxResult = Record<string, never>
 export type DerivedAddressDto = { label: string; path: string; address: string }
 export type OutPointDto = { tx_id: string; vout: string }
+export type SendTx = Record<string, never>
 export type UtxoDto = { utxo_id: OutPointDto; value: string; deriv_path: string; address_label: string | null }
 export type UtxoSelectionMethod = { Manual: OutPointDto[] } | { Automatic: number }
 

@@ -3,7 +3,7 @@ mod mocks;
 
 use std::{error::Error, str::FromStr};
 
-use bitcoin::{Address, Network};
+use bitcoin::Address;
 use shush_rs::SecretBox;
 
 use crate::bitcoind::BitcoindHarness;
@@ -30,6 +30,7 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
     let local_node = BitcoindHarness::start()?;
     let wallet_name = "test".to_string();
     let sk = SessionKeeper::new(None, None);
+
     let mut config = Config::new();
     config.btc.regtest = true;
 
@@ -47,14 +48,16 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
     let wallet = sk.wallet()?;
     let account = wallet.btc.active_account()?;
     let prk = wallet.btc_prk()?;
-    let account_info = service::get_account_info(account, &prk, wallet.config.btc.network())?;
-    let key_derive_path = KeyDerivationPath::new(
-        Proposal::Bip86,
-        Network::Regtest,
-        account.index,
-        Change::External,
-        0,
-    );
+    let network = wallet.config.btc.network();
+
+    let account_info = service::get_account_info(account, &prk, network)?;
+    let key_derive_path =
+        KeyDerivationPath::new(Proposal::Bip86, network, account.index, Change::External, 0);
+
+    let recipient =
+        Address::from_str("bcrt1p04x2uthh0arxzuct6hpetdtg2p7c23yuu855z3srs332ga4k9gasjv0av6")
+            .unwrap()
+            .assume_checked();
 
     local_node.fund_wallet()?;
     local_node.send_and_confirm(&account_info.address.to_string(), 1.2)?;
@@ -76,11 +79,6 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
         balance.to_btc(),
         utxos.len()
     );
-
-    let recipient =
-        Address::from_str("bcrt1p04x2uthh0arxzuct6hpetdtg2p7c23yuu855z3srs332ga4k9gasjv0av6")
-            .unwrap()
-            .assume_checked();
 
     let send_value_sat = 3010;
     let build_res = build_psbt(&BuildPsbtParams {

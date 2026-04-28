@@ -1,3 +1,5 @@
+use std::cmp::max;
+
 use bitcoin::{
     Address, OutPoint, Sequence, Transaction, TxIn, TxOut, Witness,
     absolute::LockTime,
@@ -7,6 +9,7 @@ use bitcoin::{
     psbt::Psbt,
     transaction::Version,
 };
+use miniscript::psbt::PsbtExt;
 
 use crate::{
     chain::btc::{
@@ -35,6 +38,8 @@ pub struct BuildTxResult {
     pub psbt: Psbt,
 }
 
+const MIN_RELAY_FEE: u64 = 16;
+
 /// The PSBT has two outputs:
 /// - Output 0: change returned to the wallet's next unused **internal** address
 /// - Output 1: recipient payment
@@ -50,11 +55,12 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
     // 1. Estimate the fee assuming we WILL have a change output (2 outputs total)
     let estimated_vbytes = estimate_taproot_vbytes(input_count, output_count);
     let required_fee: u64 = (estimated_vbytes as f64 * p.miner_fee_vbytes).ceil() as u64;
+    let fee = max(required_fee, MIN_RELAY_FEE);
 
     // 2. Check if the inputs can cover the send amount + fee
     let total_required = p
         .send_value_sat
-        .checked_add(required_fee)
+        .checked_add(fee)
         .ok_or("overflow calculating required amount")?;
 
     let potential_change = total_input
@@ -110,16 +116,14 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
         script_pubkey: p.recipient.script_pubkey(),
     });
 
-    // Create the unsigned transaction
-    let tx = bitcoin::Transaction {
+    // Create PSBT from unsigned transaction
+    let mut psbt = Psbt::from_unsigned_tx(Transaction {
         version: Version::TWO,
         lock_time: LockTime::ZERO,
         input,
         output,
-    };
-
-    // Create PSBT from unsigned transaction
-    let mut psbt = Psbt::from_unsigned_tx(tx).map_err(|e| format!("Failed to create PSBT: {e}"))?;
+    })
+    .map_err(|e| format!("Failed to create PSBT: {e}"))?;
 
     // Add witness UTXOs and BIP32 derivation info to inputs
     let secp = Secp256k1::new();
@@ -151,31 +155,16 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
     Ok(BuildTxResult { psbt })
 }
 
-pub fn sign_psbt(mut psbt: Psbt, prk: &Prk) -> Result<Transaction, Box<dyn std::error::Error>> {
+pub fn sign_psbt(mut psbt: Psbt, prk: &Prk) -> Result<Transaction, String> {
     let secp = Secp256k1::new();
-    // Sign the PSBT - bitcoin crate handles both ECDSA and Schnorr automatically
-    // using the xpriv's GetKey implementation which derives keys from the bip32 path
+
     psbt.sign(prk.expose(), &secp)
         .map_err(|e| format!("Failed to sign PSBT: {:?}", e))?;
 
-    // Build the final transaction with witnesses
-    let mut final_tx = psbt.unsigned_tx.clone();
+    psbt.finalize_mut(&secp)
+        .map_err(|_| "fail to finalize tx".to_string())?;
 
-    for input_idx in 0..psbt.inputs.len() {
-        let input = &psbt.inputs[input_idx];
-
-        // For Taproot key-path spend
-        if let Some(tap_key_sig) = &input.tap_key_sig {
-            let mut witness = Witness::new();
-            witness.push(tap_key_sig.to_vec());
-
-            if let Some(tx_input) = final_tx.input.get_mut(input_idx) {
-                tx_input.witness = witness;
-            }
-        }
-    }
-
-    Ok(final_tx)
+    psbt.extract_tx().map_err(|e| e.to_string())
 }
 
 pub fn estimate_taproot_vbytes(input_count: usize, output_count: usize) -> u64 {

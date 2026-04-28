@@ -55,7 +55,7 @@ impl ElectrumAdapter {
         self.connection
             .get_or_try_init(|| async {
                 self.create_client().await.map_err(|e| {
-                    tracing::error!("conn err {}", e);
+                    tracing::error!("{}", e);
                     ElectrumError::Disconnected
                 })
             })
@@ -103,7 +103,7 @@ impl ElectrumAdapter {
                             vout: utxo.vout as usize,
                             output: TxOut {
                                 value: bitcoin::Amount::from_sat(utxo.value),
-                                script_pubkey: bitcoin::ScriptBuf::new(),
+                                script_pubkey: address.script_pubkey(),
                             },
                             derivation: derivation.clone(),
                             height: utxo.height as u32,
@@ -112,6 +112,12 @@ impl ElectrumAdapter {
             })
             .collect();
         Ok(result)
+    }
+
+    pub async fn broadcast_tx(&self, tx: &bitcoin::Transaction) -> Result<String, ElectrumError> {
+        let conn = self.get_conn().await?;
+        let hex = bitcoin::consensus::encode::serialize_hex(tx);
+        conn.broadcast(&hex).await
     }
 }
 

@@ -48,6 +48,7 @@ const TransferForm = observer(() => {
         />
         <P>{transfer.estimated_transfer_value(btc.usd_price)}</P>
       </Row>
+      {transfer.error && <P color="danger">{transfer.error}</P>}
       {transfer.state === TransferState.Estimate && (
         <Button onClick={() => transfer.estimate(btc.utxo_list.selected_utxo)}>
           Estimate
