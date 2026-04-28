@@ -223,10 +223,11 @@ pub async fn broadcast_tx(
 ) -> Result<BroadcastResult, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
-    let prk = wallet.btc_prk()?;
 
     let tx_build_res = wallet.btc.pending_tx.take().expect("pending tx not found");
     let psbt = tx_build_res.psbt;
+
+    let prk = wallet.btc_prk()?;
     let tx = sign_psbt(psbt, &prk)?;
 
     let tx_id = wallet
@@ -235,6 +236,13 @@ pub async fn broadcast_tx(
         .broadcast_tx(&tx)
         .await
         .map_err(|e| format!("fail to broadcast tx: {}", e))?;
+
+    {
+        // save change key
+        let account = wallet.btc.get_mut_active_account()?;
+        account.add_address(tx_build_res.change_key_path);
+        wallet.persist()?;
+    }
 
     Ok(BroadcastResult { tx_id })
 }

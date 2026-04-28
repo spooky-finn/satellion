@@ -19,7 +19,12 @@ export const TransferModal = observer(() => {
       open={transfer.is_open}
       onClose={() => transfer.set_open(false)}
     >
-      <TransferForm />
+      <P level="h3">Send bitcoin</P>
+      {transfer.state === TransferState.Result ? (
+        <TxSendResult />
+      ) : (
+        <TransferForm />
+      )}
     </FullScreenModal>
   )
 })
@@ -29,7 +34,6 @@ const TransferForm = observer(() => {
   const { transfer } = btc
   return (
     <Stack gap={1}>
-      <P level="h3">Send bitcoin</P>
       <AddressInput state={transfer.address} />
       <Stack>
         <P level="body-sm">Utxo selection method</P>
@@ -60,6 +64,18 @@ const TransferForm = observer(() => {
     </Stack>
   )
 })
+
+const TxSendResult = () => {
+  const { btc } = root_store.wallet
+  const { transfer } = btc
+
+  return (
+    <Stack>
+      <P>Transaction sent</P>
+      <P fontFamily={'monospace'}>{transfer.broadcast_result?.tx_id}</P>
+    </Stack>
+  )
+}
 
 const SelectedInputsSummary = observer(() => {
   const { utxo_list } = root_store.wallet.btc

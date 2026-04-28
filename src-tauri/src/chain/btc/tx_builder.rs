@@ -16,7 +16,7 @@ use crate::{
         Prk,
         account::{Account, UtxoSelectionMethod},
         config::BitcoinConfig,
-        key_derivation::{Change, KeyDerivationPath, Proposal},
+        key_derivation::{Change, ChildKeyDeriviationScheme, KeyDerivationPath, Proposal},
     },
     chain_trait::SecureKey,
 };
@@ -36,6 +36,7 @@ pub struct BuildPsbtParams<'a> {
 #[derive(Debug)]
 pub struct BuildTxResult {
     pub psbt: Psbt,
+    pub change_key_path: ChildKeyDeriviationScheme,
 }
 
 const MIN_RELAY_FEE: u64 = 16;
@@ -90,20 +91,19 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
 
     let mut output: Vec<TxOut> = Vec::with_capacity(output_count);
 
+    let change_index = p.account.unoccupied_address(Change::Internal);
+    let change_key_path = KeyDerivationPath::new(
+        Proposal::Bip86,
+        p.config.network(),
+        p.account.index,
+        Change::Internal,
+        change_index,
+    );
+
     if has_change {
-        // Create the change output
-        let change_index = p.account.unoccupied_address(Change::Internal);
-        let change_path = KeyDerivationPath::new(
-            Proposal::Bip86,
-            p.config.network(),
-            p.account.index,
-            Change::Internal,
-            change_index,
-        );
-        let change_child_key = change_path
+        let change_child_key = change_key_path
             .derive(p.xpriv)
             .map_err(|e| format!("failed to derive change key: {e}"))?;
-
         output.push(TxOut {
             value: bitcoin::Amount::from_sat(potential_change),
             script_pubkey: change_child_key.taproot_address.script_pubkey(),
@@ -152,7 +152,13 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
         psbt.inputs[i].tap_internal_key = Some(xonly_pubkey);
     }
 
-    Ok(BuildTxResult { psbt })
+    Ok(BuildTxResult {
+        psbt,
+        change_key_path: ChildKeyDeriviationScheme {
+            label: "Change".to_string(),
+            path: change_key_path,
+        },
+    })
 }
 
 pub fn sign_psbt(mut psbt: Psbt, prk: &Prk) -> Result<Transaction, String> {
