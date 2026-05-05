@@ -1,14 +1,19 @@
 use std::{str::FromStr, time::Duration};
 
-use bitcoin::{TxOut, Txid};
+use bitcoin::{Network, TxOut, Txid};
 use rustywallet_electrum::{Balance, ClientConfig, ElectrumClient, ElectrumError};
 use tokio::sync::OnceCell;
 
 use crate::chain::btc::{account::AddressPathMap, config::BitcoinConfig, utxo::Utxo};
 
-#[derive(Default)]
 pub struct ElectrumAdapter {
     connection: OnceCell<ElectrumClient>,
+    client_factory: ClientFactory,
+    network: Network,
+}
+
+#[derive(Default)]
+struct ClientFactory {
     config: BitcoinConfig,
 }
 
@@ -28,25 +33,8 @@ impl ElectrumAdapter {
     pub fn new(config: BitcoinConfig) -> Self {
         ElectrumAdapter {
             connection: OnceCell::default(),
-            config,
-        }
-    }
-
-    async fn create_client(&self) -> Result<ElectrumClient, ElectrumError> {
-        match self.config.regtest {
-            true => {
-                ElectrumClient::with_config(ClientConfig {
-                    server: "127.0.0.1".to_string(),
-                    port: 50002,
-                    use_tls: false,
-                    timeout: Duration::from_secs(5),
-                    retry_count: 2,
-                    retry_delay: Duration::from_secs(1),
-                    skip_tls_verify: true,
-                })
-                .await
-            }
-            false => ElectrumClient::new(DNS_SEEDS[0]).await,
+            network: config.network(),
+            client_factory: ClientFactory::new(config),
         }
     }
 
@@ -54,7 +42,7 @@ impl ElectrumAdapter {
     async fn get_conn(&self) -> Result<&ElectrumClient, ElectrumError> {
         self.connection
             .get_or_try_init(|| async {
-                self.create_client().await.map_err(|e| {
+                self.client_factory.create().await.map_err(|e| {
                     tracing::error!("{}", e);
                     ElectrumError::Disconnected
                 })
@@ -96,7 +84,7 @@ impl ElectrumAdapter {
                 address_str
                     .parse::<bitcoin::Address<_>>()
                     .ok()
-                    .and_then(|address| address.require_network(self.config.network()).ok())
+                    .and_then(|address| address.require_network(self.network).ok())
                     .and_then(|address| {
                         address_path_map.get(&address).map(|derivation| Utxo {
                             tx_id: Txid::from_str(&utxo.txid).expect("invalid txid"),
@@ -118,6 +106,50 @@ impl ElectrumAdapter {
         let conn = self.get_conn().await?;
         let hex = bitcoin::consensus::encode::serialize_hex(tx);
         conn.broadcast(&hex).await
+    }
+}
+
+impl ClientFactory {
+    fn new(config: BitcoinConfig) -> Self {
+        ClientFactory { config }
+    }
+
+    async fn create(&self) -> Result<ElectrumClient, ElectrumError> {
+        match self.config.regtest {
+            true => self.regtest().await,
+            false => self.mainnet().await,
+        }
+    }
+
+    async fn mainnet(&self) -> Result<ElectrumClient, ElectrumError> {
+        if let Some(serv) = self.config.electrum_server.clone() {
+            return ElectrumClient::new(&serv).await;
+        }
+
+        for serv in DNS_SEEDS {
+            let conn = ElectrumClient::new(serv).await;
+            match conn {
+                Ok(client) => return Ok(client),
+                Err(e) => {
+                    tracing::warn!("connection failed to electrum server {}: {}", serv, e)
+                }
+            }
+        }
+
+        Err(ElectrumError::NoServersAvailable)
+    }
+
+    async fn regtest(&self) -> Result<ElectrumClient, ElectrumError> {
+        ElectrumClient::with_config(ClientConfig {
+            server: "127.0.0.1".to_string(),
+            port: 50002,
+            use_tls: false,
+            timeout: Duration::from_secs(5),
+            retry_count: 2,
+            retry_delay: Duration::from_secs(1),
+            skip_tls_verify: true,
+        })
+        .await
     }
 }
 

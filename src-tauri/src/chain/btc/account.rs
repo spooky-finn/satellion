@@ -8,7 +8,7 @@ use crate::{
     chain::btc::{
         Prk,
         key_derivation::{
-            Change, Child, ChildKeyDeriviationScheme, KeyDerivationPath, KeyDeriviationPathSlice,
+            Change, Child, KeyDerivationPath, KeyDeriviationPathSlice, LabeledKeyDerivationPath,
             Proposal,
         },
         utxo::{self, OutPointDto, Utxo},
@@ -16,7 +16,7 @@ use crate::{
     chain_trait::{AccountIndex, SecureKey},
 };
 
-type AccountAddresses = Vec<ChildKeyDeriviationScheme>;
+type AccountAddresses = Vec<LabeledKeyDerivationPath>;
 
 #[derive(Clone)]
 pub struct Account {
@@ -38,7 +38,7 @@ impl Account {
             index: account,
             name,
             addresses: vec![
-                ChildKeyDeriviationScheme {
+                LabeledKeyDerivationPath {
                     label: "main".to_string(),
                     path: KeyDerivationPath::new(
                         Proposal::Bip86,
@@ -48,7 +48,7 @@ impl Account {
                         0,
                     ),
                 },
-                ChildKeyDeriviationScheme {
+                LabeledKeyDerivationPath {
                     label: "main_change".to_string(),
                     path: KeyDerivationPath::new(
                         Proposal::Bip86,
@@ -90,13 +90,13 @@ impl Account {
         (1..).find(|i| !occupied.contains(i)).unwrap_or(1)
     }
 
-    pub fn get_external_addresess(&self) -> impl Iterator<Item = &ChildKeyDeriviationScheme> {
+    pub fn get_external_addresess(&self) -> impl Iterator<Item = &LabeledKeyDerivationPath> {
         self.addresses
             .iter()
             .filter(|a| a.path.change == Change::External)
     }
 
-    pub fn add_address(&mut self, child: ChildKeyDeriviationScheme) {
+    pub fn add_address(&mut self, child: LabeledKeyDerivationPath) {
         self.addresses.push(child);
     }
 
@@ -172,7 +172,7 @@ pub mod persistence {
 
     use crate::chain::btc::{
         account::{Account, AccountIndex},
-        key_derivation::{ChildKeyDeriviationScheme, KeyDerivationPath, KeyDeriviationPathSlice},
+        key_derivation::{KeyDerivationPath, KeyDeriviationPathSlice, LabeledKeyDerivationPath},
         utxo::{OutPointDto, Utxo, persistence::UtxoData},
     };
 
@@ -219,12 +219,12 @@ pub mod persistence {
                 .iter()
                 .map(|addr| {
                     let path = KeyDerivationPath::from_slice(addr.path)?;
-                    Ok(ChildKeyDeriviationScheme {
+                    Ok(LabeledKeyDerivationPath {
                         label: addr.label.clone(),
                         path,
                     })
                 })
-                .collect::<Result<Vec<ChildKeyDeriviationScheme>, String>>()?;
+                .collect::<Result<Vec<LabeledKeyDerivationPath>, String>>()?;
 
             let utxos: HashMap<OutPointDto, Utxo> = self
                 .utxos

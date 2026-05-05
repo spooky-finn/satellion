@@ -23,7 +23,7 @@ pub fn make_hardened(raw: KeyDeriviationPathSlice) -> KeyDeriviationPathSlice {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ChildKeyDeriviationScheme {
+pub struct LabeledKeyDerivationPath {
     pub label: String,
     pub path: KeyDerivationPath,
 }
@@ -112,8 +112,8 @@ impl KeyDerivationPath {
         }
     }
 
-    pub fn with_label(&self, label: String) -> ChildKeyDeriviationScheme {
-        ChildKeyDeriviationScheme {
+    pub fn with_label(&self, label: String) -> LabeledKeyDerivationPath {
+        LabeledKeyDerivationPath {
             label,
             path: self.clone(),
         }

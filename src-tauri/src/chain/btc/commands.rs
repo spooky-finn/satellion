@@ -40,8 +40,8 @@ pub async fn derive_external_address(
         wallet
             .btc
             .new_deriviation_path(Proposal::Bip86, Change::External, index)?;
-    let derivation_scheme = taproot_key_path.with_label(label.clone());
-    let child = derivation_scheme
+    let key_derivation_path = taproot_key_path.with_label(label.clone());
+    let child_key = key_derivation_path
         .path
         .derive(prk.expose())
         .map_err(|e| e.to_string())?;
@@ -49,10 +49,10 @@ pub async fn derive_external_address(
     wallet
         .btc
         .get_mut_active_account()?
-        .add_address(derivation_scheme);
+        .add_address(key_derivation_path);
 
     wallet.persist()?;
-    Ok(child.taproot_address.to_string())
+    Ok(child_key.taproot_address.to_string())
 }
 
 #[specta]

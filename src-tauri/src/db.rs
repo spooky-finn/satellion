@@ -26,7 +26,6 @@ pub fn initialize() {
         std::fs::File::create(&db_path).expect("failed to create database file");
     }
 
-    // Run migrations
     let mut conn = SqliteConnection::establish(&db_path.to_string_lossy())
         .expect("cannot create db connection");
 

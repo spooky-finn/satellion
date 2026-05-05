@@ -16,7 +16,7 @@ use crate::{
         Prk,
         account::{Account, UtxoSelectionMethod},
         config::BitcoinConfig,
-        key_derivation::{Change, ChildKeyDeriviationScheme, KeyDerivationPath, Proposal},
+        key_derivation::{Change, KeyDerivationPath, LabeledKeyDerivationPath, Proposal},
     },
     chain_trait::SecureKey,
 };
@@ -36,7 +36,7 @@ pub struct BuildPsbtParams<'a> {
 #[derive(Debug)]
 pub struct BuildTxResult {
     pub psbt: Psbt,
-    pub change_key_path: ChildKeyDeriviationScheme,
+    pub change_key_path: LabeledKeyDerivationPath,
 }
 
 const MIN_RELAY_FEE: u64 = 16;
@@ -154,7 +154,7 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
 
     Ok(BuildTxResult {
         psbt,
-        change_key_path: ChildKeyDeriviationScheme {
+        change_key_path: LabeledKeyDerivationPath {
             label: "Change".to_string(),
             path: change_key_path,
         },

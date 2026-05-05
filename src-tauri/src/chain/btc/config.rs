@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 #[serde(default)]
 pub struct BitcoinConfig {
     pub regtest: bool,
+    pub electrum_server: Option<String>,
 }
 
 impl BitcoinConfig {
