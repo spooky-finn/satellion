@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { MIN_PASSPHRASE_LEN } from '../../../bindings'
 import { PassphraseInput } from '../../../components/passphrase_input'
 import { notifier } from '../../../lib/notifier'
-import { route, useNavigate } from '../../../routes'
+import { route, useNavigate } from '../../../lib/routes'
 import { P } from '../../../shortcuts'
 import { store } from '../mnemonic_store'
 

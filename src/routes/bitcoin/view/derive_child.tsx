@@ -19,13 +19,13 @@ export const DeriveChildAddress = observer((props: { refetch: () => void }) => {
     <Row alignItems={'center'}>
       <Button
         onClick={() => {
-          state.setIsOpen(true)
-          state.getAvaiableIndex()
+          state.set_is_open(true)
+          state.get_avaiable_index()
         }}
       >
         Derive
       </Button>
-      <Modal open={state.isOpen} onClose={() => state.setIsOpen(false)}>
+      <Modal open={state.is_open} onClose={() => state.set_is_open(false)}>
         <ModalDialog sx={{ pr: 6 }}>
           <ModalClose />
           <P level="h3">Derive child address</P>
@@ -35,7 +35,7 @@ export const DeriveChildAddress = observer((props: { refetch: () => void }) => {
               size="sm"
               sx={{ maxWidth: 70 }}
               value={state.index ?? undefined}
-              onChange={v => state.setIndex(v ?? null)}
+              onChange={v => state.set_index(v ?? null)}
             />
           </Row>
           <Input

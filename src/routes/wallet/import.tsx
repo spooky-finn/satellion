@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { MnemonicInput, MnemonicInputSt } from '../../components/mnemonic_input'
 import { Navbar } from '../../components/navbar'
 import { PassphraseInput } from '../../components/passphrase_input'
-import { route, useNavigate } from '../../routes'
+import { route, useNavigate } from '../../lib/routes'
 import { P } from '../../shortcuts'
 import { store } from './mnemonic_store'
 

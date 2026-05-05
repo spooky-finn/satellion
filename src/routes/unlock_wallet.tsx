@@ -3,7 +3,7 @@ import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { PassphraseInput } from '../components/passphrase_input'
-import { route } from '../routes'
+import { route } from '../lib/routes'
 import { P, Progress } from '../shortcuts'
 import { root_store } from '../view_model/root'
 

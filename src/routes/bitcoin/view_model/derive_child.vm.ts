@@ -8,21 +8,21 @@ export class DeriveChildVM {
   constructor() {
     makeAutoObservable(this)
   }
-  isOpen = false
-  setIsOpen(o: boolean) {
-    this.isOpen = o
+  is_open = false
+  set_is_open(o: boolean) {
+    this.is_open = o
   }
   label?: string
   setLabel(l: string) {
     this.label = l
   }
   index: number | null = null
-  setIndex(i: number | null) {
+  set_index(i: number | null) {
     this.index = i
   }
   address: string | null = null
 
-  async getAvaiableIndex() {
+  async get_avaiable_index() {
     const index = await commands
       .unoccupiedDeriviationIndex()
       .then(unwrap_result)

@@ -13,7 +13,7 @@ import {
 } from '@mui/joy'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
-import { route } from './routes'
+import { route } from './lib/routes'
 
 export const P = Typography
 export const Row = (props: StackProps) => (

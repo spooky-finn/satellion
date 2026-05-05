@@ -21,7 +21,7 @@ export const TransferModal = observer(() => {
     >
       <P level="h3">Send bitcoin</P>
       {transfer.state === TransferState.Result ? (
-        <TxSendResult />
+        <TransferResult />
       ) : (
         <TransferForm />
       )}
@@ -65,7 +65,7 @@ const TransferForm = observer(() => {
   )
 })
 
-const TxSendResult = () => {
+const TransferResult = () => {
   const { btc } = root_store.wallet
   const { transfer } = btc
 
@@ -73,6 +73,9 @@ const TxSendResult = () => {
     <Stack>
       <P>Transaction sent</P>
       <P fontFamily={'monospace'}>{transfer.broadcast_result?.tx_id}</P>
+      <Button onClick={() => transfer.reset()} variant="plain">
+        Send another
+      </Button>
     </Stack>
   )
 }
@@ -126,7 +129,7 @@ const UtxoSelectionMethod = observer(() => {
       {state.show_utxo_select_button && (
         <>
           <Button onClick={() => btc.utxo_list.open(true)}>Select</Button>
-          <UtxoListModal store={btc.utxo_list} />
+          <UtxoListModal />
         </>
       )}
     </Row>

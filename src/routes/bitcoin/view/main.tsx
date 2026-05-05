@@ -6,7 +6,7 @@ import { AccountSelector } from '../../../components/account_selector'
 import { CompactSrt } from '../../../components/compact_str'
 import { Navbar } from '../../../components/navbar'
 import { useKeyboardRefetch } from '../../../components/use_keyboard_refetch'
-import { route } from '../../../routes'
+import { route } from '../../../lib/routes'
 import { P, Progress, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
 import { display_sat, fmt_usd, sat2usd } from '../utils/amount_formatters'
@@ -56,7 +56,7 @@ const BitcoinWallet = () => {
             <Button variant="soft" onClick={() => btc.utxo_list.open()}>
               Utxo
             </Button>
-            <UtxoListModal store={btc.utxo_list} />
+            <UtxoListModal />
 
             <Button onClick={() => btc.transfer.set_open(true)}>Send</Button>
             <TransferModal />
