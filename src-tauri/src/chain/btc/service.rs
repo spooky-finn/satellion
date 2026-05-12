@@ -80,10 +80,11 @@ pub fn get_account_info(
     network: Network,
 ) -> Result<ActiveAccountDto, String> {
     let (mainkey, _) = account.main_key(prk, network)?;
-    let address_label_map = account.derive_path_label_map();
+    let address_label_map = account.keychain.to_label_map();
 
     let mut utxo: Vec<_> = account
-        .utxos
+        .utxo_set
+        .entries
         .values()
         .map(|utxo| utxo.to_dto(&address_label_map))
         .collect();
@@ -97,7 +98,7 @@ pub fn get_account_info(
     Ok(ActiveAccountDto {
         index: account.index,
         address: mainkey.taproot_address.to_string(),
-        total_balance: account.total_balance().to_string(),
+        total_balance: account.utxo_set.total_value().to_string(),
         utxo,
     })
 }

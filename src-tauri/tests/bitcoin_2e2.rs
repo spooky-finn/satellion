@@ -10,7 +10,7 @@ use crate::bitcoind::BitcoindHarness;
 use satellion_lib::{
     chain::btc::{
         self,
-        account::UtxoSelectionMethod,
+        account::UtxoSelectionStrategy,
         key_derivation::{Change, KeyDerivationPath, Proposal},
         service,
         tx_builder::{BuildPsbtParams, build_psbt},
@@ -70,8 +70,8 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
         utxo.output.value
     );
 
-    let account = wallet.btc.get_mut_active_account()?;
-    account.set_utxos(utxos.clone());
+    let account = wallet.btc.get_active_account_mut()?;
+    account.utxo_set.replace_all(utxos.clone());
 
     let balance = local_node.balance()?;
     println!(
@@ -84,7 +84,7 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
     let build_res = build_psbt(&BuildPsbtParams {
         send_value_sat,
         recipient: recipient.clone(),
-        utxo_selection_method: UtxoSelectionMethod::Manual(vec![OutPointDto {
+        utxo_selection_method: UtxoSelectionStrategy::Manual(vec![OutPointDto {
             tx_id: utxo.tx_id.to_string(),
             vout: utxo.vout.to_string(),
         }]),

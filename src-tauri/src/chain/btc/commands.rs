@@ -6,7 +6,7 @@ use specta::{Type, specta};
 
 use crate::{
     chain::btc::{
-        account::UtxoSelectionMethod,
+        account::UtxoSelectionStrategy,
         key_derivation::{Change, Proposal},
         service::{self, UtxoDto},
         tx_builder::{BuildPsbtParams, build_psbt, sign_psbt},
@@ -48,8 +48,9 @@ pub async fn derive_external_address(
 
     wallet
         .btc
-        .get_mut_active_account()?
-        .add_address(key_derivation_path);
+        .get_active_account_mut()?
+        .keychain
+        .push(key_derivation_path);
 
     wallet.persist()?;
     Ok(child_key.taproot_address.to_string())
@@ -57,11 +58,11 @@ pub async fn derive_external_address(
 
 #[specta]
 #[tauri::command]
-pub async fn unoccupied_deriviation_index(sk: tauri::State<'_, SK>) -> Result<u32, String> {
+pub async fn next_unused_index(sk: tauri::State<'_, SK>) -> Result<u32, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let account = wallet.btc.active_account()?;
-    Ok(account.unoccupied_address(Change::External))
+    Ok(account.keychain.next_unused_index(Change::External))
 }
 
 #[derive(Type, Serialize, Deserialize)]
@@ -80,19 +81,23 @@ pub async fn get_external_addresess(
     let wallet = sk.wallet()?;
     let prk = wallet.btc_prk()?;
     let account = wallet.btc.active_account()?;
-    let external_addresses: Vec<_> = account.get_external_addresess().collect();
+    let external_paths: Vec<_> = account
+        .keychain
+        .paths_by_change(&Change::External)
+        .collect();
 
-    external_addresses
+    external_paths
         .into_iter()
         .map(|scheme| {
-            let child = scheme
+            let key = scheme
                 .path
                 .derive(prk.expose())
                 .map_err(|e| e.to_string())?;
+
             Ok(DerivedAddressDto {
                 path: scheme.path.to_string(),
                 label: scheme.label.clone(),
-                address: child.taproot_address.to_string(),
+                address: key.taproot_address.to_string(),
             })
         })
         .collect::<Result<Vec<_>, String>>()
@@ -104,10 +109,11 @@ pub async fn get_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String>
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let account = wallet.btc.active_account()?;
-    let address_label_map = account.derive_path_label_map();
+    let address_label_map = account.keychain.to_label_map();
 
     let mut utxos: Vec<_> = account
-        .utxos
+        .utxo_set
+        .entries
         .values()
         .map(|utxo| utxo.to_dto(&address_label_map))
         .collect();
@@ -141,12 +147,13 @@ pub async fn sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String
         .await
         .map_err(|e| e.to_string())?;
 
-    let account = wallet.btc.get_mut_active_account()?;
-    account.set_utxos(received_utxos);
+    let account = wallet.btc.get_active_account_mut()?;
+    account.utxo_set.replace_all(received_utxos);
 
-    let address_label_map = account.derive_path_label_map();
+    let address_label_map = account.keychain.to_label_map();
     let mut result = account
-        .utxos
+        .utxo_set
+        .entries
         .values()
         .map(|utxo| utxo.to_dto(&address_label_map))
         .collect::<Vec<_>>();
@@ -166,7 +173,7 @@ pub async fn sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String
 pub struct BuildTx {
     pub value: String,
     pub recipient: String,
-    pub utxo_selection_method: UtxoSelectionMethod,
+    pub utxo_selection_method: UtxoSelectionStrategy,
 }
 
 #[derive(Type, Serialize)]
@@ -239,8 +246,8 @@ pub async fn broadcast_tx(
 
     {
         // save change key
-        let account = wallet.btc.get_mut_active_account()?;
-        account.add_address(tx_build_res.change_key_path);
+        let account = wallet.btc.get_active_account_mut()?;
+        account.keychain.push(tx_build_res.change_key_path);
         wallet.persist()?;
     }
 

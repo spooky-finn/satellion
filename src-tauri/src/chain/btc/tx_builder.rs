@@ -14,7 +14,7 @@ use miniscript::psbt::PsbtExt;
 use crate::{
     chain::btc::{
         Prk,
-        account::{Account, UtxoSelectionMethod},
+        account::{Account, UtxoSelectionStrategy},
         config::BitcoinConfig,
         key_derivation::{Change, KeyDerivationPath, LabeledKeyDerivationPath, Proposal},
     },
@@ -26,7 +26,7 @@ const UTXO_DUST_VALUE: u64 = 330;
 pub struct BuildPsbtParams<'a> {
     pub send_value_sat: u64,
     pub recipient: Address<NetworkChecked>,
-    pub utxo_selection_method: UtxoSelectionMethod,
+    pub utxo_selection_method: UtxoSelectionStrategy,
     pub miner_fee_vbytes: f64,
     pub config: BitcoinConfig,
     pub account: &'a Account,
@@ -45,7 +45,7 @@ const MIN_RELAY_FEE: u64 = 16;
 /// - Output 0: change returned to the wallet's next unused **internal** address
 /// - Output 1: recipient payment
 pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
-    let utxos = p.account.choose_utxo(p.utxo_selection_method.clone());
+    let utxos = p.account.utxo_set.select(p.utxo_selection_method.clone());
     if utxos.is_empty() {
         return Err("no utxos selected for transaction".to_string());
     }
@@ -91,7 +91,7 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
 
     let mut output: Vec<TxOut> = Vec::with_capacity(output_count);
 
-    let change_index = p.account.unoccupied_address(Change::Internal);
+    let change_index = p.account.keychain.next_unused_index(Change::Internal);
     let change_key_path = KeyDerivationPath::new(
         Proposal::Bip86,
         p.config.network(),

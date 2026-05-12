@@ -16,20 +16,12 @@ use crate::{
     chain_trait::{AccountIndex, SecureKey},
 };
 
-type AccountAddresses = Vec<LabeledKeyDerivationPath>;
-
 #[derive(Clone)]
 pub struct Account {
     pub index: AccountIndex,
     pub name: String,
-    pub addresses: AccountAddresses,
-    pub utxos: HashMap<OutPointDto, Utxo>,
-}
-
-#[derive(Clone, Type, Deserialize)]
-pub enum UtxoSelectionMethod {
-    Manual(Vec<OutPointDto>),
-    Automatic(u32),
+    pub keychain: KeyChain,
+    pub utxo_set: UtxoSet,
 }
 
 impl Account {
@@ -37,29 +29,33 @@ impl Account {
         Self {
             index: account,
             name,
-            addresses: vec![
-                LabeledKeyDerivationPath {
-                    label: "main".to_string(),
-                    path: KeyDerivationPath::new(
-                        Proposal::Bip86,
-                        network,
-                        account,
-                        Change::External,
-                        0,
-                    ),
-                },
-                LabeledKeyDerivationPath {
-                    label: "main_change".to_string(),
-                    path: KeyDerivationPath::new(
-                        Proposal::Bip86,
-                        network,
-                        account,
-                        Change::Internal,
-                        0,
-                    ),
-                },
-            ],
-            utxos: HashMap::new(),
+            keychain: KeyChain {
+                paths: vec![
+                    LabeledKeyDerivationPath {
+                        label: "main".to_string(),
+                        path: KeyDerivationPath::new(
+                            Proposal::Bip86,
+                            network,
+                            account,
+                            Change::External,
+                            0,
+                        ),
+                    },
+                    LabeledKeyDerivationPath {
+                        label: "main_change".to_string(),
+                        path: KeyDerivationPath::new(
+                            Proposal::Bip86,
+                            network,
+                            account,
+                            Change::Internal,
+                            0,
+                        ),
+                    },
+                ],
+            },
+            utxo_set: UtxoSet {
+                entries: HashMap::new(),
+            },
         }
     }
 
@@ -76,58 +72,13 @@ impl Account {
         Ok((child, main_key_derive_path))
     }
 
-    pub fn is_deriviation_path_available(&self, path: KeyDerivationPath) -> bool {
-        !self.addresses.iter().any(|a| a.path == path)
-    }
-
-    pub fn unoccupied_address(&self, change: Change) -> u32 {
-        let occupied: HashSet<u32> = self
-            .addresses
-            .iter()
-            .filter(|a| a.path.change == change)
-            .map(|a| a.path.index)
-            .collect();
-        (1..).find(|i| !occupied.contains(i)).unwrap_or(1)
-    }
-
-    pub fn get_external_addresess(&self) -> impl Iterator<Item = &LabeledKeyDerivationPath> {
-        self.addresses
-            .iter()
-            .filter(|a| a.path.change == Change::External)
-    }
-
-    pub fn add_address(&mut self, child: LabeledKeyDerivationPath) {
-        self.addresses.push(child);
-    }
-
-    pub fn set_utxos(&mut self, utxos: Vec<Utxo>) {
-        self.utxos.clear();
-
-        for utxo in utxos {
-            self.utxos.insert(utxo.outpoint(), utxo);
-        }
-    }
-
-    pub fn total_balance(&self) -> u64 {
-        self.utxos
-            .iter()
-            .map(|utxo| utxo.1.output.value.to_sat())
-            .sum()
-    }
-
-    pub fn derive_path_label_map(&self) -> KeyDerivationPathLabelMap {
-        self.addresses
-            .iter()
-            .map(|e| (e.path.to_slice(), e.label.clone()))
-            .collect()
-    }
-
     pub fn derive_address_path_map(&self, prk: &Prk, network: Network) -> AddressPathMap {
         let main_addr = self
             .main_key(prk, network)
             .expect("failed to derive main key");
         let mut map: AddressPathMap = self
-            .addresses
+            .keychain
+            .paths
             .iter()
             .filter_map(|schema| {
                 schema
@@ -140,25 +91,100 @@ impl Account {
         map.insert(main_addr.0.taproot_address, main_addr.1);
         map
     }
+}
 
-    pub fn choose_utxo(&self, method: UtxoSelectionMethod) -> Vec<&Utxo> {
+#[derive(Clone)]
+pub struct KeyChain {
+    pub paths: Vec<LabeledKeyDerivationPath>,
+}
+
+impl KeyChain {
+    /// Returns the first index that hasn't been used yet for a specific change type.
+    pub fn next_unused_index(&self, change: Change) -> u32 {
+        let occupied: HashSet<u32> = self
+            .paths_by_change(&change)
+            .map(|a| a.path.index)
+            .collect();
+
+        (1..).find(|i| !occupied.contains(i)).unwrap_or(0)
+    }
+
+    /// Checks if a specific path is already present in the keychain.
+    pub fn contains_path(&self, path: KeyDerivationPath) -> bool {
+        self.paths.iter().any(|a| a.path == path)
+    }
+
+    /// Returns an iterator of paths belonging to the internal (change) or external chain.
+    pub fn paths_by_change(
+        &self,
+        change: &Change,
+    ) -> impl Iterator<Item = &LabeledKeyDerivationPath> {
+        self.paths.iter().filter(|a| a.path.change == *change)
+    }
+
+    /// Creates a lookup map of raw path slices to their respective labels.
+    pub fn to_label_map(&self) -> KeyDerivationPathLabelMap {
+        self.paths
+            .iter()
+            .map(|e| (e.path.to_slice(), e.label.clone()))
+            .collect()
+    }
+
+    /// Registers a new path in the keychain.
+    pub fn push(&mut self, child: LabeledKeyDerivationPath) {
+        self.paths.push(child);
+    }
+}
+
+#[derive(Clone)]
+pub struct UtxoSet {
+    /// A map of outpoints to their corresponding UTXO data.
+    pub entries: HashMap<OutPointDto, Utxo>,
+}
+
+#[derive(Clone, Type, Deserialize)]
+pub enum UtxoSelectionStrategy {
+    Manual(Vec<OutPointDto>),
+    Auto(u32),
+}
+
+impl UtxoSet {
+    /// Replaces the current set of UTXOs with a new collection.
+    pub fn replace_all(&mut self, utxos: Vec<Utxo>) {
+        self.entries.clear();
+        self.entries
+            .extend(utxos.into_iter().map(|u| (u.outpoint(), u)));
+    }
+
+    /// Calculates the sum of all unspent outputs in satoshis.
+    pub fn total_value(&self) -> u64 {
+        self.entries
+            .iter()
+            .map(|utxo| utxo.1.output.value.to_sat())
+            .sum()
+    }
+
+    /// Selects a subset of UTXOs based on the provided strategy.
+    pub fn select(&self, method: UtxoSelectionStrategy) -> Vec<&Utxo> {
         match method {
-            UtxoSelectionMethod::Manual(out_point_dtos) => self.manual_utxo_select(out_point_dtos),
-            UtxoSelectionMethod::Automatic(min_value) => {
-                self.automatic_utxo_selection(min_value as u64)
+            UtxoSelectionStrategy::Manual(out_point_dtos) => {
+                self.select_by_outpoints(out_point_dtos)
             }
+            UtxoSelectionStrategy::Auto(min_value) => self.select_automatically(min_value as u64),
         }
     }
 
-    fn automatic_utxo_selection(&self, _min_value: u64) -> Vec<&Utxo> {
+    /// Implementation of automated coin selection (e.g., Branch and Bound or Knapsack).
+    fn select_automatically(&self, _min_value: u64) -> Vec<&Utxo> {
         // TODO: implement
         vec![]
     }
 
-    fn manual_utxo_select(&self, selected_outpoints: Vec<utxo::OutPointDto>) -> Vec<&Utxo> {
+    /// Retrieves specific UTXOs by their outpoints, ignoring any that aren't in this set.
+    fn select_by_outpoints(&self, selected_outpoints: Vec<utxo::OutPointDto>) -> Vec<&Utxo> {
         selected_outpoints
             .iter()
-            .filter_map(|outpoint| self.utxos.get(outpoint))
+            .filter_map(|outpoint| self.entries.get(outpoint))
             .collect()
     }
 }
@@ -192,22 +218,26 @@ pub mod persistence {
 
     impl Account {
         pub fn serialize(&self) -> Result<AccountSnapshot, String> {
+            let utxo_snapshots: Result<Vec<_>, String> = self
+                .utxo_set
+                .entries
+                .values()
+                .map(|utxo| utxo.serialize())
+                .collect();
+
             Ok(AccountSnapshot {
                 name: self.name.clone(),
                 index: self.index,
                 addresses: self
-                    .addresses
+                    .keychain
+                    .paths
                     .iter()
                     .map(|addr| DerivationPathSnapshot {
                         label: addr.label.clone(),
                         path: addr.path.to_slice(),
                     })
                     .collect(),
-                utxos: self
-                    .utxos
-                    .values()
-                    .map(|utxo| utxo.serialize().unwrap())
-                    .collect(),
+                utxos: utxo_snapshots?,
             })
         }
     }
@@ -238,8 +268,10 @@ pub mod persistence {
             Ok(Account {
                 name: self.name.clone(),
                 index: self.index,
-                addresses: derived_addresses,
-                utxos,
+                keychain: super::KeyChain {
+                    paths: derived_addresses,
+                },
+                utxo_set: super::UtxoSet { entries: utxos },
             })
         }
     }

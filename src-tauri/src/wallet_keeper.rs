@@ -36,7 +36,7 @@ impl WalletKeeper {
         flow: CreationFlow,
     ) -> Result<Wallet, String> {
         let name = if name.is_empty() {
-            self.gen_wallet_name()?
+            self.gen_wallet_default_name()?
         } else {
             name.to_string()
         };
@@ -55,7 +55,7 @@ impl WalletKeeper {
         Ok(wallet)
     }
 
-    fn gen_wallet_name(&self) -> Result<String, String> {
+    fn gen_wallet_default_name(&self) -> Result<String, String> {
         let existing_wallets = self.repository.ls().map_err(|e| e.to_string())?;
 
         let mut max_ordinal = 0;

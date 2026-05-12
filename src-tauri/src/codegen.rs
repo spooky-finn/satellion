@@ -33,7 +33,7 @@ pub fn handlers() -> tauri_specta::Builder {
         tauri_specta::Builder::<tauri::Wry>::new()
             .commands(tauri_specta::collect_commands![
                 btc::commands::derive_external_address,
-                btc::commands::unoccupied_deriviation_index,
+                btc::commands::next_unused_index,
                 btc::commands::get_external_addresess,
                 btc::commands::get_utxos,
                 btc::commands::sync_utxos,
@@ -73,7 +73,7 @@ pub fn handlers() -> tauri_specta::Builder {
         commands::validate_address,
         //
         btc::commands::derive_external_address,
-        btc::commands::unoccupied_deriviation_index,
+        btc::commands::next_unused_index,
         btc::commands::get_external_addresess,
         btc::commands::get_utxos,
         btc::commands::sync_utxos,

@@ -106,13 +106,13 @@ impl BitcoinWallet {
             change,
             index,
         );
-        if !account.is_deriviation_path_available(path.clone()) {
+        if account.keychain.contains_path(path.clone()) {
             return Err(format!("Derivation index {} already occupied", index));
         }
         Ok(path)
     }
 
-    pub fn get_mut_active_account(&mut self) -> Result<&mut Account, String> {
+    pub fn get_active_account_mut(&mut self) -> Result<&mut Account, String> {
         let active_index = self.active_account;
         self.accounts
             .iter_mut()
