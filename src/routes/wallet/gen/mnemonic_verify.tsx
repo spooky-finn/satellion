@@ -17,7 +17,7 @@ export const VerifyMnemonic = observer(({ flow }: { flow: FlowState }) => (
             id={index}
             key={index}
             value={store.verification_words[index]}
-            onChange={e => store.set_verification_words(index, e.target.value)}
+            onChange={v => store.set_verification_words(index, v ?? '')}
             visible
           />
         ))}

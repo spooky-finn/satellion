@@ -13,6 +13,14 @@ async generateMnemonic() : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async mnemonicWordlist() : Promise<Result<string[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("mnemonic_wordlist") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async createWallet(mnemonic: string, passphrase: string, name: string, creationType: CreationFlow) : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("create_wallet", { mnemonic, passphrase, name, creationType }) };

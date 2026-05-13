@@ -1,5 +1,5 @@
 use aes_gcm::aead::OsRng;
-use alloy_signer_local::coins_bip39::{English, Mnemonic};
+use alloy_signer_local::coins_bip39::{English, Mnemonic, Wordlist};
 
 pub fn new() -> Result<String, String> {
     let mut rng = OsRng;
@@ -12,6 +12,10 @@ pub fn validate(mnemonic: &str) -> Result<bool, String> {
     Mnemonic::<English>::new_from_phrase(mnemonic)
         .map(|_| true)
         .map_err(|e| format!("Invalid mnemonic: {e}"))
+}
+
+pub fn word_list() -> &'static [&'static str] {
+    English::get_all()
 }
 
 pub static TEST_MNEMONIC: &str =

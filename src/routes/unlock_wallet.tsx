@@ -12,9 +12,7 @@ const UnlockWallet = () => {
   const navigate = useNavigate()
 
   function handleUnlockWallet() {
-    root_store.request_config()
-    root_store.request_prices()
-
+    root_store.on_unlock()
     unlock.unlock_wallet(root_store.wallet).then(lastUsedChain => {
       navigate(lastUsedChain === 'Bitcoin' ? route.bitcoin : route.ethereum)
     })

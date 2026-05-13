@@ -14,6 +14,7 @@ pub fn handlers() -> tauri_specta::Builder {
         tauri_specta::Builder::<tauri::Wry>::new()
             .commands(tauri_specta::collect_commands![
                 commands::generate_mnemonic,
+                commands::mnemonic_wordlist,
                 commands::create_wallet,
                 commands::get_wallets,
                 commands::unlock_wallet,
@@ -61,6 +62,7 @@ pub fn handlers() -> tauri_specta::Builder {
     // Merged builder for runtime - chains .commands() calls
     tauri_specta::Builder::<tauri::Wry>::new().commands(tauri_specta::collect_commands![
         commands::generate_mnemonic,
+        commands::mnemonic_wordlist,
         commands::create_wallet,
         commands::get_wallets,
         commands::unlock_wallet,

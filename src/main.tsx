@@ -10,11 +10,14 @@ import BitcoinWallet from './routes/bitcoin/view/main'
 import { CreateWallet } from './routes/create_wallet'
 import { EthereumWallet } from './routes/ethereum/view/main'
 import UnlockWallet from './routes/unlock_wallet'
+import { root_store } from './view_model/root'
 
 const App = () => {
   const navigate = useNavigate()
 
   useLayoutEffect(() => {
+    root_store.bootstrap()
+
     listen('session_expired', () => {
       navigate(route.unlock_wallet)
     })

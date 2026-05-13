@@ -13,9 +13,9 @@ async deriveExternalAddress(label: string, index: number) : Promise<Result<strin
     else return { status: "error", error: e  as any };
 }
 },
-async unoccupiedDeriviationIndex() : Promise<Result<number, string>> {
+async nextUnusedIndex() : Promise<Result<number, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("unoccupied_deriviation_index") };
+    return { status: "ok", data: await TAURI_INVOKE("next_unused_index") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -87,13 +87,13 @@ export type ActiveAccountDto = { index: number;
  */
 address: string; total_balance: string; utxo: UtxoDto[] }
 export type BroadcastResult = { tx_id: string }
-export type BuildTx = { value: string; recipient: string; utxo_selection_method: UtxoSelectionMethod }
+export type BuildTx = { value: string; recipient: string; utxo_selection_method: UtxoSelectionStrategy }
 export type BuildTxResult = Record<string, never>
 export type DerivedAddressDto = { label: string; path: string; address: string }
 export type OutPointDto = { tx_id: string; vout: string }
 export type SendTx = Record<string, never>
 export type UtxoDto = { utxo_id: OutPointDto; value: string; deriv_path: string; address_label: string | null }
-export type UtxoSelectionMethod = { Manual: OutPointDto[] } | { Automatic: number }
+export type UtxoSelectionStrategy = { Manual: OutPointDto[] } | { Auto: number }
 
 /** tauri-specta globals **/
 

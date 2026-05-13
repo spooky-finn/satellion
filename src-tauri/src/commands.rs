@@ -220,3 +220,9 @@ pub async fn get_config(config: tauri::State<'_, Config>) -> Result<UIConfig, St
         eth_anvil: config.eth.anvil,
     })
 }
+
+#[specta]
+#[tauri::command]
+pub async fn mnemonic_wordlist() -> Result<&'static [&'static str], String> {
+    Ok(mnemonic::word_list())
+}

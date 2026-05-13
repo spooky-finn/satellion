@@ -20,7 +20,7 @@ export const DeriveChildAddress = observer((props: { refetch: () => void }) => {
       <Button
         onClick={() => {
           state.set_is_open(true)
-          state.get_avaiable_index()
+          state.next_unused_key_index()
         }}
       >
         Derive

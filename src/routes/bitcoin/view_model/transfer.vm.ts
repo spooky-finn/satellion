@@ -3,7 +3,7 @@ import {
   type BroadcastResult,
   commands,
   type UtxoDto,
-  type UtxoSelectionMethod,
+  type UtxoSelectionStrategy,
 } from '../../../bindings/btc'
 import { commands as shared_commands } from '../../../bindings/index'
 import { AddressInputVM } from '../../../components/address_input'
@@ -61,10 +61,10 @@ export class TransferVM {
   async estimate(selected_utxos: UtxoDto[]) {
     if (!this.transfer_amount) throw Error('transfer amount not set')
 
-    const utxo_selection_method: UtxoSelectionMethod =
+    const utxo_selection_method: UtxoSelectionStrategy =
       this.utxo_selection_method === UtxoSelectionMethodName.Auto
         ? {
-            Automatic: this.transfer_amount,
+            Auto: this.transfer_amount,
           }
         : { Manual: selected_utxos.map(each => each.utxo_id) }
 

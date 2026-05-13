@@ -1,11 +1,13 @@
 import { makeAutoObservable, runInAction } from 'mobx'
 import { commands, type UIConfig } from '../bindings'
-import { notifier } from '../lib/notifier'
+import { unwrap_result } from '../lib/handle_err'
 import { Unlock } from './unlock'
 import { Wallet } from './wallet'
 
 class RootStore {
   ui_config?: UIConfig
+  mnemonic_wordlist: string[] = []
+
   readonly unlock = new Unlock()
   readonly wallet = new Wallet()
 
@@ -13,26 +15,34 @@ class RootStore {
     makeAutoObservable(this)
   }
 
+  bootstrap() {
+    this.request_mnemonic_list()
+  }
+
+  on_unlock() {
+    this.request_config()
+    this.request_prices()
+  }
+
   async request_config() {
-    const res = await commands.getConfig()
-    if (res.status !== 'ok') {
-      notifier.err(res.error)
-      return
-    }
+    const res = await commands.getConfig().then(unwrap_result)
     runInAction(() => {
-      this.ui_config = res.data
+      this.ui_config = res
     })
   }
 
   async request_prices() {
-    const res = await commands.priceFeed()
-    if (res.status !== 'ok') {
-      notifier.err(res.error)
-      return
-    }
+    const res = await commands.priceFeed().then(unwrap_result)
     runInAction(() => {
-      this.wallet.btc.usd_price = res.data.btc_usd
-      this.wallet.eth.usd_price = res.data.eth_usd
+      this.wallet.btc.usd_price = res.btc_usd
+      this.wallet.eth.usd_price = res.eth_usd
+    })
+  }
+
+  async request_mnemonic_list() {
+    const res = await commands.mnemonicWordlist().then(unwrap_result)
+    runInAction(() => {
+      this.mnemonic_wordlist = res
     })
   }
 }

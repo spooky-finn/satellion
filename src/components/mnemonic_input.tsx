@@ -65,7 +65,7 @@ export const MnemonicInput = observer(({ st }: { st: MnemonicInputSt }) => (
           key={id}
           value={st.mnemonic[id]}
           onFocus={() => st.set_selected_window(id)}
-          onChange={e => st.set_word(id, e.target.value)}
+          onChange={v => st.set_word(id, v ?? '')}
           visible={st.selected_window === id}
           onPaste={e => st.handle_paste(e)}
         />

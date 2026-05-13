@@ -22,10 +22,8 @@ export class DeriveChildVM {
   }
   address: string | null = null
 
-  async get_avaiable_index() {
-    const index = await commands
-      .unoccupiedDeriviationIndex()
-      .then(unwrap_result)
+  async next_unused_key_index() {
+    const index = await commands.nextUnusedIndex().then(unwrap_result)
     runInAction(() => {
       this.index = index
     })
