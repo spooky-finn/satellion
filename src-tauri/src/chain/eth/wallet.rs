@@ -49,39 +49,6 @@ impl ChainTrait for EthereumWallet {
     }
 }
 
-impl EthereumWallet {
-    pub fn serialize(&self) -> Result<persistence::WalletData, String> {
-        Ok(persistence::WalletData {
-            tracked_tokens: self
-                .tracked_tokens
-                .iter()
-                .map(|token| persistence::Token {
-                    symbol: token.symbol.clone(),
-                    address: token.address.to_string(),
-                    decimals: token.decimals,
-                })
-                .collect(),
-        })
-    }
-
-    pub fn deserialize(data: persistence::WalletData, config: Config) -> Result<Self, String> {
-        let mut tracked_tokens = Vec::new();
-        for token in data.tracked_tokens {
-            let address = parse_addres(&token.address)?;
-            tracked_tokens.push(Token {
-                address,
-                symbol: token.symbol,
-                decimals: token.decimals,
-            });
-        }
-        Ok(Self {
-            config,
-            tracked_tokens,
-            active_account: 0,
-        })
-    }
-}
-
 impl AssetTracker<Token> for EthereumWallet {
     fn track(&mut self, asset: Token) -> Result<(), String> {
         if self.tracked_tokens.contains(&asset) {
@@ -132,20 +99,4 @@ impl EthereumWallet {
 
 pub fn parse_addres(addres: &str) -> Result<Address, String> {
     Address::from_str(addres).map_err(|e| format!("Invalid Ethereum address: {}", e))
-}
-
-pub mod persistence {
-    use serde::{Deserialize, Serialize};
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct Token {
-        pub symbol: String,
-        pub address: String,
-        pub decimals: u8,
-    }
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct WalletData {
-        pub tracked_tokens: Vec<Token>,
-    }
 }

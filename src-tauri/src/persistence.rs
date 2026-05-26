@@ -12,8 +12,8 @@ use crate::{
 
 #[derive(Serialize, Deserialize)]
 pub struct ChainSet {
-    pub bitcoin: crate::btc::persistence::WalletData,
-    pub ethereum: crate::eth::persistence::WalletData,
+    pub bitcoin: crate::btc::persistence::WalletStored,
+    pub ethereum: crate::eth::persistence::WalletStored,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -33,8 +33,11 @@ impl WalletEntity {
             name: self.name.clone(),
             mnemonic: SecretBox::new(Box::new(self.mnemonic.clone())),
             passphrase: SecretBox::new(Box::new(passphrase.to_string())),
-            btc: self.chain_set.bitcoin.deserialize(config.clone())?,
-            eth: crate::eth::EthereumWallet::deserialize(
+            btc: crate::chain::btc::BitcoinWallet::from_dto(
+                self.chain_set.bitcoin.clone(),
+                config.clone(),
+            ),
+            eth: crate::chain::eth::EthereumWallet::from_dto(
                 self.chain_set.ethereum.clone(),
                 config.clone(),
             )?,
@@ -50,14 +53,8 @@ impl WalletEntity {
             name: wallet.name.clone(),
             mnemonic: wallet.mnemonic.expose_secret().to_string(),
             chain_set: ChainSet {
-                bitcoin: wallet
-                    .btc
-                    .serialize()
-                    .expect("Failed to serialize Bitcoin wallet data"),
-                ethereum: wallet
-                    .eth
-                    .serialize()
-                    .expect("Failed to serialize Ethereum wallet data"),
+                bitcoin: crate::chain::btc::persistence::WalletStored::from(&wallet.btc),
+                ethereum: crate::chain::eth::persistence::WalletStored::from(&wallet.eth),
             },
             last_used_chain: u16::from(wallet.last_used_chain),
             birth_date: wallet.birth_date,
@@ -194,7 +191,6 @@ impl FsRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::eth::constants::USDT;
 
     #[test]
     fn test_serialication() {
@@ -203,25 +199,19 @@ mod tests {
         let passphrase = "1111";
         let config = Config::new();
 
+        let btc = crate::chain::btc::BitcoinWallet::new(config.clone());
+        let eth = crate::chain::eth::EthereumWallet::new(config.clone());
+
         let persisted_wallet = WalletEntity {
             name: name.clone(),
             mnemonic: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about".to_string(),
             birth_date: None,
             last_used_chain: 1,
-            chain_set: ChainSet {  
-                bitcoin: crate::chain::btc::persistence::WalletData {
-                    active_account: 0,
-                    accounts: vec![]
+            chain_set: ChainSet {
+                bitcoin: (&btc).into(),
+                ethereum: (&eth).into(),
             },
-            ethereum: crate::chain::eth::persistence::WalletData {
-                tracked_tokens: vec![crate::eth::persistence::Token {
-                    address: USDT.address.to_string(),
-                    decimals: 4,
-                    symbol: "USDT".to_string()
-
-                }],
-            }, },
-            version: 1
+            version: 1,
         };
 
         let wallet = persisted_wallet

@@ -2,6 +2,7 @@ pub mod account;
 pub mod commands;
 pub mod config;
 pub mod key_derivation;
+pub mod persistence;
 pub mod providers;
 pub mod service;
 pub mod tx_builder;

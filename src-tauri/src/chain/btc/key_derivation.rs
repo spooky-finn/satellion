@@ -5,6 +5,7 @@ use bitcoin::{
     bip32::{DerivationPath, Xpriv},
     key::{Keypair, Secp256k1},
 };
+use serde::{Deserialize, Serialize};
 
 use crate::chain_trait::AccountIndex;
 
@@ -22,7 +23,7 @@ pub fn make_hardened(raw: KeyDeriviationPathSlice) -> KeyDeriviationPathSlice {
     ]
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LabeledKeyDerivationPath {
     pub label: String,
     pub path: KeyDerivationPath,
@@ -70,13 +71,28 @@ impl TryFrom<u32> for Proposal {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(into = "KeyDeriviationPathSlice", try_from = "KeyDeriviationPathSlice")]
 pub struct KeyDerivationPath {
     pub purpose: Proposal,
     pub account: AccountIndex,
     pub network: Network,
     pub change: Change,
     pub index: u32,
+}
+
+impl From<KeyDerivationPath> for KeyDeriviationPathSlice {
+    fn from(p: KeyDerivationPath) -> Self {
+        p.to_slice()
+    }
+}
+
+impl TryFrom<KeyDeriviationPathSlice> for KeyDerivationPath {
+    type Error = String;
+
+    fn try_from(v: KeyDeriviationPathSlice) -> Result<Self, Self::Error> {
+        KeyDerivationPath::from_slice(v)
+    }
 }
 
 const HARDENED: u32 = 0x80000000;
