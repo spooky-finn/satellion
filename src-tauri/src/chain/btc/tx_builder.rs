@@ -50,31 +50,15 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
         return Err("no utxos selected for transaction".to_string());
     }
     let input_count = utxos.len();
-    let output_count = 2;
     let total_input: u64 = utxos.iter().map(|u| u.output.value.to_sat()).sum();
 
-    // 1. Estimate the fee assuming we WILL have a change output (2 outputs total)
-    let estimated_vbytes = estimate_taproot_vbytes(input_count, output_count);
-    let required_fee: u64 = (estimated_vbytes as f64 * p.miner_fee_vbytes).ceil() as u64;
-    let fee = max(required_fee, MIN_RELAY_FEE);
-
-    // 2. Check if the inputs can cover the send amount + fee
-    let total_required = p
-        .send_value_sat
-        .checked_add(fee)
-        .ok_or("overflow calculating required amount")?;
-
-    let potential_change = total_input
-        .checked_sub(total_required)
-        .ok_or("insufficient funds to cover send amount and miner fee")?;
-
-    // 3. The Dust Check
-    let has_change = potential_change >= UTXO_DUST_VALUE;
-    let output_count = if has_change {
-        output_count
-    } else {
-        output_count - 1
-    };
+    let amounts = resolve_amounts(
+        total_input,
+        input_count,
+        p.send_value_sat,
+        p.miner_fee_vbytes,
+    )?;
+    let output_count = if amounts.has_change { 2 } else { 1 };
 
     let input: Vec<TxIn> = utxos
         .iter()
@@ -100,19 +84,19 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
         change_index,
     );
 
-    if has_change {
+    if amounts.has_change {
         let change_child_key = change_key_path
             .derive(p.xpriv)
             .map_err(|e| format!("failed to derive change key: {e}"))?;
         output.push(TxOut {
-            value: bitcoin::Amount::from_sat(potential_change),
+            value: bitcoin::Amount::from_sat(amounts.change_value_sat),
             script_pubkey: change_child_key.taproot_address.script_pubkey(),
         });
     }
 
     // Create the recipient output
     output.push(TxOut {
-        value: bitcoin::Amount::from_sat(p.send_value_sat),
+        value: bitcoin::Amount::from_sat(amounts.send_value_sat),
         script_pubkey: p.recipient.script_pubkey(),
     });
 
@@ -171,6 +155,56 @@ pub fn sign_psbt(mut psbt: Psbt, prk: &Prk) -> Result<Transaction, String> {
         .map_err(|_| "fail to finalize tx".to_string())?;
 
     psbt.extract_tx().map_err(|e| e.to_string())
+}
+
+struct ResolvedAmounts {
+    send_value_sat: u64,
+    change_value_sat: u64,
+    has_change: bool,
+}
+
+/// Resolve the recipient and change amounts after accounting for the miner fee.
+///
+/// When `requested_send_value` equals `total_input`, the transaction sweeps the
+/// selected UTXOs: the fee is subtracted from the send amount and no change
+/// output is produced. Otherwise the fee is added on top of the requested send
+/// value, and any leftover above the dust threshold becomes change.
+fn resolve_amounts(
+    total_input: u64,
+    input_count: usize,
+    requested_send_value: u64,
+    miner_fee_vbytes: f64,
+) -> Result<ResolvedAmounts, String> {
+    let is_sweep = requested_send_value == total_input;
+
+    let assumed_outputs = if is_sweep { 1 } else { 2 };
+    let estimated_vbytes = estimate_taproot_vbytes(input_count, assumed_outputs);
+    let required_fee: u64 = (estimated_vbytes as f64 * miner_fee_vbytes).ceil() as u64;
+    let fee = max(required_fee, MIN_RELAY_FEE);
+
+    let (send_value_sat, potential_change) = if is_sweep {
+        let send = total_input
+            .checked_sub(fee)
+            .ok_or("insufficient funds to cover miner fee")?;
+        (send, 0)
+    } else {
+        let total_required = requested_send_value
+            .checked_add(fee)
+            .ok_or("overflow calculating required amount")?;
+        let change = total_input
+            .checked_sub(total_required)
+            .ok_or("insufficient funds to cover send amount and miner fee")?;
+        (requested_send_value, change)
+    };
+
+    let has_change = potential_change >= UTXO_DUST_VALUE;
+    let change_value_sat = if has_change { potential_change } else { 0 };
+
+    Ok(ResolvedAmounts {
+        send_value_sat,
+        change_value_sat,
+        has_change,
+    })
 }
 
 pub fn estimate_taproot_vbytes(input_count: usize, output_count: usize) -> u64 {
