@@ -128,7 +128,7 @@ pub async fn switch_account(
 #[derive(Type, Serialize)]
 pub struct UnlockDto {
     ethereum: eth::wallet::EthereumUnlockDto,
-    bitcoin: btc::service::BitcoinUnlockDto,
+    bitcoin: btc::dtos::BitcoinUnlockDto,
     last_used_chain: BlockChain,
 }
 

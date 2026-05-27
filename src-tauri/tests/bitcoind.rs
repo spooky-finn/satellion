@@ -16,20 +16,19 @@ pub struct ScannedUtxo {
     #[serde(rename = "scriptPubKey")]
     pub script_pub_key: String,
     pub txid: String,
-    pub vout: u64,
+    pub vout: u32,
 }
 
 impl ScannedUtxo {
     pub fn to_domain(&self, derivation: KeyDerivationPath) -> btc::utxo::Utxo {
         let tx_id = bitcoin::Txid::from_str(&self.txid).expect("invalid txid");
-        let vout = self.vout as usize;
         let script_pubkey =
             bitcoin::ScriptBuf::from_hex(&self.script_pub_key).expect("invalid script");
         let value = bitcoin::Amount::from_btc(self.amount).expect("invalid amount");
         let height = self.height as u32;
         btc::utxo::Utxo {
             tx_id,
-            vout,
+            vout: self.vout,
             output: bitcoin::TxOut {
                 script_pubkey,
                 value,

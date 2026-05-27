@@ -1,6 +1,7 @@
 pub mod account;
 pub mod commands;
 pub mod config;
+pub mod dtos;
 pub mod key_derivation;
 pub mod persistence;
 pub mod providers;

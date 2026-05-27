@@ -88,7 +88,7 @@ impl ElectrumAdapter {
                     .and_then(|address| {
                         address_path_map.get(&address).map(|derivation| Utxo {
                             tx_id: Txid::from_str(&utxo.txid).expect("invalid txid"),
-                            vout: utxo.vout as usize,
+                            vout: utxo.vout,
                             output: TxOut {
                                 value: bitcoin::Amount::from_sat(utxo.value),
                                 script_pubkey: address.script_pubkey(),

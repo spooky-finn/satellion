@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use bitcoin::{Amount, ScriptBuf, TxOut, Txid, hashes::Hash};
+use bitcoin::{Amount, OutPoint, ScriptBuf, TxOut, Txid, hashes::Hash};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -8,7 +8,7 @@ use crate::{
         account::{Account, KeyChain, UtxoSet},
         key_derivation::{KeyDerivationPath, LabeledKeyDerivationPath},
         providers::electrum_adapter::ElectrumAdapter,
-        utxo::{OutPointDto, Utxo},
+        utxo::Utxo,
         wallet::BitcoinWallet,
     },
     chain_trait::AccountIndex,
@@ -18,7 +18,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UtxoStored {
     txid: [u8; 32],
-    vout: usize,
+    vout: u32,
     value: u64,
     script_pubkey: Vec<u8>,
     derivation: KeyDerivationPath,
@@ -74,7 +74,7 @@ impl From<&Account> for AccountStored {
 
 impl From<AccountStored> for Account {
     fn from(dto: AccountStored) -> Self {
-        let entries: HashMap<OutPointDto, Utxo> = dto
+        let entries: HashMap<OutPoint, Utxo> = dto
             .utxos
             .into_iter()
             .map(|u| {

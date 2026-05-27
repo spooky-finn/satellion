@@ -1,17 +1,18 @@
 use std::collections::{HashMap, HashSet};
 
-use bitcoin::{Address, Network, address::NetworkChecked};
+use bitcoin::{Address, Network, OutPoint, address::NetworkChecked};
 use serde::Deserialize;
 use specta::Type;
 
 use crate::{
     chain::btc::{
         Prk,
+        dtos::OutPointDto,
         key_derivation::{
             Change, Child, KeyDerivationPath, KeyDeriviationPathSlice, LabeledKeyDerivationPath,
             Proposal,
         },
-        utxo::{self, OutPointDto, Utxo},
+        utxo::Utxo,
     },
     chain_trait::{AccountIndex, SecureKey},
 };
@@ -29,30 +30,7 @@ impl Account {
         Self {
             index: account,
             name,
-            keychain: KeyChain {
-                paths: vec![
-                    LabeledKeyDerivationPath {
-                        label: "main".to_string(),
-                        path: KeyDerivationPath::new(
-                            Proposal::Bip86,
-                            network,
-                            account,
-                            Change::External,
-                            0,
-                        ),
-                    },
-                    LabeledKeyDerivationPath {
-                        label: "main_change".to_string(),
-                        path: KeyDerivationPath::new(
-                            Proposal::Bip86,
-                            network,
-                            account,
-                            Change::Internal,
-                            0,
-                        ),
-                    },
-                ],
-            },
+            keychain: KeyChain::default(network, account),
             utxo_set: UtxoSet {
                 entries: HashMap::new(),
             },
@@ -99,6 +77,21 @@ pub struct KeyChain {
 }
 
 impl KeyChain {
+    fn default(network: Network, account: AccountIndex) -> Self {
+        Self {
+            paths: vec![LabeledKeyDerivationPath {
+                label: "main".to_string(),
+                path: KeyDerivationPath::new(
+                    Proposal::Bip86,
+                    network,
+                    account,
+                    Change::External,
+                    0,
+                ),
+            }],
+        }
+    }
+
     /// Returns the first index that hasn't been used yet for a specific change type.
     pub fn next_unused_index(&self, change: Change) -> u32 {
         let occupied: HashSet<u32> = self
@@ -139,7 +132,7 @@ impl KeyChain {
 #[derive(Clone)]
 pub struct UtxoSet {
     /// A map of outpoints to their corresponding UTXO data.
-    pub entries: HashMap<OutPointDto, Utxo>,
+    pub entries: HashMap<OutPoint, Utxo>,
 }
 
 #[derive(Clone, Type, Deserialize)]
@@ -168,7 +161,12 @@ impl UtxoSet {
     pub fn select(&self, method: UtxoSelectionStrategy) -> Vec<&Utxo> {
         match method {
             UtxoSelectionStrategy::Manual(out_point_dtos) => {
-                self.select_by_outpoints(out_point_dtos)
+                let outpoins = out_point_dtos
+                    .into_iter()
+                    .map(|e| e.try_into())
+                    .collect::<Result<_, String>>()
+                    .unwrap();
+                self.select_by_outpoints(outpoins)
             }
             UtxoSelectionStrategy::Auto(min_value) => self.select_automatically(min_value as u64),
         }
@@ -181,7 +179,7 @@ impl UtxoSet {
     }
 
     /// Retrieves specific UTXOs by their outpoints, ignoring any that aren't in this set.
-    fn select_by_outpoints(&self, selected_outpoints: Vec<utxo::OutPointDto>) -> Vec<&Utxo> {
+    fn select_by_outpoints(&self, selected_outpoints: Vec<OutPoint>) -> Vec<&Utxo> {
         selected_outpoints
             .iter()
             .filter_map(|outpoint| self.entries.get(outpoint))

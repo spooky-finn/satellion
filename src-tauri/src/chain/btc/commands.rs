@@ -1,14 +1,16 @@
 use std::str::FromStr;
 
 use bitcoin::Address;
-use serde::{Deserialize, Serialize};
-use specta::{Type, specta};
+use specta::specta;
 
 use crate::{
     chain::btc::{
-        account::UtxoSelectionStrategy,
+        dtos::{
+            ActiveAccountDto, BroadcastResult, BuildTx, BuildTxResult, DerivedAddressDto, SendTx,
+            UtxoDto,
+        },
         key_derivation::{Change, Proposal},
-        service::{self, UtxoDto},
+        service::{self},
         tx_builder::{BuildPsbtParams, build_psbt, sign_psbt},
     },
     chain_trait::SecureKey,
@@ -17,7 +19,7 @@ use crate::{
 
 #[specta]
 #[tauri::command]
-pub async fn account_info(sk: tauri::State<'_, SK>) -> Result<service::ActiveAccountDto, String> {
+pub async fn account_info(sk: tauri::State<'_, SK>) -> Result<ActiveAccountDto, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let prk = wallet.btc_prk()?;
@@ -63,13 +65,6 @@ pub async fn next_unused_index(sk: tauri::State<'_, SK>) -> Result<u32, String> 
     let wallet = sk.wallet()?;
     let account = wallet.btc.active_account()?;
     Ok(account.keychain.next_unused_index(Change::External))
-}
-
-#[derive(Type, Serialize, Deserialize)]
-pub struct DerivedAddressDto {
-    pub label: String,
-    pub path: String,
-    pub address: String,
 }
 
 #[specta]
@@ -169,16 +164,6 @@ pub async fn sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String
     Ok(result)
 }
 
-#[derive(Type, Deserialize)]
-pub struct BuildTx {
-    pub value: String,
-    pub recipient: String,
-    pub utxo_selection_method: UtxoSelectionStrategy,
-}
-
-#[derive(Type, Serialize)]
-pub struct BuildTxResult {}
-
 #[specta]
 #[tauri::command]
 pub async fn build_tx(req: BuildTx, sk: tauri::State<'_, SK>) -> Result<BuildTxResult, String> {
@@ -212,14 +197,6 @@ pub async fn build_tx(req: BuildTx, sk: tauri::State<'_, SK>) -> Result<BuildTxR
     wallet.btc.pending_tx = Some(pending_tx);
 
     Ok(BuildTxResult {})
-}
-
-#[derive(Type, Deserialize)]
-pub struct SendTx {}
-
-#[derive(Type, Serialize)]
-pub struct BroadcastResult {
-    tx_id: String,
 }
 
 #[specta]

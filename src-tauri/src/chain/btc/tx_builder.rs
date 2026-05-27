@@ -81,7 +81,7 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
         .map(|utxo| TxIn {
             previous_output: OutPoint {
                 txid: utxo.tx_id,
-                vout: utxo.vout as u32,
+                vout: utxo.vout,
             },
             script_sig: bitcoin::ScriptBuf::new(),
             sequence: Sequence::MAX,

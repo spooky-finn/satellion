@@ -1,49 +1,10 @@
 use bitcoin::Network;
-use serde::Serialize;
-use specta::Type;
 
-use crate::{
-    chain::btc::{
-        BitcoinWallet, Prk,
-        account::Account,
-        utxo::{OutPointDto, Utxo},
-    },
-    chain_trait::AccountIndex,
+use crate::chain::btc::{
+    BitcoinWallet, Prk,
+    account::Account,
+    dtos::{AccountMetaDto, ActiveAccountDto, BitcoinUnlockDto},
 };
-
-#[derive(Type, Serialize)]
-pub struct UtxoDto {
-    pub utxo_id: OutPointDto,
-    pub value: String,
-    pub deriv_path: String,
-    pub address_label: Option<String>,
-}
-
-impl Utxo {
-    pub fn to_dto(
-        &self,
-        address_label_map: &crate::chain::btc::account::KeyDerivationPathLabelMap,
-    ) -> UtxoDto {
-        UtxoDto {
-            value: self.output.value.to_sat().to_string(),
-            utxo_id: self.outpoint(),
-            deriv_path: self.derivation.to_string(),
-            address_label: self.label(address_label_map),
-        }
-    }
-}
-
-#[derive(Serialize, specta::Type)]
-pub struct AccountMetaDto {
-    pub index: AccountIndex,
-    pub name: String,
-}
-
-#[derive(Serialize, specta::Type)]
-pub struct BitcoinUnlockDto {
-    pub accounts: Vec<AccountMetaDto>,
-    pub active_account: ActiveAccountDto,
-}
 
 pub fn unlock(wallet: &BitcoinWallet, prk: &Prk) -> Result<BitcoinUnlockDto, String> {
     let network = wallet.config.btc.network();
@@ -63,15 +24,6 @@ pub fn list_all_accounts(wallet: &BitcoinWallet) -> Vec<AccountMetaDto> {
             name: e.name.clone(),
         })
         .collect()
-}
-
-#[derive(Serialize, specta::Type)]
-pub struct ActiveAccountDto {
-    pub index: u32,
-    /** main external address to accept payments */
-    pub address: String,
-    pub total_balance: String,
-    pub utxo: Vec<UtxoDto>,
 }
 
 pub fn get_account_info(

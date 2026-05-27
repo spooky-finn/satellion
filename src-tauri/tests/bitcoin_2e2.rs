@@ -11,10 +11,10 @@ use satellion_lib::{
     chain::btc::{
         self,
         account::UtxoSelectionStrategy,
+        dtos::OutPointDto,
         key_derivation::{Change, KeyDerivationPath, Proposal},
         service,
         tx_builder::{BuildPsbtParams, build_psbt},
-        utxo::OutPointDto,
     },
     chain_trait::SecureKey,
     config::Config,
@@ -86,7 +86,7 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
         recipient: recipient.clone(),
         utxo_selection_method: UtxoSelectionStrategy::Manual(vec![OutPointDto {
             tx_id: utxo.tx_id.to_string(),
-            vout: utxo.vout.to_string(),
+            vout: utxo.vout,
         }]),
         miner_fee_vbytes: 100.0,
         config: config.btc,
