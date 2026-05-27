@@ -197,7 +197,15 @@ pub async fn build_tx(
         xpriv,
     })
     .map_err(|e| format!("failed to build PSBT: {e}"))?;
+    let change_key_path = pending_tx.change_key_path.clone();
+
     wallet.btc.pending_tx = Some(pending_tx);
+    wallet
+        .btc
+        .get_active_account_mut()?
+        .keychain
+        .push(change_key_path);
+    wallet.persist()?;
 
     Ok(BuildTxResponse {})
 }
