@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod config;
 pub mod constants;
+pub mod dtos;
 pub mod erc20_retriver;
 pub mod fee_estimator;
 pub mod persistence;

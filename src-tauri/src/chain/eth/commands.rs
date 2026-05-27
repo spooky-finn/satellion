@@ -4,8 +4,7 @@ use alloy::{
     providers::Provider,
 };
 use alloy_provider::{DynProvider, ext::AnvilApi};
-use serde::{Deserialize, Serialize};
-use specta::{Type, specta};
+use specta::specta;
 
 use crate::{
     chain_trait::{AssetTracker, SecureKey},
@@ -13,20 +12,16 @@ use crate::{
     eth::{
         self, PriceFeed,
         constants::{ETH, ETH_USD_PRICE_FEED},
+        dtos::{
+            NetworkStatus, TokenBalance, TrackedTokenInfo, TransferEstimation, TransferRequest,
+            WalletBalance,
+        },
         erc20_retriver::Erc20Retriever,
-        fee_estimator::FeeMode,
         transfer_builder::TransferPayload,
         wallet::parse_addres,
     },
     session::SK,
 };
-
-#[derive(Serialize, Type)]
-pub struct NetworkStatus {
-    block_number: String,
-    block_hash: String,
-    base_fee_per_gas: Option<String>,
-}
 
 #[specta]
 #[tauri::command]
@@ -46,20 +41,6 @@ pub async fn get_network_status(
         block_hash: block.header.hash.to_string(),
         base_fee_per_gas: block.header.base_fee_per_gas.map(|fee| fee.to_string()),
     })
-}
-
-#[derive(Type, Serialize)]
-pub struct TokenBalance {
-    symbol: String,
-    balance: String,
-    decimals: u8,
-    address: String,
-}
-
-#[derive(Type, Serialize)]
-pub struct WalletBalance {
-    wei: String,
-    tokens: Vec<TokenBalance>,
 }
 
 #[specta]
@@ -109,22 +90,6 @@ pub async fn get_wallet_balance(
         wei: wei_balance.to_string(),
         tokens: token_balances,
     })
-}
-
-#[derive(Type, Deserialize, Debug, PartialEq)]
-pub struct TransferRequest {
-    token_address: String,
-    amount: String,
-    recipient: String,
-    fee_mode: FeeMode,
-}
-
-#[derive(Type, Serialize, Debug, PartialEq)]
-pub struct TransferEstimation {
-    estimated_gas: String,
-    max_fee_per_gas: String,
-    fee_ceiling: String,
-    fee_in_usd: f64,
 }
 
 #[specta]
@@ -206,13 +171,6 @@ pub async fn execute_transfer(
     let prk = wallet.eth_prk()?;
     let hash = builder.sign_and_send_tx(prk.expose()).await?;
     Ok(hash.to_string())
-}
-
-#[derive(Type, Serialize)]
-pub struct TrackedTokenInfo {
-    chain: BlockChain,
-    symbol: String,
-    decimals: i32,
 }
 
 #[specta]

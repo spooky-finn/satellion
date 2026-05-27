@@ -8,6 +8,7 @@ use crate::{
     config::Config,
     eth::{
         constants::{self},
+        dtos::EthereumUnlock,
         token::Token,
     },
 };
@@ -18,10 +19,6 @@ pub struct EthereumWallet {
     pub tracked_tokens: Vec<Token>,
 }
 
-#[derive(serde::Serialize, specta::Type)]
-pub struct EthereumUnlock {
-    pub address: String,
-}
 pub struct Prk {
     signer: PrivateKeySigner,
 }
