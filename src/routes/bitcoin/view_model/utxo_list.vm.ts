@@ -1,5 +1,5 @@
 import { makeAutoObservable } from 'mobx'
-import type { UtxoDto } from '../../../bindings/btc'
+import type { UtxoView } from '../../../bindings/btc'
 import { Loader } from '../../../view_model/loader'
 
 export class UtxoListVM {
@@ -20,7 +20,7 @@ export class UtxoListVM {
     this.is_open = false
   }
 
-  utxo: UtxoDto[] = []
+  utxo: UtxoView[] = []
 
   get total_value_sat() {
     return this.utxo.reduce((acc, utxo) => acc + BigInt(utxo.value), 0n)
@@ -36,7 +36,7 @@ export class UtxoListVM {
     this._selected_utxo.push(index)
   }
 
-  get selected_utxo(): UtxoDto[] {
+  get selected_utxo(): UtxoView[] {
     return this._selected_utxo.map(i => this.utxo[i])
   }
 

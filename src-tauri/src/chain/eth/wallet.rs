@@ -19,7 +19,7 @@ pub struct EthereumWallet {
 }
 
 #[derive(serde::Serialize, specta::Type)]
-pub struct EthereumUnlockDto {
+pub struct EthereumUnlock {
     pub address: String,
 }
 pub struct Prk {
@@ -36,14 +36,14 @@ impl SecureKey for Prk {
 impl ChainTrait for EthereumWallet {
     type Prk = Prk;
     type UnlockContext = ();
-    type AccountState = EthereumUnlockDto;
+    type AccountState = EthereumUnlock;
 
     fn unlock(
         &mut self,
         _: Self::UnlockContext,
         prk: &Self::Prk,
     ) -> Result<Self::AccountState, String> {
-        Ok(EthereumUnlockDto {
+        Ok(EthereumUnlock {
             address: prk.expose().address().to_string(),
         })
     }

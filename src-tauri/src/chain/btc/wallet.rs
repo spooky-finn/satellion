@@ -120,4 +120,3 @@ impl BitcoinWallet {
             .ok_or("account not found".to_string())
     }
 }
-

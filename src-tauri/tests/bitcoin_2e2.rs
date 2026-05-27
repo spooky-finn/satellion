@@ -11,7 +11,7 @@ use satellion_lib::{
     chain::btc::{
         self,
         account::UtxoSelectionStrategy,
-        dtos::OutPointDto,
+        dtos::OutPointRef,
         key_derivation::{Change, KeyDerivationPath, Proposal},
         service,
         tx_builder::{BuildPsbtParams, build_psbt},
@@ -84,7 +84,7 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
     let build_res = build_psbt(&BuildPsbtParams {
         send_value_sat,
         recipient: recipient.clone(),
-        utxo_selection_method: UtxoSelectionStrategy::Manual(vec![OutPointDto {
+        utxo_selection_method: UtxoSelectionStrategy::Manual(vec![OutPointRef {
             tx_id: utxo.tx_id.to_string(),
             vout: utxo.vout,
         }]),

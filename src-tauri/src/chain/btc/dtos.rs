@@ -13,53 +13,53 @@ use crate::{
 };
 
 #[derive(Type, Deserialize)]
-pub struct BuildTx {
+pub struct BuildTxRequest {
     pub value: String,
     pub recipient: String,
     pub utxo_selection_method: UtxoSelectionStrategy,
 }
 
 #[derive(Type, Serialize)]
-pub struct BuildTxResult {}
+pub struct BuildTxResponse {}
 
 #[derive(Type, Deserialize)]
-pub struct SendTx {}
+pub struct BroadcastTxRequest {}
 
 #[derive(Type, Serialize)]
-pub struct BroadcastResult {
+pub struct BroadcastTxResponse {
     pub tx_id: String,
 }
 
 #[derive(Type, Serialize, Deserialize)]
-pub struct DerivedAddressDto {
+pub struct DerivedAddress {
     pub label: String,
     pub path: String,
     pub address: String,
 }
 
 #[derive(Serialize, specta::Type)]
-pub struct AccountMetaDto {
+pub struct AccountSummary {
     pub index: AccountIndex,
     pub name: String,
 }
 
 #[derive(Serialize, specta::Type)]
-pub struct BitcoinUnlockDto {
-    pub accounts: Vec<AccountMetaDto>,
-    pub active_account: ActiveAccountDto,
+pub struct BitcoinUnlock {
+    pub accounts: Vec<AccountSummary>,
+    pub active_account: ActiveAccountView,
 }
 
 #[derive(Type, Serialize)]
-pub struct UtxoDto {
-    pub utxo_id: OutPointDto,
+pub struct UtxoView {
+    pub utxo_id: OutPointRef,
     pub value: String,
     pub deriv_path: String,
     pub address_label: Option<String>,
 }
 
 impl Utxo {
-    pub fn to_dto(&self, address_label_map: &KeyDerivationPathLabelMap) -> UtxoDto {
-        UtxoDto {
+    pub fn to_view(&self, address_label_map: &KeyDerivationPathLabelMap) -> UtxoView {
+        UtxoView {
             value: self.output.value.to_sat().to_string(),
             utxo_id: self.outpoint().into(),
             deriv_path: self.derivation.to_string(),
@@ -69,27 +69,27 @@ impl Utxo {
 }
 
 #[derive(Serialize, specta::Type)]
-pub struct ActiveAccountDto {
+pub struct ActiveAccountView {
     pub index: u32,
     /** main external address to accept payments */
     pub address: String,
     pub total_balance: String,
-    pub utxo: Vec<UtxoDto>,
+    pub utxo: Vec<UtxoView>,
 }
 
 #[derive(Type, Deserialize, Serialize, Clone, Hash, PartialEq, Eq, Debug)]
-pub struct OutPointDto {
+pub struct OutPointRef {
     pub tx_id: String,
     pub vout: u32,
 }
 
-impl std::fmt::Display for OutPointDto {
+impl std::fmt::Display for OutPointRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{}", self.tx_id, self.vout)
     }
 }
 
-impl From<OutPoint> for OutPointDto {
+impl From<OutPoint> for OutPointRef {
     fn from(value: OutPoint) -> Self {
         Self {
             tx_id: value.txid.to_string(),
@@ -98,10 +98,10 @@ impl From<OutPoint> for OutPointDto {
     }
 }
 
-impl TryFrom<OutPointDto> for OutPoint {
+impl TryFrom<OutPointRef> for OutPoint {
     type Error = String;
 
-    fn try_from(value: OutPointDto) -> Result<Self, Self::Error> {
+    fn try_from(value: OutPointRef) -> Result<Self, Self::Error> {
         Ok(Self {
             txid: Txid::from_str(&value.tx_id).map_err(|e| format!("invalid txid {}", e))?,
             vout: value.vout,

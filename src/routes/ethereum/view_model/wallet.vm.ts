@@ -1,5 +1,5 @@
 import { makeAutoObservable } from 'mobx'
-import type { EthereumUnlockDto } from '../../../bindings'
+import type { EthereumUnlock } from '../../../bindings'
 import {
   commands,
   type NetworkStatus,
@@ -17,7 +17,7 @@ export class EthereumWalletVM {
     makeAutoObservable(this)
   }
 
-  init(unlock: EthereumUnlockDto) {
+  init(unlock: EthereumUnlock) {
     this.address = unlock.address
     this.getChainInfo()
     this.getBalance()

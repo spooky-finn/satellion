@@ -1,9 +1,9 @@
 import { makeAutoObservable } from 'mobx'
 import {
-  type BroadcastResult,
+  type BroadcastTxResponse,
   commands,
-  type UtxoDto,
   type UtxoSelectionStrategy,
+  type UtxoView,
 } from '../../../bindings/btc'
 import { commands as shared_commands } from '../../../bindings/index'
 import { AddressInputVM } from '../../../components/address_input'
@@ -49,7 +49,7 @@ export class TransferVM {
   }
 
   state = TransferState.Estimate
-  broadcast_result?: BroadcastResult
+  broadcast_result?: BroadcastTxResponse
   error?: string
 
   estimated_transfer_value(btc_price: number): string {
@@ -58,7 +58,7 @@ export class TransferVM {
     return `~ $${estimated_value.toFixed(2)}`
   }
 
-  async estimate(selected_utxos: UtxoDto[]) {
+  async estimate(selected_utxos: UtxoView[]) {
     if (!this.transfer_amount) throw Error('transfer amount not set')
 
     const utxo_selection_method: UtxoSelectionStrategy =

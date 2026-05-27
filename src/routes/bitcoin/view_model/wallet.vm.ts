@@ -1,5 +1,5 @@
 import { makeAutoObservable, runInAction } from 'mobx'
-import type { BitcoinUnlockDto, BlockChain } from '../../../bindings'
+import type { BitcoinUnlock, BlockChain } from '../../../bindings'
 import { commands } from '../../../bindings/btc'
 import { AccountSelectorVM } from '../../../components/account_selector'
 import { unwrap_result } from '../../../lib/handle_err'
@@ -23,12 +23,12 @@ export class BitcoinWalletVM {
     makeAutoObservable(this)
   }
 
-  init(unlock: BitcoinUnlockDto) {
+  init(unlock: BitcoinUnlock) {
     this.account_selector.init(unlock.accounts, unlock.active_account.index)
     this.init_with_account_info(unlock.active_account)
   }
 
-  init_with_account_info(info: BitcoinUnlockDto['active_account']) {
+  init_with_account_info(info: BitcoinUnlock['active_account']) {
     this.address = info.address
     this.total_balance_sat = info.total_balance
   }

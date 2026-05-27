@@ -21,7 +21,7 @@ async nextUnusedIndex() : Promise<Result<number, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async getExternalAddresess() : Promise<Result<DerivedAddressDto[], string>> {
+async getExternalAddresess() : Promise<Result<DerivedAddress[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_external_addresess") };
 } catch (e) {
@@ -29,7 +29,7 @@ async getExternalAddresess() : Promise<Result<DerivedAddressDto[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async getUtxos() : Promise<Result<UtxoDto[], string>> {
+async getUtxos() : Promise<Result<UtxoView[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_utxos") };
 } catch (e) {
@@ -37,7 +37,7 @@ async getUtxos() : Promise<Result<UtxoDto[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async syncUtxos() : Promise<Result<UtxoDto[], string>> {
+async syncUtxos() : Promise<Result<UtxoView[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("sync_utxos") };
 } catch (e) {
@@ -45,7 +45,7 @@ async syncUtxos() : Promise<Result<UtxoDto[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async accountInfo() : Promise<Result<ActiveAccountDto, string>> {
+async accountInfo() : Promise<Result<ActiveAccountView, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("account_info") };
 } catch (e) {
@@ -53,7 +53,7 @@ async accountInfo() : Promise<Result<ActiveAccountDto, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async buildTx(req: BuildTx) : Promise<Result<BuildTxResult, string>> {
+async buildTx(req: BuildTxRequest) : Promise<Result<BuildTxResponse, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("build_tx", { req }) };
 } catch (e) {
@@ -61,7 +61,7 @@ async buildTx(req: BuildTx) : Promise<Result<BuildTxResult, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async broadcastTx(req: SendTx) : Promise<Result<BroadcastResult, string>> {
+async broadcastTx(req: BroadcastTxRequest) : Promise<Result<BroadcastTxResponse, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("broadcast_tx", { req }) };
 } catch (e) {
@@ -81,19 +81,19 @@ async broadcastTx(req: SendTx) : Promise<Result<BroadcastResult, string>> {
 
 /** user-defined types **/
 
-export type ActiveAccountDto = { index: number; 
+export type ActiveAccountView = { index: number; 
 /**
  * main external address to accept payments
  */
-address: string; total_balance: string; utxo: UtxoDto[] }
-export type BroadcastResult = { tx_id: string }
-export type BuildTx = { value: string; recipient: string; utxo_selection_method: UtxoSelectionStrategy }
-export type BuildTxResult = Record<string, never>
-export type DerivedAddressDto = { label: string; path: string; address: string }
-export type OutPointDto = { tx_id: string; vout: string }
-export type SendTx = Record<string, never>
-export type UtxoDto = { utxo_id: OutPointDto; value: string; deriv_path: string; address_label: string | null }
-export type UtxoSelectionStrategy = { Manual: OutPointDto[] } | { Auto: number }
+address: string; total_balance: string; utxo: UtxoView[] }
+export type BroadcastTxRequest = Record<string, never>
+export type BroadcastTxResponse = { tx_id: string }
+export type BuildTxRequest = { value: string; recipient: string; utxo_selection_method: UtxoSelectionStrategy }
+export type BuildTxResponse = Record<string, never>
+export type DerivedAddress = { label: string; path: string; address: string }
+export type OutPointRef = { tx_id: string; vout: number }
+export type UtxoSelectionStrategy = { Manual: OutPointRef[] } | { Auto: number }
+export type UtxoView = { utxo_id: OutPointRef; value: string; deriv_path: string; address_label: string | null }
 
 /** tauri-specta globals **/
 

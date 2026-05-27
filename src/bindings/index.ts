@@ -113,21 +113,21 @@ export const MIN_PASSPHRASE_LEN = 4 as const;
 
 /** user-defined types **/
 
-export type AccountMetaDto = { index: number; name: string }
-export type ActiveAccountDto = { index: number; 
+export type AccountSummary = { index: number; name: string }
+export type ActiveAccountView = { index: number; 
 /**
  * main external address to accept payments
  */
-address: string; total_balance: string; utxo: UtxoDto[] }
-export type BitcoinUnlockDto = { accounts: AccountMetaDto[]; active_account: ActiveAccountDto }
+address: string; total_balance: string; utxo: UtxoView[] }
+export type BitcoinUnlock = { accounts: AccountSummary[]; active_account: ActiveAccountView }
 export type BlockChain = "Bitcoin" | "Ethereum"
 export type CreationFlow = "Import" | "Generation"
-export type EthereumUnlockDto = { address: string }
-export type OutPointDto = { tx_id: string; vout: string }
+export type EthereumUnlock = { address: string }
+export type OutPointRef = { tx_id: string; vout: number }
 export type PriceFeedDto = { btc_usd: number; eth_usd: number }
 export type UIConfig = { eth_anvil: boolean }
-export type UnlockDto = { ethereum: EthereumUnlockDto; bitcoin: BitcoinUnlockDto; last_used_chain: BlockChain }
-export type UtxoDto = { utxo_id: OutPointDto; value: string; deriv_path: string; address_label: string | null }
+export type UnlockDto = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock; last_used_chain: BlockChain }
+export type UtxoView = { utxo_id: OutPointRef; value: string; deriv_path: string; address_label: string | null }
 
 /** tauri-specta globals **/
 

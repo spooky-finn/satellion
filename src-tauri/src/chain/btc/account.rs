@@ -7,7 +7,7 @@ use specta::Type;
 use crate::{
     chain::btc::{
         Prk,
-        dtos::OutPointDto,
+        dtos::OutPointRef,
         key_derivation::{
             Change, Child, KeyDerivationPath, KeyDeriviationPathSlice, LabeledKeyDerivationPath,
             Proposal,
@@ -137,7 +137,7 @@ pub struct UtxoSet {
 
 #[derive(Clone, Type, Deserialize)]
 pub enum UtxoSelectionStrategy {
-    Manual(Vec<OutPointDto>),
+    Manual(Vec<OutPointRef>),
     Auto(u32),
 }
 

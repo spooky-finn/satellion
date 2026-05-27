@@ -3,23 +3,23 @@ use bitcoin::Network;
 use crate::chain::btc::{
     BitcoinWallet, Prk,
     account::Account,
-    dtos::{AccountMetaDto, ActiveAccountDto, BitcoinUnlockDto},
+    dtos::{AccountSummary, ActiveAccountView, BitcoinUnlock},
 };
 
-pub fn unlock(wallet: &BitcoinWallet, prk: &Prk) -> Result<BitcoinUnlockDto, String> {
+pub fn unlock(wallet: &BitcoinWallet, prk: &Prk) -> Result<BitcoinUnlock, String> {
     let network = wallet.config.btc.network();
     let account = wallet.active_account()?;
-    Ok(BitcoinUnlockDto {
+    Ok(BitcoinUnlock {
         accounts: list_all_accounts(wallet),
         active_account: get_account_info(account, prk, network)?,
     })
 }
 
-pub fn list_all_accounts(wallet: &BitcoinWallet) -> Vec<AccountMetaDto> {
+pub fn list_all_accounts(wallet: &BitcoinWallet) -> Vec<AccountSummary> {
     wallet
         .accounts
         .iter()
-        .map(|e| AccountMetaDto {
+        .map(|e| AccountSummary {
             index: e.index,
             name: e.name.clone(),
         })
@@ -30,7 +30,7 @@ pub fn get_account_info(
     account: &Account,
     prk: &Prk,
     network: Network,
-) -> Result<ActiveAccountDto, String> {
+) -> Result<ActiveAccountView, String> {
     let (mainkey, _) = account.main_key(prk, network)?;
     let address_label_map = account.keychain.to_label_map();
 
@@ -38,7 +38,7 @@ pub fn get_account_info(
         .utxo_set
         .entries
         .values()
-        .map(|utxo| utxo.to_dto(&address_label_map))
+        .map(|utxo| utxo.to_view(&address_label_map))
         .collect();
     utxo.sort_by(|a, b| {
         b.value
@@ -47,7 +47,7 @@ pub fn get_account_info(
             .cmp(&a.value.parse::<u64>().unwrap_or(0))
     });
 
-    Ok(ActiveAccountDto {
+    Ok(ActiveAccountView {
         index: account.index,
         address: mainkey.taproot_address.to_string(),
         total_balance: account.utxo_set.total_value().to_string(),

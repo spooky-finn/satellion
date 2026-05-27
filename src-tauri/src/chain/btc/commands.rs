@@ -6,8 +6,8 @@ use specta::specta;
 use crate::{
     chain::btc::{
         dtos::{
-            ActiveAccountDto, BroadcastResult, BuildTx, BuildTxResult, DerivedAddressDto, SendTx,
-            UtxoDto,
+            ActiveAccountView, BroadcastTxRequest, BroadcastTxResponse, BuildTxRequest,
+            BuildTxResponse, DerivedAddress, UtxoView,
         },
         key_derivation::{Change, Proposal},
         service::{self},
@@ -19,7 +19,7 @@ use crate::{
 
 #[specta]
 #[tauri::command]
-pub async fn account_info(sk: tauri::State<'_, SK>) -> Result<ActiveAccountDto, String> {
+pub async fn account_info(sk: tauri::State<'_, SK>) -> Result<ActiveAccountView, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let prk = wallet.btc_prk()?;
@@ -71,7 +71,7 @@ pub async fn next_unused_index(sk: tauri::State<'_, SK>) -> Result<u32, String> 
 #[tauri::command]
 pub async fn get_external_addresess(
     sk: tauri::State<'_, SK>,
-) -> Result<Vec<DerivedAddressDto>, String> {
+) -> Result<Vec<DerivedAddress>, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let prk = wallet.btc_prk()?;
@@ -89,7 +89,7 @@ pub async fn get_external_addresess(
                 .derive(prk.expose())
                 .map_err(|e| e.to_string())?;
 
-            Ok(DerivedAddressDto {
+            Ok(DerivedAddress {
                 path: scheme.path.to_string(),
                 label: scheme.label.clone(),
                 address: key.taproot_address.to_string(),
@@ -100,7 +100,7 @@ pub async fn get_external_addresess(
 
 #[specta]
 #[tauri::command]
-pub async fn get_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String> {
+pub async fn get_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoView>, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let account = wallet.btc.active_account()?;
@@ -110,7 +110,7 @@ pub async fn get_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String>
         .utxo_set
         .entries
         .values()
-        .map(|utxo| utxo.to_dto(&address_label_map))
+        .map(|utxo| utxo.to_view(&address_label_map))
         .collect();
 
     utxos.sort_by(|a, b| {
@@ -126,7 +126,7 @@ pub async fn get_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String>
 
 #[specta]
 #[tauri::command]
-pub async fn sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String> {
+pub async fn sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoView>, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let prk = wallet.btc_prk()?;
@@ -150,7 +150,7 @@ pub async fn sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String
         .utxo_set
         .entries
         .values()
-        .map(|utxo| utxo.to_dto(&address_label_map))
+        .map(|utxo| utxo.to_view(&address_label_map))
         .collect::<Vec<_>>();
 
     result.sort_by(|a, b| {
@@ -166,7 +166,10 @@ pub async fn sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoDto>, String
 
 #[specta]
 #[tauri::command]
-pub async fn build_tx(req: BuildTx, sk: tauri::State<'_, SK>) -> Result<BuildTxResult, String> {
+pub async fn build_tx(
+    req: BuildTxRequest,
+    sk: tauri::State<'_, SK>,
+) -> Result<BuildTxResponse, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let account = wallet.btc.active_account()?;
@@ -196,15 +199,15 @@ pub async fn build_tx(req: BuildTx, sk: tauri::State<'_, SK>) -> Result<BuildTxR
     .map_err(|e| format!("failed to build PSBT: {e}"))?;
     wallet.btc.pending_tx = Some(pending_tx);
 
-    Ok(BuildTxResult {})
+    Ok(BuildTxResponse {})
 }
 
 #[specta]
 #[tauri::command]
 pub async fn broadcast_tx(
-    _req: SendTx,
+    _req: BroadcastTxRequest,
     sk: tauri::State<'_, SK>,
-) -> Result<BroadcastResult, String> {
+) -> Result<BroadcastTxResponse, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
 
@@ -228,5 +231,5 @@ pub async fn broadcast_tx(
         wallet.persist()?;
     }
 
-    Ok(BroadcastResult { tx_id })
+    Ok(BroadcastTxResponse { tx_id })
 }
