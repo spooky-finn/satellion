@@ -1,8 +1,8 @@
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import LightModeIcon from '@mui/icons-material/LightMode'
-import { Button } from '@mui/joy'
 import { useColorScheme } from '@mui/joy/styles'
 import React from 'react'
+import { B } from '../shortcuts'
 
 export function ThemeSwitcher() {
   const { mode, setMode } = useColorScheme()
@@ -21,8 +21,8 @@ export function ThemeSwitcher() {
   }
 
   return (
-    <Button onClick={toggleTheme} variant="plain" size="sm" color="neutral">
+    <B onClick={toggleTheme} variant="plain" size="sm" color="neutral">
       {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
-    </Button>
+    </B>
   )
 }

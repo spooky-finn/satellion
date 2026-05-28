@@ -1,16 +1,9 @@
-import {
-  Button,
-  Input,
-  Option,
-  Select,
-  Stack,
-  ToggleButtonGroup,
-} from '@mui/joy'
+import { Input, Option, Select, Stack, ToggleButtonGroup } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import type { FeeMode } from '../../../bindings/eth'
 import { AddressInput } from '../../../components/address_input'
 import { handle_err } from '../../../lib/handle_err'
-import { FullScreenModal, P, Row } from '../../../shortcuts'
+import { B, FullScreenModal, P, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
 import { OpenExplorerButton } from '../utils/shared'
 
@@ -35,13 +28,13 @@ const Transfer = observer(() => {
       <CurrentBalance />
       <AmountInput />
       <FeeModeSelect />
-      <Button
+      <B
         loading={state.is_estimating}
         disabled={state.disabled}
         onClick={() => state.estimate().catch(handle_err)}
       >
         Estimate
-      </Button>
+      </B>
       <TransactionFee />
 
       {!state.tx_hash ? <SendTransaction /> : <TransactionDetails />}
@@ -127,9 +120,9 @@ const SendTransaction = observer(() => {
     return null
   }
   return (
-    <Button loading={state.sending} onClick={() => state.execute()}>
+    <B loading={state.sending} onClick={() => state.execute()}>
       Send
-    </Button>
+    </B>
   )
 })
 
@@ -156,9 +149,9 @@ const FeeModeSelect = observer(() => {
       value={state.fee_mode}
       onChange={(_, v) => state.set_fee_mode(v)}
     >
-      <Button value={'Minimal' satisfies FeeMode}>Slow</Button>
-      <Button value={'Standard' satisfies FeeMode}>Standart</Button>
-      <Button value={'Increased' satisfies FeeMode}>Fast</Button>
+      <B value={'Minimal' satisfies FeeMode}>Slow</B>
+      <B value={'Standard' satisfies FeeMode}>Standart</B>
+      <B value={'Increased' satisfies FeeMode}>Fast</B>
     </ToggleButtonGroup>
   )
 })

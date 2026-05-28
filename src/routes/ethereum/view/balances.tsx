@@ -2,7 +2,6 @@ import { Remove } from '@mui/icons-material'
 import AddIcon from '@mui/icons-material/Add'
 import CachedIcon from '@mui/icons-material/Cached'
 import {
-  Button,
   Card,
   IconButton,
   Input,
@@ -20,7 +19,7 @@ import {
   type TrackedTokenInfo,
 } from '../../../bindings/eth'
 import { notifier } from '../../../lib/notifier'
-import { P, Progress, Row } from '../../../shortcuts'
+import { B, P, Progress, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
 
 export const BalanceCard = observer(() => (
@@ -161,7 +160,7 @@ const SpecifyTokenToTrack = observer(() => {
 
   return (
     <>
-      <Button
+      <B
         variant="plain"
         onClick={() => {
           setOpen(true)
@@ -171,7 +170,7 @@ const SpecifyTokenToTrack = observer(() => {
         color="neutral"
       >
         Track token
-      </Button>
+      </B>
 
       <Modal open={open} onClose={() => setOpen(false)}>
         <ModalDialog sx={{ pr: 6 }}>

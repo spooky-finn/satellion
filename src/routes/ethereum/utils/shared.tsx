@@ -1,12 +1,12 @@
-import { Button } from '@mui/joy'
 import { openUrl } from '@tauri-apps/plugin-opener'
+import { B } from '../../../shortcuts'
 import { explorer_endpoint } from '../constants'
 
 export const OpenExplorerButton = (props: { path: string }) => (
-  <Button
+  <B
     variant="soft"
     onClick={() => openUrl(`${explorer_endpoint}/${props.path}`)}
   >
     Open explorer
-  </Button>
+  </B>
 )

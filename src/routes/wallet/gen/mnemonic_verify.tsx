@@ -1,8 +1,8 @@
-import { Button, Container, Stack } from '@mui/joy'
+import { Container, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { MnemonicWordInput } from '../../../components/mnemonic_word_input'
 import { Navbar } from '../../../components/navbar'
-import { NavigateUnlock, P } from '../../../shortcuts'
+import { B, NavigateUnlock, P } from '../../../shortcuts'
 import { store } from '../mnemonic_store'
 import type { FlowState } from './flow_state'
 
@@ -23,7 +23,7 @@ export const VerifyMnemonic = observer(({ flow }: { flow: FlowState }) => (
         ))}
 
         <Stack gap={1} alignItems={'center'}>
-          <Button
+          <B
             variant="soft"
             color="primary"
             onClick={() => {
@@ -34,7 +34,7 @@ export const VerifyMnemonic = observer(({ flow }: { flow: FlowState }) => (
             }}
           >
             Verify
-          </Button>
+          </B>
           <NavigateUnlock />
         </Stack>
 

@@ -1,10 +1,10 @@
 import LockIcon from '@mui/icons-material/Lock'
-import { Button, Tooltip } from '@mui/joy'
+import { Tooltip } from '@mui/joy'
 import { Link, useNavigate } from 'react-router'
 import { type BlockChain, commands } from '../bindings'
 import { notifier } from '../lib/notifier'
 import { route } from '../lib/routes'
-import { Row } from '../shortcuts'
+import { B, Row } from '../shortcuts'
 import { AppMenu } from './menu'
 import { ThemeSwitcher } from './theme_switcher'
 
@@ -30,13 +30,13 @@ export const Navbar = ({ hideLedgers }: { hideLedgers?: boolean }) => {
         <ThemeSwitcher />
         <AppMenu />
         <Tooltip title="Lock wallet" size="sm">
-          <Button
+          <B
             variant="plain"
             color="neutral"
             onClick={() => navigate(route.unlock_wallet)}
           >
             <LockIcon />
-          </Button>
+          </B>
         </Tooltip>
       </Row>
     </Row>
@@ -49,7 +49,7 @@ const BlockchainLink = (props: {
   chain: BlockChain
 }) => (
   <Link to={props.to}>
-    <Button
+    <B
       color="neutral"
       variant="soft"
       startDecorator={
@@ -63,6 +63,6 @@ const BlockchainLink = (props: {
       }}
     >
       {props.chain}
-    </Button>
+    </B>
   </Link>
 )

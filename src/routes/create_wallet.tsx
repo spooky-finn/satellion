@@ -1,9 +1,9 @@
-import { Button, Stack } from '@mui/joy'
+import { Stack } from '@mui/joy'
 import { makeAutoObservable } from 'mobx'
 import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
 import { Navbar } from '../components/navbar'
-import { P, Row } from '../shortcuts'
+import { B, P, Row } from '../shortcuts'
 import { GenerateMnemonicFlow } from './wallet/gen/flow'
 import { ImportMnemonic } from './wallet/import'
 
@@ -37,20 +37,16 @@ const SelectFlow = observer(({ state }: { state: State }) => (
     <Navbar hideLedgers />
     <P level="h2">Add wallet</P>
     <Row sx={{ width: 'min-content' }}>
-      <Button
+      <B
         variant="soft"
         color="neutral"
         onClick={() => state.set_flow('import')}
       >
         Import
-      </Button>
-      <Button
-        variant="soft"
-        color="neutral"
-        onClick={() => state.set_flow('gen')}
-      >
+      </B>
+      <B variant="soft" color="neutral" onClick={() => state.set_flow('gen')}>
         Generate
-      </Button>
+      </B>
     </Row>
   </Stack>
 ))

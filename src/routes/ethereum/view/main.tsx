@@ -1,10 +1,10 @@
-import { Button, Card, Stack } from '@mui/joy'
+import { Card, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { Navbar } from '../../../components/navbar'
 import { route } from '../../../lib/routes'
-import { P, Row } from '../../../shortcuts'
+import { B, P, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
 import { OpenExplorerButton } from '../utils/shared'
 import { BalanceCard } from './balances'
@@ -32,13 +32,13 @@ export const EthereumWallet = observer(() => {
               <P fontWeight="bold"> {addr}</P>
               <Row>
                 <OpenExplorerButton path={`address/${addr}`} />
-                <Button
+                <B
                   onClick={() => {
                     eth.transfer.set_open(true)
                   }}
                 >
                   Send
-                </Button>
+                </B>
                 <TransferModal />
               </Row>
             </Card>

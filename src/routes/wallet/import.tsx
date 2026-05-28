@@ -1,11 +1,11 @@
-import { Button, Input, Stack } from '@mui/joy'
+import { Input, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
 import { MnemonicInput, MnemonicInputSt } from '../../components/mnemonic_input'
 import { Navbar } from '../../components/navbar'
 import { PassphraseInput } from '../../components/passphrase_input'
 import { route, useNavigate } from '../../lib/routes'
-import { P } from '../../shortcuts'
+import { B, P } from '../../shortcuts'
 import { store } from './mnemonic_store'
 
 export const ImportMnemonic = observer(() => {
@@ -41,9 +41,9 @@ export const ImportMnemonic = observer(() => {
           value={passphrase}
           onChange={e => setPassphrase(e.target.value)}
         />
-        <Button onClick={handleImport} disabled={!st.is_input_completed}>
+        <B onClick={handleImport} disabled={!st.is_input_completed}>
           Import
-        </Button>
+        </B>
       </Stack>
     </Stack>
   )

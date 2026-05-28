@@ -1,6 +1,6 @@
-import { Alert, Button, Stack } from '@mui/joy'
+import { Alert, Stack } from '@mui/joy'
 import { Component, type ReactNode } from 'react'
-import { P } from '../shortcuts'
+import { B, P } from '../shortcuts'
 
 interface Props {
   children: ReactNode
@@ -32,9 +32,9 @@ export class ErrorBoundary extends Component<Props, State> {
             Something went wrong
           </P>
           <P level="body-xs">{describe(this.state.error)}</P>
-          <Button size="sm" variant="soft" onClick={this.retry}>
+          <B size="sm" variant="soft" onClick={this.retry}>
             Retry
-          </Button>
+          </B>
         </Stack>
       </Alert>
     )

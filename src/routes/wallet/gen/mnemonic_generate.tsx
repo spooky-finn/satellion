@@ -1,8 +1,8 @@
-import { Button, Card, Container, Stack } from '@mui/joy'
+import { Card, Container, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect, useState } from 'react'
 import { Navbar } from '../../../components/navbar'
-import { NavigateUnlock, P, Row } from '../../../shortcuts'
+import { B, NavigateUnlock, P, Row } from '../../../shortcuts'
 import { store } from '../mnemonic_store'
 import type { FlowState } from './flow_state'
 
@@ -43,20 +43,16 @@ export const GenerateMnemonic = observer(({ flow }: { flow: FlowState }) => {
 
           <Row flexWrap={'wrap'}>
             <NavigateUnlock />
-            <Button
-              variant="plain"
-              color="neutral"
-              onClick={() => store.generate()}
-            >
+            <B variant="plain" color="neutral" onClick={() => store.generate()}>
               Regenerate
-            </Button>
-            <Button
+            </B>
+            <B
               variant="soft"
               color="primary"
               onClick={() => flow.set_stage('verify_mnemonic')}
             >
               Continue
-            </Button>
+            </B>
           </Row>
         </Stack>
       </Container>

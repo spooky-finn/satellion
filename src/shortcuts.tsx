@@ -16,6 +16,8 @@ import { useNavigate } from 'react-router'
 import { route } from './lib/routes'
 
 export const P = Typography
+export const B = Button
+
 export const Row = (props: StackProps) => (
   <Stack gap={1} direction={'row'} {...props} />
 )

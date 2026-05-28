@@ -1,11 +1,11 @@
-import { Button, Container, Input, Stack } from '@mui/joy'
+import { Container, Input, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect, useState } from 'react'
 import { MIN_PASSPHRASE_LEN } from '../../../bindings'
 import { PassphraseInput } from '../../../components/passphrase_input'
 import { notifier } from '../../../lib/notifier'
 import { route, useNavigate } from '../../../lib/routes'
-import { P } from '../../../shortcuts'
+import { B, P } from '../../../shortcuts'
 import { store } from '../mnemonic_store'
 
 export const CreatePassphrase = observer(() => {
@@ -48,7 +48,7 @@ export const CreatePassphrase = observer(() => {
               Passphrases mismatch
             </P>
           )}
-          <Button
+          <B
             disabled={!passphrase_store.is_passphrase_matched}
             onClick={() => {
               if (passphrase_store.is_mismatch) {
@@ -61,7 +61,7 @@ export const CreatePassphrase = observer(() => {
             }}
           >
             Save
-          </Button>
+          </B>
         </Stack>
       </Container>
     </Stack>

@@ -1,10 +1,10 @@
-import { Box, Button, Divider, Stack } from '@mui/joy'
+import { Box, Divider, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { PassphraseInput } from '../components/passphrase_input'
 import { route } from '../lib/routes'
-import { P, Progress } from '../shortcuts'
+import { B, P, Progress } from '../shortcuts'
 import { root_store } from '../view_model/root'
 
 const UnlockWallet = () => {
@@ -56,17 +56,17 @@ const UnlockWallet = () => {
         width={'fit-content'}
       >
         {unlock.available_wallets.map(name => (
-          <Button
+          <B
             key={name}
             color="neutral"
             onClick={() => unlock.set_target_wallet(name)}
             variant={unlock.target_wallet === name ? 'solid' : 'outlined'}
           >
             {name}
-          </Button>
+          </B>
         ))}
         <Divider orientation="vertical" />
-        <Button
+        <B
           variant="plain"
           color="neutral"
           onClick={() => {
@@ -74,7 +74,7 @@ const UnlockWallet = () => {
           }}
         >
           Add
-        </Button>
+        </B>
       </Box>
       {unlock.target_wallet &&
         (unlock.loader.loading ? (

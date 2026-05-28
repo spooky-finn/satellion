@@ -4,6 +4,7 @@ import { CompactSrt } from '../../../components/compact_str'
 import { FullScreenModal, P, Progress, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
 import { display_sat, sat2usd } from '../utils/amount_formatters'
+import { BalanceDisplay } from './balance_display'
 
 export const UtxoListModal = observer(() => {
   const { utxo_list } = root_store.wallet.btc
@@ -15,6 +16,7 @@ export const UtxoListModal = observer(() => {
 })
 
 const UtxoList = observer(() => {
+  const { btc } = root_store.wallet
   const { utxo_list } = root_store.wallet.btc
   return (
     <>
@@ -25,10 +27,11 @@ const UtxoList = observer(() => {
           <P>No utxos yet.</P>
         ) : (
           <>
-            <P>
-              In total {utxo_list.utxo.length} utxo contains{' '}
-              {display_sat(utxo_list.total_value_sat)}
-            </P>
+            <P>In total {utxo_list.utxo.length} utxo</P>
+            <BalanceDisplay
+              satoshis={utxo_list.total_value_sat}
+              usd_price={btc.usd_price}
+            />
             <Table variant="plain" stickyHeader size="sm">
               <TableHead />
               <TableBody />

@@ -9,7 +9,7 @@ import { commands as shared_commands } from '../../../bindings/index'
 import { AddressInputVM } from '../../../components/address_input'
 import { unwrap_result } from '../../../lib/handle_err'
 
-export enum UtxoSelectionMethodName {
+export enum UtxoSelectionMethodKind {
   Auto = 'auto',
   Manual = 'manual',
 }
@@ -34,13 +34,13 @@ export class TransferVM {
     this.is_open = o
   }
 
-  utxo_selection_method?: UtxoSelectionMethodName | null
-  set_utxo_selection_method(v: UtxoSelectionMethodName | null) {
+  utxo_selection_method?: UtxoSelectionMethodKind | null
+  set_utxo_selection_method(v: UtxoSelectionMethodKind | null) {
     this.utxo_selection_method = v
   }
 
   get show_utxo_select_button() {
-    return this.utxo_selection_method === UtxoSelectionMethodName.Manual
+    return this.utxo_selection_method === UtxoSelectionMethodKind.Manual
   }
 
   transfer_amount?: number
@@ -62,7 +62,7 @@ export class TransferVM {
     if (!this.transfer_amount) throw Error('transfer amount not set')
 
     const utxo_selection_method: UtxoSelectionStrategy =
-      this.utxo_selection_method === UtxoSelectionMethodName.Auto
+      this.utxo_selection_method === UtxoSelectionMethodKind.Auto
         ? {
             Auto: this.transfer_amount,
           }

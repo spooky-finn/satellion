@@ -1,30 +1,23 @@
-import {
-  Button,
-  Divider,
-  Input,
-  Modal,
-  ModalClose,
-  ModalDialog,
-} from '@mui/joy'
+import { Divider, Input, Modal, ModalClose, ModalDialog } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
 import { CompactSrt } from '../../../components/compact_str'
 import { NumberInput } from '../../../components/number_input'
-import { P, Row } from '../../../shortcuts'
+import { B, P, Row } from '../../../shortcuts'
 import { DeriveChildVM } from '../view_model/derive_child.vm'
 
 export const DeriveChildAddress = observer((props: { refetch: () => void }) => {
   const [state] = useState(() => new DeriveChildVM())
   return (
     <Row alignItems={'center'}>
-      <Button
+      <B
         onClick={() => {
           state.set_is_open(true)
           state.next_unused_key_index()
         }}
       >
         Derive
-      </Button>
+      </B>
       <Modal open={state.is_open} onClose={() => state.set_is_open(false)}>
         <ModalDialog sx={{ pr: 6 }}>
           <ModalClose />
@@ -45,13 +38,13 @@ export const DeriveChildAddress = observer((props: { refetch: () => void }) => {
             value={state.label}
             onChange={e => state.setLabel(e.target.value)}
           />
-          <Button
+          <B
             loading={state.loader.loading}
             disabled={!state.label || !state.index}
             onClick={() => state.derive().then(props.refetch)}
           >
             Derive
-          </Button>
+          </B>
           <Divider />
           {state.address && <CompactSrt copy val={state.address} />}
         </ModalDialog>

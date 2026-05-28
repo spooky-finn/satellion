@@ -1,4 +1,4 @@
-import { Button, Card, Stack } from '@mui/joy'
+import { Card, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { Suspense, use, useEffect } from 'react'
 import { useNavigate } from 'react-router'
@@ -8,9 +8,10 @@ import { Navbar } from '../../../components/navbar'
 import { useKeyboardRefetch } from '../../../components/use_keyboard_refetch'
 import { ErrorBoundary } from '../../../lib/error_boundary'
 import { route } from '../../../lib/routes'
-import { P, Progress, Row } from '../../../shortcuts'
+import { B, P, Progress, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
-import { display_sat, fmt_usd, sat2usd } from '../utils/amount_formatters'
+import { fmt_usd } from '../utils/amount_formatters'
+import { BalanceDisplay } from './balance_display'
 import { ChildAddressesModal } from './list_childs'
 import { UtxoListModal } from './list_utxo'
 import { TransferModal } from './transfer'
@@ -59,34 +60,26 @@ const BitcoinDetails = observer(() => {
         <Card size="sm" variant="soft">
           <CompactSrt copy val={btc.address} />
           <Row>
-            <Button
-              variant="soft"
-              onClick={() => btc.child_list.set_open(true)}
-            >
+            <B variant="soft" onClick={() => btc.child_list.set_open(true)}>
               Child addresses
-            </Button>
+            </B>
             <ChildAddressesModal />
 
-            <Button variant="soft" onClick={() => btc.utxo_list.open()}>
+            <B variant="soft" onClick={() => btc.utxo_list.open()}>
               Utxo
-            </Button>
+            </B>
             <UtxoListModal />
 
-            <Button onClick={() => btc.transfer.set_open(true)}>Send</Button>
+            <B onClick={() => btc.transfer.set_open(true)}>Send</B>
             <TransferModal />
           </Row>
         </Card>
       )}
       {btc.height && <P level="body-xs">Blockchain head at {btc.height}</P>}
-      {btc.warning && (
-        <P level="body-xs" color="warning">
-          {btc.warning}
-        </P>
-      )}
-      <P>
-        Balance {display_sat(btc.total_balance_sat)} ~{' '}
-        <P level="body-xs">{sat2usd(btc.total_balance_sat, btc.usd_price)}</P>
-      </P>
+      <BalanceDisplay
+        satoshis={btc.total_balance_sat}
+        usd_price={btc.usd_price}
+      />
       <P>Price {fmt_usd(btc.usd_price)}</P>
     </Stack>
   )

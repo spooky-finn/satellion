@@ -36,11 +36,6 @@ export class BitcoinWalletVM {
   address!: string
   usd_price = 0
 
-  warning?: string
-  setWarning(w?: string) {
-    this.warning = w
-  }
-
   height?: number
   total_balance_sat: string = '0'
 

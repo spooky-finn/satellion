@@ -1,14 +1,14 @@
-import { Button, Divider, Stack, ToggleButtonGroup } from '@mui/joy'
+import { Divider, Stack, ToggleButtonGroup } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { AddressInput } from '../../../components/address_input'
 import { CompactSrt } from '../../../components/compact_str'
 import { NumberInput } from '../../../components/number_input'
-import { FullScreenModal, P, Row } from '../../../shortcuts'
+import { B, FullScreenModal, P, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
 import { sat2usd } from '../utils/amount_formatters'
 import {
   TransferState,
-  UtxoSelectionMethodName,
+  UtxoSelectionMethodKind,
 } from '../view_model/transfer.vm'
 import { UtxoListModal } from './list_utxo'
 
@@ -54,12 +54,12 @@ const TransferForm = observer(() => {
       </Row>
       {transfer.error && <P color="danger">{transfer.error}</P>}
       {transfer.state === TransferState.Estimate && (
-        <Button onClick={() => transfer.estimate(btc.utxo_list.selected_utxo)}>
+        <B onClick={() => transfer.estimate(btc.utxo_list.selected_utxo)}>
           Estimate
-        </Button>
+        </B>
       )}
       {transfer.state === TransferState.Sending && (
-        <Button onClick={() => transfer.execute()}>Send</Button>
+        <B onClick={() => transfer.execute()}>Send</B>
       )}
     </Stack>
   )
@@ -68,14 +68,13 @@ const TransferForm = observer(() => {
 const TransferResult = () => {
   const { btc } = root_store.wallet
   const { transfer } = btc
-
   return (
     <Stack>
       <P>Transaction sent</P>
       <P fontFamily={'monospace'}>{transfer.broadcast_result?.tx_id}</P>
-      <Button onClick={() => transfer.reset()} variant="plain">
+      <B onClick={() => transfer.reset()} variant="plain">
         Send another
-      </Button>
+      </B>
     </Stack>
   )
 }
@@ -115,20 +114,20 @@ const SelectedInputsSummary = observer(() => {
 
 const UtxoSelectionMethod = observer(() => {
   const { btc } = root_store.wallet
-  const state = root_store.wallet.btc.transfer
+  const { transfer } = root_store.wallet.btc
   return (
-    <Row gap={1}>
+    <Row>
       <ToggleButtonGroup
         variant="soft"
-        value={state.utxo_selection_method}
-        onChange={(_, v) => state.set_utxo_selection_method(v)}
+        value={transfer.utxo_selection_method}
+        onChange={(_, v) => transfer.set_utxo_selection_method(v)}
       >
-        <Button value={UtxoSelectionMethodName.Auto}>Auto</Button>
-        <Button value={UtxoSelectionMethodName.Manual}>Manual</Button>
+        <B value={UtxoSelectionMethodKind.Auto}>Auto</B>
+        <B value={UtxoSelectionMethodKind.Manual}>Manual</B>
       </ToggleButtonGroup>
-      {state.show_utxo_select_button && (
+      {transfer.show_utxo_select_button && (
         <>
-          <Button onClick={() => btc.utxo_list.open(true)}>Select</Button>
+          <B onClick={() => btc.utxo_list.open(true)}>Select</B>
           <UtxoListModal />
         </>
       )}
