@@ -4,20 +4,20 @@ import { commands } from '../../../bindings/btc'
 import { AccountSelectorVM } from '../../../components/account_selector'
 import { unwrap_result } from '../../../lib/handle_err'
 import { notifier } from '../../../lib/notifier'
-import { Loader } from '../../../view_model/loader'
+import { Resource } from '../../../lib/resource'
 import { ChildAddressListVM } from './child_address_list.vm'
 import { TransferVM } from './transfer.vm'
 import { UtxoListVM } from './utxo_list.vm'
 
 export class BitcoinWalletVM {
   readonly chain: BlockChain = 'Bitcoin'
-  readonly loader = new Loader()
   readonly account_selector = new AccountSelectorVM(this.chain, async _ => {
     await this.load_account_info()
   })
   readonly transfer = new TransferVM()
   readonly utxo_list = new UtxoListVM()
   readonly child_list = new ChildAddressListVM()
+  readonly account_info = new Resource(() => this._fetch_account_info())
 
   constructor() {
     makeAutoObservable(this)
@@ -45,16 +45,17 @@ export class BitcoinWalletVM {
   total_balance_sat: string = '0'
 
   async load_account_info() {
-    this.loader.start()
-    const res = await commands.accountInfo()
-    const utxo = await this.fetch_utxo()
-    const addresses = await commands.getExternalAddresess().then(unwrap_result)
+    await this.account_info.refresh()
+  }
 
-    this.loader.stop()
+  private async _fetch_account_info(): Promise<void> {
+    const res = await commands.accountInfo()
     if (res.status === 'error') {
       notifier.err(res.error)
-      throw res.error
+      throw new Error(res.error)
     }
+    const utxo = await this.fetch_utxo()
+    const addresses = await commands.getExternalAddresess().then(unwrap_result)
 
     runInAction(() => {
       this.init_with_account_info(res.data)
@@ -64,13 +65,11 @@ export class BitcoinWalletVM {
   }
 
   async fetch_utxo() {
-    this.loader.start()
     const syncRes = await commands.syncUtxos()
     if (syncRes.status === 'error') {
       notifier.err(syncRes.error)
       throw new Error(syncRes.error)
     }
-    this.loader.stop()
     return syncRes.data
   }
 }
