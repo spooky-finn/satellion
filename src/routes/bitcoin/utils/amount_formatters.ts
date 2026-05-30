@@ -20,21 +20,18 @@ export function sat2btc(
 }
 
 /**
- * Convert satoshis to USD string.
- * - Uses pure BigInt math (no float BTC conversion)
- * - Rounds down to whole dollars
- * - Formats using Intl.NumberFormat
+ * Convert satoshis to a USD string.
+ *
+ * Float math is fine here — for any displayable wallet amount (sats × price
+ * stays well under Number.MAX_SAFE_INTEGER) and lets sub-dollar values like
+ * network fees survive rounding instead of truncating to "$0".
  */
 export function sat2usd(
   satoshi: bigint | string | number,
   usd_price: number | string,
   fraction_digits?: number,
 ): string {
-  const sats = BigInt(satoshi)
-  const decimals = 100_000_000n
-  // Convert price to integer dollars (drop cents intentionally)
-  const btc_usd_price_int = BigInt(Math.floor(Number(usd_price)))
-  const usd_amount = (sats * btc_usd_price_int) / decimals
+  const usd_amount = (Number(satoshi) * Number(usd_price)) / 1e8
   return fmt_usd(usd_amount, fraction_digits)
 }
 

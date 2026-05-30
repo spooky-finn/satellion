@@ -2,6 +2,7 @@ pub mod account;
 pub mod commands;
 pub mod config;
 pub mod dtos;
+pub mod fee_estimator;
 pub mod key_derivation;
 pub mod persistence;
 pub mod providers;

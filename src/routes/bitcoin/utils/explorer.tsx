@@ -1,4 +1,4 @@
-import { makeAutoObservable } from 'mobx'
+import { openUrl } from '@tauri-apps/plugin-opener'
 import { B } from '../../../shortcuts'
 
 type OpenArgs = {
@@ -6,24 +6,15 @@ type OpenArgs = {
   txid: string
 }
 
-class Explorer {
-  constructor() {
-    makeAutoObservable(this)
-  }
-
-  get_url(args: OpenArgs): string {
-    switch (args.type) {
-      case 'tx': {
-        return `https://mempool.space/tx/${args.type}`
-      }
-    }
+const get_url = (args: OpenArgs): string => {
+  switch (args.type) {
+    case 'tx':
+      return `https://mempool.space/tx/${args.txid}`
   }
 }
 
-const explorer_vm = new Explorer()
-
 export const ExplorerLink = (props: OpenArgs) => (
-  <B variant="soft" onClick={() => explorer_vm.get_url(props)}>
+  <B variant="soft" onClick={() => openUrl(get_url(props))}>
     Open explorer
   </B>
 )

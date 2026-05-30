@@ -109,7 +109,9 @@ const TransferResult = observer(() => {
     <>
       <P>Transaction sent</P>
       <P fontFamily={'monospace'}>{transfer.broadcast_result?.tx_id}</P>
-      <ExplorerLink type="tx" txid="transfer.broadcast_result?.tx_id" />
+      {transfer.broadcast_result?.tx_id && (
+        <ExplorerLink type="tx" txid={transfer.broadcast_result.tx_id} />
+      )}
       <B onClick={() => transfer.reset()} variant="plain">
         Send another
       </B>

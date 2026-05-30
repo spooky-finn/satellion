@@ -9,6 +9,7 @@ use crate::{
             ActiveAccountView, BroadcastTxRequest, BroadcastTxResponse, BuildTxRequest,
             BuildTxResponse, DerivedAddress, UtxoView,
         },
+        fee_estimator::estimate_fee_rate,
         key_derivation::{Change, Proposal},
         service::{self},
         tx_builder::{BuildPsbtParams, build_psbt, sign_psbt},
@@ -186,7 +187,7 @@ pub async fn build_tx(
         .parse::<u64>()
         .map_err(|e| format!("invalid value: {e}"))?;
 
-    let miner_fee_vbytes = wallet.btc.server.estimate_fee(2).await.unwrap();
+    let miner_fee_vbytes = estimate_fee_rate(&wallet.btc.server, &wallet.config.btc).await?;
     let pending_tx = build_psbt(&BuildPsbtParams {
         send_value_sat,
         recipient,
