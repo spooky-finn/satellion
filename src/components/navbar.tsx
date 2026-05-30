@@ -1,6 +1,6 @@
 import LockIcon from '@mui/icons-material/Lock'
 import { Tooltip } from '@mui/joy'
-import { Link, useNavigate } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { type BlockChain, commands } from '../bindings'
 import { notifier } from '../lib/notifier'
 import { route } from '../lib/routes'
@@ -47,22 +47,26 @@ const BlockchainLink = (props: {
   to: string
   src: string
   chain: BlockChain
-}) => (
-  <Link to={props.to}>
-    <B
-      color="neutral"
-      variant="soft"
-      startDecorator={
-        <img src={props.src} alt={props.chain} width={'auto'} height={22} />
-      }
-      onClick={async () => {
-        const res = await commands.switchBlockchain(props.chain)
-        if (res.status === 'error') {
-          notifier.err(res.error)
+}) => {
+  const { pathname } = useLocation()
+  const active = pathname.startsWith(props.to)
+  return (
+    <Link to={props.to}>
+      <B
+        color={active ? 'primary' : 'neutral'}
+        variant={active ? 'solid' : 'soft'}
+        startDecorator={
+          <img src={props.src} alt={props.chain} width={'auto'} height={22} />
         }
-      }}
-    >
-      {props.chain}
-    </B>
-  </Link>
-)
+        onClick={async () => {
+          const res = await commands.switchBlockchain(props.chain)
+          if (res.status === 'error') {
+            notifier.err(res.error)
+          }
+        }}
+      >
+        {props.chain}
+      </B>
+    </Link>
+  )
+}

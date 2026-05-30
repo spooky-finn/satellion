@@ -2,6 +2,7 @@ import { Card, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
+import { CompactSrt } from '../../../components/compact_str'
 import { Navbar } from '../../../components/navbar'
 import { route } from '../../../lib/routes'
 import { B, P, Row } from '../../../shortcuts'
@@ -22,14 +23,11 @@ export const EthereumWallet = observer(() => {
   return (
     <Stack gap={1}>
       <Navbar />
-      <P level="h3" color="primary">
-        Ethereum
-      </P>
       {eth && (
         <>
           {addr && (
             <Card size="sm" variant="soft">
-              <P fontWeight="bold"> {addr}</P>
+              <CompactSrt sx={{ fontWeight: 600 }} val={addr} copy />
               <Row>
                 <OpenExplorerButton path={`address/${addr}`} />
                 <B

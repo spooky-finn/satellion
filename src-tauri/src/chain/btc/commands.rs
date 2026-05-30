@@ -199,6 +199,7 @@ pub async fn build_tx(
     .map_err(|e| format!("failed to build PSBT: {e}"))?;
     let change_key_path = pending_tx.change_key_path.clone();
 
+    let fee = pending_tx.fee;
     wallet.btc.pending_tx = Some(pending_tx);
     wallet
         .btc
@@ -207,7 +208,7 @@ pub async fn build_tx(
         .push(change_key_path);
     wallet.persist()?;
 
-    Ok(BuildTxResponse {})
+    Ok(BuildTxResponse { fee })
 }
 
 #[specta]

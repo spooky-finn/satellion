@@ -1,4 +1,4 @@
-import { CssVarsProvider } from '@mui/joy'
+import { Box, CssVarsProvider } from '@mui/joy'
 import { listen } from '@tauri-apps/api/event'
 import React, { useLayoutEffect } from 'react'
 import ReactDOM from 'react-dom/client'
@@ -27,12 +27,14 @@ const App = () => {
   })
 
   return (
-    <Routes>
-      <Route path={route.unlock_wallet} element={<UnlockWallet />} />
-      <Route path={route.create_wallet} element={<CreateWallet />} />
-      <Route path={route.ethereum} element={<EthereumWallet />} />
-      <Route path={route.bitcoin} element={<BitcoinWallet />} />
-    </Routes>
+    <Box p={1}>
+      <Routes>
+        <Route path={route.unlock_wallet} element={<UnlockWallet />} />
+        <Route path={route.create_wallet} element={<CreateWallet />} />
+        <Route path={route.ethereum} element={<EthereumWallet />} />
+        <Route path={route.bitcoin} element={<BitcoinWallet />} />
+      </Routes>
+    </Box>
   )
 }
 

@@ -59,6 +59,7 @@ export class TransferVM {
     if (!this.token) throw Error('token symbol not set')
 
     this.is_estimating = true
+
     const estimation = await commands
       .estimateTransfer({
         amount: this.amount.toString(),

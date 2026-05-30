@@ -1,7 +1,6 @@
 import { Card, Container, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect, useState } from 'react'
-import { Navbar } from '../../../components/navbar'
 import { B, NavigateUnlock, P, Row } from '../../../shortcuts'
 import { store } from '../mnemonic_store'
 import type { FlowState } from './flow_state'
@@ -17,7 +16,6 @@ export const GenerateMnemonic = observer(({ flow }: { flow: FlowState }) => {
 
   return (
     <Stack gap={1} alignItems={'center'}>
-      <Navbar hideLedgers />
       <Container maxWidth="md">
         <Stack gap={1} alignItems={'center'}>
           <P level="h2">Random secret private key</P>

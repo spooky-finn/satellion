@@ -2,6 +2,7 @@ import { Input, Option, Select, Stack, ToggleButtonGroup } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import type { FeeMode } from '../../../bindings/eth'
 import { AddressInput } from '../../../components/address_input'
+import { SendTxButton } from '../../../components/send_tx_button'
 import { handle_err } from '../../../lib/handle_err'
 import { B, FullScreenModal, P, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
@@ -120,9 +121,9 @@ const SendTransaction = observer(() => {
     return null
   }
   return (
-    <B loading={state.sending} onClick={() => state.execute()}>
-      Send
-    </B>
+    <SendTxButton loading={state.sending} onSend={() => state.execute()}>
+      Hold to send
+    </SendTxButton>
   )
 })
 

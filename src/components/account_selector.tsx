@@ -100,7 +100,7 @@ export class AccountSelectorVM {
 
 export const AccountSelector = observer(({ vm }: { vm: AccountSelectorVM }) => (
   <Row alignItems={'center'} gap={0.5}>
-    <P level="body-xs">Account</P>
+    <P>Account</P>
     <Select
       variant="plain"
       color="primary"
@@ -109,18 +109,20 @@ export const AccountSelector = observer(({ vm }: { vm: AccountSelectorVM }) => (
         vm.set_active_account(v)
         vm.handle_account_switch(v)
       }}
-      sx={{ width: 'min-content' }}
+      sx={{ width: 'min-content', gap: 0.5 }}
       size="sm"
-      slotProps={{ listbox: { variant: 'soft' } }}
+      slotProps={{
+        listbox: { variant: 'outlined', color: 'neutral', size: 'md' },
+      }}
       disabled={vm.account_loader.loading}
     >
       {vm.accounts.map(each => (
         <Option value={each.index} key={each.index}>
-          {each.index}. {each.name}
+          <P level="body-xs">[{each.index}]</P> {each.name}
         </Option>
       ))}
 
-      <Row gap={0.5} px={1}>
+      <Row gap={0.5} px={1} pt={0.5}>
         {vm.create.name_unput_visible && (
           <Input
             sx={{ minWidth: '50px' }}
@@ -138,10 +140,8 @@ export const AccountSelector = observer(({ vm }: { vm: AccountSelectorVM }) => (
           color="neutral"
           sx={{
             width: 'min-content',
-            minWidth: '24px',
-            minHeight: '24px',
           }}
-          size="sm"
+          size="md"
           onClick={() => vm.handle_plus_button_click()}
         >
           <Add size="sm" />

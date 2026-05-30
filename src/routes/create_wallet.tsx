@@ -2,8 +2,7 @@ import { Stack } from '@mui/joy'
 import { makeAutoObservable } from 'mobx'
 import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
-import { Navbar } from '../components/navbar'
-import { B, P, Row } from '../shortcuts'
+import { B, NavigateUnlock, P, Row } from '../shortcuts'
 import { GenerateMnemonicFlow } from './wallet/gen/flow'
 import { ImportMnemonic } from './wallet/import'
 
@@ -34,8 +33,7 @@ export const CreateWallet = observer(() => {
 
 const SelectFlow = observer(({ state }: { state: State }) => (
   <Stack gap={2} alignItems={'center'}>
-    <Navbar hideLedgers />
-    <P level="h2">Add wallet</P>
+    <P level="h2">add wallet</P>
     <Row sx={{ width: 'min-content' }}>
       <B
         variant="soft"
@@ -48,5 +46,6 @@ const SelectFlow = observer(({ state }: { state: State }) => (
         Generate
       </B>
     </Row>
+    <NavigateUnlock />
   </Stack>
 ))

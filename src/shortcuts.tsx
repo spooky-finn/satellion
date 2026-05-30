@@ -1,5 +1,6 @@
 import { HomeRounded } from '@mui/icons-material'
 import {
+  Box,
   Button,
   type ButtonProps,
   LinearProgress,
@@ -26,7 +27,9 @@ export const LinkButton = (props: ButtonProps & { to: string }) => {
   return <Button size="sm" {...props} onClick={() => navigate(props.to)} />
 }
 export const Progress = (props: LinearProgressProps) => (
-  <LinearProgress size="sm" color="primary" {...props} />
+  <Box>
+    <LinearProgress size="sm" color="primary" {...props} />
+  </Box>
 )
 
 export const NavigateUnlock = (props: ButtonProps) => {

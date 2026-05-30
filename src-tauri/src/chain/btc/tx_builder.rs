@@ -33,13 +33,14 @@ pub struct BuildPsbtParams<'a> {
     pub xpriv: &'a Xpriv,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BuildTxResult {
     pub psbt: Psbt,
     pub change_key_path: LabeledKeyDerivationPath,
+    pub fee: u32,
 }
 
-const MIN_RELAY_FEE: u64 = 16;
+const MIN_RELAY_FEE: u32 = 16;
 
 /// The PSBT has two outputs:
 /// - Output 0: change returned to the wallet's next unused **internal** address
@@ -50,7 +51,7 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
         return Err("no utxos selected for transaction".to_string());
     }
     let input_count = utxos.len();
-    let total_input: u64 = utxos.iter().map(|u| u.output.value.to_sat()).sum();
+    let total_input = utxos.iter().map(|u| u.output.value.to_sat()).sum();
 
     let amounts = resolve_amounts(
         total_input,
@@ -137,6 +138,7 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
     }
 
     Ok(BuildTxResult {
+        fee: amounts.fee,
         psbt,
         change_key_path: LabeledKeyDerivationPath {
             label: "Change".to_string(),
@@ -161,6 +163,7 @@ struct ResolvedAmounts {
     send_value_sat: u64,
     change_value_sat: u64,
     has_change: bool,
+    fee: u32,
 }
 
 /// Resolve the recipient and change amounts after accounting for the miner fee.
@@ -179,17 +182,17 @@ fn resolve_amounts(
 
     let assumed_outputs = if is_sweep { 1 } else { 2 };
     let estimated_vbytes = estimate_taproot_vbytes(input_count, assumed_outputs);
-    let required_fee: u64 = (estimated_vbytes as f64 * miner_fee_vbytes).ceil() as u64;
+    let required_fee: u32 = (estimated_vbytes as f64 * miner_fee_vbytes).ceil() as u32;
     let fee = max(required_fee, MIN_RELAY_FEE);
 
     let (send_value_sat, potential_change) = if is_sweep {
         let send = total_input
-            .checked_sub(fee)
+            .checked_sub(fee as u64)
             .ok_or("insufficient funds to cover miner fee")?;
         (send, 0)
     } else {
         let total_required = requested_send_value
-            .checked_add(fee)
+            .checked_add(fee as u64)
             .ok_or("overflow calculating required amount")?;
         let change = total_input
             .checked_sub(total_required)
@@ -201,6 +204,7 @@ fn resolve_amounts(
     let change_value_sat = if has_change { potential_change } else { 0 };
 
     Ok(ResolvedAmounts {
+        fee,
         send_value_sat,
         change_value_sat,
         has_change,

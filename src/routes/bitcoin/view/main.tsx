@@ -11,7 +11,7 @@ import { route } from '../../../lib/routes'
 import { B, P, Progress, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
 import { fmt_usd } from '../utils/amount_formatters'
-import { BalanceDisplay } from './balance_display'
+import { DisplaySat } from '../utils/display_sat'
 import { ChildAddressesModal } from './list_childs'
 import { UtxoListModal } from './list_utxo'
 import { TransferModal } from './transfer'
@@ -37,9 +37,6 @@ const BitcoinWallet = observer(() => {
     <Stack gap={1}>
       <Navbar />
       <Row gap={3}>
-        <P level="h3" color="primary">
-          Bitcoin
-        </P>
         <AccountSelector vm={btc.account_selector} />
       </Row>
       <ErrorBoundary>
@@ -58,7 +55,7 @@ const BitcoinDetails = observer(() => {
     <Stack gap={1}>
       {btc.address && (
         <Card size="sm" variant="soft">
-          <CompactSrt copy val={btc.address} />
+          <CompactSrt copy val={btc.address} sx={{ fontWeight: 600 }} />
           <Row>
             <B variant="soft" onClick={() => btc.child_list.set_open(true)}>
               Child addresses
@@ -76,10 +73,7 @@ const BitcoinDetails = observer(() => {
         </Card>
       )}
       {btc.height && <P level="body-xs">Blockchain head at {btc.height}</P>}
-      <BalanceDisplay
-        satoshis={btc.total_balance_sat}
-        usd_price={btc.usd_price}
-      />
+      <DisplaySat satoshis={btc.total_balance_sat} usd_price={btc.usd_price} />
       <P>Price {fmt_usd(btc.usd_price)}</P>
     </Stack>
   )

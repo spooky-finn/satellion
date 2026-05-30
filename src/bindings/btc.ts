@@ -89,7 +89,7 @@ address: string; total_balance: string; utxo: UtxoView[] }
 export type BroadcastTxRequest = Record<string, never>
 export type BroadcastTxResponse = { tx_id: string }
 export type BuildTxRequest = { value: string; recipient: string; utxo_selection_method: UtxoSelectionStrategy }
-export type BuildTxResponse = Record<string, never>
+export type BuildTxResponse = { fee: number }
 export type DerivedAddress = { label: string; path: string; address: string }
 export type OutPointRef = { tx_id: string; vout: number }
 export type UtxoSelectionStrategy = { Manual: OutPointRef[] } | { Auto: number }

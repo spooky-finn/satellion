@@ -26,25 +26,26 @@ export function sat2btc(
  * - Formats using Intl.NumberFormat
  */
 export function sat2usd(
-  satoshi: bigint | string,
+  satoshi: bigint | string | number,
   usd_price: number | string,
+  fraction_digits?: number,
 ): string {
   const sats = BigInt(satoshi)
   const decimals = 100_000_000n
   // Convert price to integer dollars (drop cents intentionally)
   const btc_usd_price_int = BigInt(Math.floor(Number(usd_price)))
   const usd_amount = (sats * btc_usd_price_int) / decimals
-  return fmt_usd(usd_amount)
+  return fmt_usd(usd_amount, fraction_digits)
 }
 
 export const fmt_usd = (
   amount: number | bigint | string,
-  locale: string = 'en-US',
+  fraction_digits: number = 0,
 ): string =>
-  new Intl.NumberFormat(locale, {
+  new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-    maximumFractionDigits: 0, // no cents
+    maximumFractionDigits: fraction_digits,
   }).format(Number(amount))
 
 /**
@@ -55,7 +56,7 @@ export const fmt_usd = (
  * @param satoshi - balance in satoshis as BigInt
  * @param decimals - satoshis per BTC (usually 100_000_000)
  */
-export function display_sat(satoshi: bigint | string): string {
+export function display_sat(satoshi: bigint | string | number): string {
   const decimals: bigint = 100_000_000n
   const sats = BigInt(satoshi)
   if (sats < 100_000n) {

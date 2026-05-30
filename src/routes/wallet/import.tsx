@@ -2,10 +2,9 @@ import { Input, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
 import { MnemonicInput, MnemonicInputSt } from '../../components/mnemonic_input'
-import { Navbar } from '../../components/navbar'
 import { PassphraseInput } from '../../components/passphrase_input'
 import { route, useNavigate } from '../../lib/routes'
-import { B, P } from '../../shortcuts'
+import { B, NavigateUnlock, P } from '../../shortcuts'
 import { store } from './mnemonic_store'
 
 export const ImportMnemonic = observer(() => {
@@ -25,7 +24,6 @@ export const ImportMnemonic = observer(() => {
 
   return (
     <Stack gap={1} alignItems={'center'}>
-      <Navbar hideLedgers />
       <P level="h2">Import</P>
       <Stack gap={1} alignItems={'center'}>
         <Input
@@ -44,6 +42,7 @@ export const ImportMnemonic = observer(() => {
         <B onClick={handleImport} disabled={!st.is_input_completed}>
           Import
         </B>
+        <NavigateUnlock />
       </Stack>
     </Stack>
   )

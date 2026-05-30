@@ -49,22 +49,25 @@ export class BitcoinWalletVM {
       notifier.err(res.error)
       throw new Error(res.error)
     }
-    const utxo = await this.fetch_utxo()
     const addresses = await commands.getExternalAddresess().then(unwrap_result)
 
     runInAction(() => {
       this.init_with_account_info(res.data)
-      this.utxo_list.utxo = utxo
       this.child_list.addresses = addresses
     })
+
+    this._sync_utxos_in_background()
   }
 
-  async fetch_utxo() {
-    const syncRes = await commands.syncUtxos()
-    if (syncRes.status === 'error') {
-      notifier.err(syncRes.error)
-      throw new Error(syncRes.error)
+  private async _sync_utxos_in_background(): Promise<void> {
+    this.utxo_list.loader.start()
+    try {
+      const utxo = await commands.syncUtxos().then(unwrap_result)
+      runInAction(() => {
+        this.utxo_list.utxo = utxo
+      })
+    } finally {
+      runInAction(() => this.utxo_list.loader.stop())
     }
-    return syncRes.data
   }
 }

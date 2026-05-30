@@ -1,6 +1,7 @@
 import { makeAutoObservable } from 'mobx'
 import {
   type BroadcastTxResponse,
+  type BuildTxResponse,
   commands,
   type UtxoSelectionStrategy,
   type UtxoView,
@@ -58,6 +59,8 @@ export class TransferVM {
     return `~ $${estimated_value.toFixed(2)}`
   }
 
+  estimateion?: BuildTxResponse
+
   async estimate(selected_utxos: UtxoView[]) {
     if (!this.transfer_amount) throw Error('transfer amount not set')
 
@@ -75,12 +78,19 @@ export class TransferVM {
         utxo_selection_method,
       })
       .then(unwrap_result)
-      .then(() => {
+      .then(r => {
+        this.estimateion = r
         this.state = TransferState.Sending
       })
       .catch(e => {
         this.error = e
       })
+  }
+
+  back_to_estimate() {
+    this.estimateion = undefined
+    this.error = undefined
+    this.state = TransferState.Estimate
   }
 
   async execute() {
