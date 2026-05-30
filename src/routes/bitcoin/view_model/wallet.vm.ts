@@ -56,18 +56,6 @@ export class BitcoinWalletVM {
       this.child_list.addresses = addresses
     })
 
-    this._sync_utxos_in_background()
-  }
-
-  private async _sync_utxos_in_background(): Promise<void> {
-    this.utxo_list.loader.start()
-    try {
-      const utxo = await commands.syncUtxos().then(unwrap_result)
-      runInAction(() => {
-        this.utxo_list.utxo = utxo
-      })
-    } finally {
-      runInAction(() => this.utxo_list.loader.stop())
-    }
+    this.utxo_list.sync.refresh()
   }
 }

@@ -1,6 +1,8 @@
 import { Chip, Stack, Table } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
+import { Suspense, use } from 'react'
 import { CompactSrt } from '../../../components/compact_str'
+import { ErrorBoundary } from '../../../lib/error_boundary'
 import { FullScreenModal, P, Progress, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
 import { display_sat, sat2usd } from '../utils/amount_formatters'
@@ -10,7 +12,12 @@ export const UtxoListModal = observer(() => {
   const { utxo_list } = root_store.wallet.btc
   return (
     <FullScreenModal open={utxo_list.is_open} onClose={() => utxo_list.close()}>
-      <UtxoList />
+      <P level="h3">Unspent transaction outputs</P>
+      <ErrorBoundary>
+        <Suspense fallback={<Progress />}>
+          <UtxoList />
+        </Suspense>
+      </ErrorBoundary>
     </FullScreenModal>
   )
 })
@@ -18,28 +25,25 @@ export const UtxoListModal = observer(() => {
 const UtxoList = observer(() => {
   const { btc } = root_store.wallet
   const { utxo_list } = root_store.wallet.btc
+  use(utxo_list.sync.promise)
   return (
-    <>
-      <P level="h3">Unspent transaction outputs</P>
-      {utxo_list.loader.loading && <Progress />}
-      <Stack sx={{ overflow: 'auto', mt: 0 }}>
-        {utxo_list.utxo.length === 0 ? (
-          <P>No utxos yet.</P>
-        ) : (
-          <>
-            <P>In total {utxo_list.utxo.length} utxo</P>
-            <DisplaySat
-              satoshis={utxo_list.total_value_sat}
-              usd_price={btc.usd_price}
-            />
-            <Table variant="plain" stickyHeader size="sm">
-              <TableHead />
-              <TableBody />
-            </Table>
-          </>
-        )}
-      </Stack>
-    </>
+    <Stack sx={{ overflow: 'auto', mt: 0 }}>
+      {utxo_list.utxo.length === 0 ? (
+        <P>No utxos yet.</P>
+      ) : (
+        <>
+          <P>In total {utxo_list.utxo.length} utxo</P>
+          <DisplaySat
+            satoshis={utxo_list.total_value_sat}
+            usd_price={btc.usd_price}
+          />
+          <Table variant="plain" stickyHeader size="sm">
+            <TableHead />
+            <TableBody />
+          </Table>
+        </>
+      )}
+    </Stack>
   )
 })
 

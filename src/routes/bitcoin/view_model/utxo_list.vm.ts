@@ -1,11 +1,21 @@
-import { makeAutoObservable } from 'mobx'
+import { makeAutoObservable, runInAction } from 'mobx'
 import type { UtxoView } from '../../../bindings/btc'
-import { Loader } from '../../../view_model/loader'
+import { commands } from '../../../bindings/btc'
+import { unwrap_result } from '../../../lib/handle_err'
+import { Resource } from '../../../lib/resource'
 
 export class UtxoListVM {
-  readonly loader = new Loader()
+  readonly sync = new Resource(() => this._fetch())
+
   constructor() {
     makeAutoObservable(this)
+  }
+
+  private async _fetch(): Promise<void> {
+    const utxo = await commands.syncUtxos().then(unwrap_result)
+    runInAction(() => {
+      this.utxo = utxo
+    })
   }
 
   is_open = false
