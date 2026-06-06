@@ -4,9 +4,6 @@ mod mocks;
 use std::{error::Error, str::FromStr};
 
 use bitcoin::Address;
-use shush_rs::SecretBox;
-
-use crate::bitcoind::BitcoindHarness;
 use satellion_lib::{
     chain::btc::{
         self,
@@ -23,6 +20,9 @@ use satellion_lib::{
     utils,
     wallet::Wallet,
 };
+use shush_rs::SecretBox;
+
+use crate::bitcoind::BitcoindHarness;
 
 #[tokio::test]
 async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {

@@ -1,11 +1,10 @@
-use futures;
-
 use alloy::{
     primitives::{Address, Uint},
     providers::Provider,
     sol,
 };
 use alloy_provider::DynProvider;
+use futures;
 
 use crate::chain::eth::token::Token;
 
@@ -92,15 +91,17 @@ impl Erc20Retriever {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
+    use alloy::primitives::Address;
+    use once_cell::sync::Lazy;
+
     use super::*;
     use crate::eth::{
         config::EthereumConfig,
         constants::{USDC, USDT},
         select_provider,
     };
-    use alloy::primitives::Address;
-    use once_cell::sync::Lazy;
-    use std::str::FromStr;
 
     fn get_config() -> EthereumConfig {
         EthereumConfig {

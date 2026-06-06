@@ -1,9 +1,9 @@
 //! Ethereum transaction builder module.
 //!
-//! This module provides functionality for building and sending token transfers to the Ethereum network,
-//! including both ETH transfers and ERC20 token transfers. It includes utilities for
-//! gas estimation, balance checking, and transaction signing/broadcasting.
-//!
+//! This module provides functionality for building and sending token transfers
+//! to the Ethereum network, including both ETH transfers and ERC20 token
+//! transfers. It includes utilities for gas estimation, balance checking, and
+//! transaction signing/broadcasting.
 use alloy::{
     consensus::{SignableTransaction, TxEnvelope},
     network::{TransactionBuilder, TxSignerSync},
@@ -29,19 +29,22 @@ pub enum TransferBuilderError {
     /// Insufficient ETH balance for the requested transfer amount.
     ///
     /// # Fields
-    /// - `current_balance`: User's current ETH balance in formatted string (e.g., "0.5")
-    /// - `max_sendable`: Maximum ETH amount that can be sent after deducting gas fees
+    /// - `current_balance`: User's current ETH balance in formatted string
+    ///   (e.g., "0.5")
+    /// - `max_sendable`: Maximum ETH amount that can be sent after deducting
+    ///   gas fees
     InsufficientEther {
         current_balance: String,
         max_sendable: String,
     },
     /// Insufficient ETH balance to even pay for gas fees.
     ///
-    /// This error occurs when the user's ETH balance is lower than the estimated
-    /// gas fees required to execute any transaction.
+    /// This error occurs when the user's ETH balance is lower than the
+    /// estimated gas fees required to execute any transaction.
     ///
     /// # Fields
-    /// - `current_balance`: User's current ETH balance in formatted string (e.g., "0.00001")
+    /// - `current_balance`: User's current ETH balance in formatted string
+    ///   (e.g., "0.00001")
     /// - `estimated_fee`: Estimated gas fees required for the transaction
     InsufficientGas {
         current_balance: String,
@@ -132,7 +135,8 @@ impl TxBuilder {
             .map_err(|e| TransferBuilderError::NodeQuery(e.to_string()))
     }
 
-    /// Method creates transafer transaction for Ether or ERC20 tokens and store it in the session
+    /// Method creates transafer transaction for Ether or ERC20 tokens and store
+    /// it in the session
     pub async fn create_transfer(
         &mut self,
         req: TransferPayload,
@@ -240,15 +244,17 @@ pub trait TransferBuilder {
 
 /// Trait for checking if accounts have sufficient balance for transfers.
 ///
-/// This trait defines a common interface for balance validation across different
-/// asset types (ETH and ERC20 tokens). Implementations should verify that the
-/// sender has enough balance to cover both the transfer amount and associated gas fees.
+/// This trait defines a common interface for balance validation across
+/// different asset types (ETH and ERC20 tokens). Implementations should verify
+/// that the sender has enough balance to cover both the transfer amount and
+/// associated gas fees.
 pub trait BalanceChecker {
     /// Checks if the sender has sufficient balance for the requested transfer.
     ///
-    /// This method validates that the sender's account balance is sufficient to cover
-    /// the requested transfer amount plus any associated transaction fees. The specific
-    /// validation logic depends on the asset type being transferred.
+    /// This method validates that the sender's account balance is sufficient to
+    /// cover the requested transfer amount plus any associated transaction
+    /// fees. The specific validation logic depends on the asset type being
+    /// transferred.
     fn check_balance(
         &self,
         _req: &TransferPayload,
@@ -329,15 +335,18 @@ impl TransferBuilder for EtherTransferBuilder {
 }
 
 impl BalanceChecker for EtherTransferBuilder {
-    /// Checks ETH balance for transfers, accounting for both transfer amount and gas fees.
+    /// Checks ETH balance for transfers, accounting for both transfer amount
+    /// and gas fees.
     ///
-    /// This implementation validates that the sender has sufficient ETH to cover:
+    /// This implementation validates that the sender has sufficient ETH to
+    /// cover:
     /// 1. The requested transfer amount
     /// 2. Maximum estimated gas fees (gas_limit × max_fee_per_gas)
     ///
-    /// If the balance is insufficient for gas fees alone, returns `InsufficientForGas`.
-    /// If the balance covers gas fees but not the full transfer, returns `InsufficientEth`
-    /// with the maximum amount that can be sent.
+    /// If the balance is insufficient for gas fees alone, returns
+    /// `InsufficientForGas`. If the balance covers gas fees but not the
+    /// full transfer, returns `InsufficientEth` with the maximum amount
+    /// that can be sent.
     async fn check_balance(
         &self,
         req: &TransferPayload,
@@ -393,8 +402,9 @@ impl TransferBuilder for TokenTransferBuilder {
 impl BalanceChecker for TokenTransferBuilder {
     /// Checks ERC20 token balance and ETH balance for gas fees.
     ///
-    /// If the user has insufficient ETH for gas fees, it returns `InsufficientForGas`.
-    /// If the user has insufficient tokens, it returns `InsufficientTokens`.
+    /// If the user has insufficient ETH for gas fees, it returns
+    /// `InsufficientForGas`. If the user has insufficient tokens, it
+    /// returns `InsufficientTokens`.
     async fn check_balance(
         &self,
         req: &TransferPayload,
@@ -435,15 +445,16 @@ impl BalanceChecker for TokenTransferBuilder {
 
 #[cfg(test)]
 mod tests {
+    use alloy::signers::k256::ecdsa::SigningKey;
+    use alloy_provider::{PendingTransactionConfig, ext::AnvilApi};
+    use alloy_signer_local::LocalSigner;
+
     use super::*;
     use crate::eth::{
         config::EthereumConfig,
         constants::{ETH, USDT},
         new_provider_anvil,
     };
-    use alloy::signers::k256::ecdsa::SigningKey;
-    use alloy_provider::{PendingTransactionConfig, ext::AnvilApi};
-    use alloy_signer_local::LocalSigner;
 
     fn get_config() -> EthereumConfig {
         EthereumConfig {
@@ -695,7 +706,8 @@ mod tests {
             Err(e) => {
                 match e {
                     TransferBuilderError::InsufficientEther { max_sendable, .. } => {
-                        // Verify the max sendable amount is reasonable (should be less than 0.5 ETH minus gas fees)
+                        // Verify the max sendable amount is reasonable (should be less than 0.5 ETH
+                        // minus gas fees)
                         let max_sendable_f64: f64 = max_sendable.parse().unwrap();
                         assert!(
                             max_sendable_f64 < 0.5,

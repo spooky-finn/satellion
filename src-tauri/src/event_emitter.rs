@@ -1,8 +1,7 @@
+use mockall::{automock, predicate::*};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 use tauri_specta::{Events, collect_events};
-
-use mockall::{automock, predicate::*};
 
 #[automock]
 pub trait EventEmitterTrait: Send + Sync {

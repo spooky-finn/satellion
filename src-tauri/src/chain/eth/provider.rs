@@ -1,14 +1,16 @@
 use std::time::Duration;
 
-use alloy::providers::RootProvider;
+use alloy::{providers::RootProvider, rpc::client::RpcClient};
 use alloy_provider::{DynProvider, Provider, ProviderBuilder};
 use tauri::Url;
 
-use crate::eth::config::EthereumConfig;
+use crate::{config::TorConfig, eth::config::EthereumConfig};
 
-pub fn select_provider(config: EthereumConfig) -> DynProvider {
+pub fn select_provider(config: EthereumConfig, tor: &TorConfig) -> DynProvider {
     if config.anvil {
         new_provider_anvil(config)
+    } else if tor.enabled {
+        new_provider_tor(config, &tor.socks5_proxy)
     } else {
         new_provider(config)
     }
@@ -17,6 +19,16 @@ pub fn select_provider(config: EthereumConfig) -> DynProvider {
 pub fn new_provider(config: EthereumConfig) -> DynProvider {
     let rpc_url = config.rpc_url.clone();
     RootProvider::new_http(Url::parse(&rpc_url).expect("Invalid RPC URL for Ethereum")).erased()
+}
+
+pub fn new_provider_tor(config: EthereumConfig, proxy_url: &str) -> DynProvider {
+    let proxy = reqwest::Proxy::all(proxy_url).expect("invalid Tor proxy URL");
+    let client = reqwest::Client::builder()
+        .proxy(proxy)
+        .build()
+        .expect("failed to build Tor HTTP client for Ethereum");
+    let url = Url::parse(&config.rpc_url).expect("Invalid RPC URL for Ethereum");
+    RootProvider::new(RpcClient::new_http_with_client(client, url)).erased()
 }
 
 pub fn new_provider_batched(provider: DynProvider) -> DynProvider {

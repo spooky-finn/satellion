@@ -120,12 +120,13 @@ impl SessionKeeper {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::Config;
+    use std::sync::Mutex as StdMutex;
+
+    use shush_rs::SecretBox;
+    use tokio::time::{Duration, sleep};
 
     use super::*;
-    use shush_rs::SecretBox;
-    use std::sync::Mutex as StdMutex;
-    use tokio::time::{Duration, sleep};
+    use crate::config::Config;
 
     const MNEMONIC: &str = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
     static SECRETBOX_TEST_LOCK: StdMutex<()> = StdMutex::new(());

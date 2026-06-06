@@ -37,14 +37,17 @@ pub struct Child {
 
 #[derive(Debug, Clone, PartialEq, Copy, Eq, Hash)]
 pub enum Change {
-    /// External chain is used for addresses that are meant to be visible outside of the wallet (e.g. for receiving payments)
+    /// External chain is used for addresses that are meant to be visible
+    /// outside of the wallet (e.g. for receiving payments)
     External = 0,
-    /// Internal chain is used for addresses which are not meant to be visible outside of the wallet and is used for return transaction change
+    /// Internal chain is used for addresses which are not meant to be visible
+    /// outside of the wallet and is used for return transaction change
     Internal = 1,
 }
 
 impl TryFrom<u32> for Change {
     type Error = String;
+
     fn try_from(value: u32) -> Result<Change, String> {
         match value {
             0 => Ok(Change::External),
@@ -62,6 +65,7 @@ pub enum Proposal {
 
 impl TryFrom<u32> for Proposal {
     type Error = String;
+
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         match value {
             86 => Ok(Proposal::Bip86),

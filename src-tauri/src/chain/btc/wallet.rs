@@ -5,7 +5,7 @@ use crate::{
     chain::btc::{
         account::Account,
         key_derivation::{Change, KeyDerivationPath, Proposal},
-        providers::electrum_adapter::ElectrumAdapter,
+        providers::btc_node::{BtcNode, select_btc_server},
         tx_builder::BuildTxResult,
     },
     chain_trait::{AccountIndex, SecureKey},
@@ -33,7 +33,7 @@ impl SecureKey for Prk {
 pub struct BitcoinWallet {
     pub active_account: AccountIndex,
     pub accounts: Vec<Account>,
-    pub server: ElectrumAdapter,
+    pub server: BtcNode,
     pub config: Config,
     pub pending_tx: Option<BuildTxResult>,
 }
@@ -42,11 +42,12 @@ impl BitcoinWallet {
     pub fn new(config: Config) -> BitcoinWallet {
         let active_account = 0;
         let account = Account::new(config.btc.network(), active_account, "main".to_string());
+        let server = select_btc_server(&config);
         BitcoinWallet {
-            config: config.clone(),
+            config,
             active_account,
             accounts: vec![account],
-            server: ElectrumAdapter::new(config.btc),
+            server,
             pending_tx: None,
         }
     }

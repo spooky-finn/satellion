@@ -1,10 +1,7 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use crate::{
-    chain::eth::fee_estimator::FeeMode,
-    config::BlockChain,
-};
+use crate::{chain::eth::fee_estimator::FeeMode, config::BlockChain};
 
 #[derive(Serialize, Type)]
 pub struct EthereumUnlock {

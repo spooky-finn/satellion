@@ -48,7 +48,6 @@ alloy-signer-local = { version = "1.8.3", features = ["mnemonic"] }
 bitcoin = "0.32.8"
 bip39 = "2.2.2"
 esplora-client = "0.12.3"
-rustywallet-electrum = "0.2.0"
 # Codegen
 specta = "=2.0.0-rc.22"
 specta-typescript = "0.0.9"
@@ -56,11 +55,16 @@ tauri-specta = { version = "=2.0.0-rc.21", features = ["typescript", "derive"] }
 # RAM security
 zeroize = "1.8.2"
 shush-rs = "0.1.11"
+reqwest = { version = "0.13.4", features = ["socks"] }
+tokio-socks = "0.5"
+rustls = { version = "0.23.40" }
+tokio-rustls = "0.26.4"
+webpki-roots = "1.0.7"
 # Tracing
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.0", features = ["fmt", "env-filter"] }
-tracing-appender = "0.2"
-miniscript = "13.0.0"
+tracing-appender = "0.2.5"
+miniscript = "13.0.1"
 # Mac os system
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.4"

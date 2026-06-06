@@ -1,6 +1,7 @@
 use crate::chain::btc::{
     config::BitcoinConfig,
     providers::{
+        btc_node::BtcNode,
         electrum_adapter::ElectrumAdapter,
         esplora_adapter::{EsploraAdapter, EsploraProvider},
     },
@@ -17,26 +18,27 @@ pub const MIN_FEE_RATE_SAT_VB: f64 = 1.0;
 
 /// Estimate the sat/vB fee rate for the standard confirmation target.
 ///
-/// Electrum's `blockchain.estimatefee` proxies bitcoind's `estimatesmartfee`,
-/// which is conservative and over-averaged — it routinely returns several×
-/// the real next-block clearing rate. mempool.space's fee estimates reflect
-/// current mempool state, so prefer it on mainnet and only fall back to the
-/// connected Electrum server when the HTTP request fails (or on regtest,
-/// where mempool.space isn't reachable).
-pub async fn estimate_fee_rate(
-    electrum: &ElectrumAdapter,
-    config: &BitcoinConfig,
-) -> Result<f64, String> {
-    let raw = if config.regtest {
-        electrum_estimate(electrum).await?
-    } else {
-        match mempool_space_estimate().await {
-            Ok(rate) => rate,
-            Err(e) => {
-                tracing::warn!("mempool.space fee estimate failed, falling back to electrum: {e}");
+/// For the Electrum path: prefer mempool.space (current mempool state) and
+/// fall back to the Electrum server estimate (conservative bitcoind value).
+/// For the Esplora/Tor path: use the Esplora client directly (already proxied).
+pub async fn estimate_fee_rate(server: &BtcNode, config: &BitcoinConfig) -> Result<f64, String> {
+    let raw = match server {
+        BtcNode::Electrum(electrum) => {
+            if config.regtest {
                 electrum_estimate(electrum).await?
+            } else {
+                match mempool_space_estimate().await {
+                    Ok(rate) => rate,
+                    Err(e) => {
+                        tracing::warn!(
+                            "mempool.space fee estimate failed, falling back to electrum: {e}"
+                        );
+                        electrum_estimate(electrum).await?
+                    }
+                }
             }
         }
+        BtcNode::Esplora(esplora) => esplora_estimate(esplora).await?,
     };
     let rate = if raw.is_finite() && raw > 0.0 {
         raw
@@ -51,8 +53,6 @@ async fn mempool_space_estimate() -> Result<f64, String> {
         .get_fee_estimates()
         .await
         .map_err(|e| e.to_string())?;
-    // The endpoint returns block-target → sat/vB; pick our target, falling
-    // back to the closest faster target if the exact one isn't present.
     (0..=STANDARD_FEE_TARGET_BLOCKS)
         .rev()
         .find_map(|target| estimates.get(&target).copied())
@@ -64,4 +64,11 @@ async fn electrum_estimate(electrum: &ElectrumAdapter) -> Result<f64, String> {
         .estimate_fee(STANDARD_FEE_TARGET_BLOCKS as u32)
         .await
         .map_err(|e| format!("failed to estimate fee: {e}"))
+}
+
+async fn esplora_estimate(esplora: &EsploraAdapter) -> Result<f64, String> {
+    esplora
+        .estimate_fee_sat_vb(STANDARD_FEE_TARGET_BLOCKS)
+        .await
+        .map_err(|e| e.to_string())
 }

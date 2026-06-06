@@ -222,8 +222,8 @@ pub async fn bump_fee_cpfp(
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let prk = wallet.btc_prk()?;
-    let parent_tx_id = Txid::from_str(&req.parent_tx_id)
-        .map_err(|e| format!("invalid parent_tx_id: {e}"))?;
+    let parent_tx_id =
+        Txid::from_str(&req.parent_tx_id).map_err(|e| format!("invalid parent_tx_id: {e}"))?;
 
     let built = build_cpfp_psbt(&BuildCpfpParams {
         parent_tx_id,

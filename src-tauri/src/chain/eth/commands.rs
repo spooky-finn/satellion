@@ -231,8 +231,9 @@ pub async fn anvil_set_initial_balances(
     address: String,
     provider: tauri::State<'_, DynProvider>,
 ) -> Result<String, String> {
-    use crate::eth::constants::USDT;
     use alloy::primitives::utils::{parse_ether, parse_units};
+
+    use crate::eth::constants::USDT;
 
     let p = provider.inner();
     let addr = parse_addres(&address)?;

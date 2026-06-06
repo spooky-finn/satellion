@@ -19,7 +19,8 @@ pub trait ChainTrait {
 /// - Zeroize memory when the key is dropped
 /// - Minimize the time key material is exposed
 pub trait SecureKey {
-    /// The underlying key material type. (e.g., Xpriv for Bitcoin, PrivateKeySigner for Ethereum)
+    /// The underlying key material type. (e.g., Xpriv for Bitcoin,
+    /// PrivateKeySigner for Ethereum)
     type Material;
 
     /// Provides access to the underlying key material.
@@ -42,11 +43,12 @@ where
     fn deserialize(data: Self::Serialized) -> Result<Self, String>;
 }
 
-/// Trait for tracking assets (tokens, addresses, etc.) across different blockchains.
+/// Trait for tracking assets (tokens, addresses, etc.) across different
+/// blockchains.
 ///
-/// This trait provides a unified interface for managing tracked assets in a wallet,
-/// enabling generic code that works across different chains. Each blockchain
-/// may track different types of assets:
+/// This trait provides a unified interface for managing tracked assets in a
+/// wallet, enabling generic code that works across different chains. Each
+/// blockchain may track different types of assets:
 /// - Ethereum: ERC20 tokens
 /// - Bitcoin: Derived addresses
 /// ```

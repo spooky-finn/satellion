@@ -92,7 +92,8 @@ impl KeyChain {
         }
     }
 
-    /// Returns the first index that hasn't been used yet for a specific change type.
+    /// Returns the first index that hasn't been used yet for a specific change
+    /// type.
     pub fn next_unused_index(&self, change: Change) -> u32 {
         let occupied: HashSet<u32> = self
             .paths_by_change(&change)
@@ -107,7 +108,8 @@ impl KeyChain {
         self.paths.iter().any(|a| a.path == path)
     }
 
-    /// Returns an iterator of paths belonging to the internal (change) or external chain.
+    /// Returns an iterator of paths belonging to the internal (change) or
+    /// external chain.
     pub fn paths_by_change(
         &self,
         change: &Change,
@@ -172,13 +174,15 @@ impl UtxoSet {
         }
     }
 
-    /// Implementation of automated coin selection (e.g., Branch and Bound or Knapsack).
+    /// Implementation of automated coin selection (e.g., Branch and Bound or
+    /// Knapsack).
     fn select_automatically(&self, _min_value: u64) -> Vec<&Utxo> {
         // TODO: implement
         vec![]
     }
 
-    /// Retrieves specific UTXOs by their outpoints, ignoring any that aren't in this set.
+    /// Retrieves specific UTXOs by their outpoints, ignoring any that aren't in
+    /// this set.
     fn select_by_outpoints(&self, selected_outpoints: Vec<OutPoint>) -> Vec<&Utxo> {
         selected_outpoints
             .iter()

@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
-use bitcoin::Address;
+use bitcoin::{Address, TxOut};
 use esplora_client::{AsyncClient, Builder, Error, Utxo, r#async::DefaultSleeper};
 use futures::future::join_all;
+
+use crate::chain::btc::{account::AddressPathMap, utxo::Utxo as WalletUtxo};
 
 #[derive(Debug, Clone, Copy)]
 pub enum EsploraProvider {
@@ -19,11 +21,24 @@ impl EsploraProvider {
             EsploraProvider::MempoolEmzy => "https://mempool.emzy.de/api",
         }
     }
+
+    pub const fn onion(self) -> &'static str {
+        match self {
+            EsploraProvider::MempoolSpace => {
+                "http://mempoolhqx4isw62xs7abwphsq7ldayuidyx2v2oethdhhj6mlo2r6ad.onion/api"
+            }
+            EsploraProvider::BlockstreamInfo => {
+                "http://explorerzydxu5ecjrkwceayqybizmpjjznk5izmitf2modhcusuqlid.onion/api"
+            }
+            EsploraProvider::MempoolEmzy => "http://mempool.emzy.de/api",
+        }
+    }
 }
 
 // Esplora API is a RESTful HTTP interface for querying Bitcoin blockchain data.
 // It is developed by Blockstream and powers the public Blockstream Explorer.
-// It allows clients (wallets, services, indexers) to fetch blockchain state without running a full node with a custom indexer.
+// It allows clients (wallets, services, indexers) to fetch blockchain state
+// without running a full node with a custom indexer.
 pub struct EsploraAdapter {
     client: AsyncClient<DefaultSleeper>,
 }
@@ -33,6 +48,15 @@ impl EsploraAdapter {
         let client = Builder::new(base_url)
             .build_async()
             .expect("fail to create EsploraClient");
+        Self { client }
+    }
+
+    pub fn new_tor(proxy_url: &str) -> Self {
+        let onion_url = EsploraProvider::MempoolSpace.onion();
+        let client = Builder::new(onion_url)
+            .proxy(proxy_url)
+            .build_async()
+            .expect("fail to create Tor EsploraClient");
         Self { client }
     }
 
@@ -65,6 +89,53 @@ impl EsploraAdapter {
         }
 
         Ok(results)
+    }
+
+    /// Fetch UTXOs for all addresses in the path map and return them as wallet
+    /// UTXOs.
+    pub async fn get_wallet_utxos(
+        &self,
+        address_path_map: AddressPathMap,
+    ) -> Result<Vec<WalletUtxo>, Error> {
+        let addresses: Vec<Address> = address_path_map.keys().cloned().collect();
+        let utxo_map = self.get_utxos_by_addresses(&addresses).await?;
+
+        let result = utxo_map
+            .into_iter()
+            .flat_map(|(address, utxos)| {
+                let path = address_path_map.get(&address).cloned();
+                utxos.into_iter().filter_map(move |utxo| {
+                    path.clone().map(|derivation| WalletUtxo {
+                        tx_id: utxo.txid,
+                        vout: utxo.vout,
+                        output: TxOut {
+                            value: utxo.value,
+                            script_pubkey: address.script_pubkey(),
+                        },
+                        derivation,
+                        height: utxo.status.block_height.unwrap_or(0),
+                    })
+                })
+            })
+            .collect();
+
+        Ok(result)
+    }
+
+    /// Broadcast a signed transaction and return its txid.
+    pub async fn broadcast_tx(&self, tx: &bitcoin::Transaction) -> Result<String, Error> {
+        let txid = tx.compute_txid().to_string();
+        self.client.broadcast(tx).await?;
+        Ok(txid)
+    }
+
+    /// Estimate fee rate (sat/vB) for the given confirmation target.
+    pub async fn estimate_fee_sat_vb(&self, target_blocks: u16) -> Result<f64, Error> {
+        let estimates = self.get_fee_estimates().await?;
+        (0..=target_blocks)
+            .rev()
+            .find_map(|t| estimates.get(&t).copied())
+            .ok_or(Error::InvalidResponse)
     }
 }
 

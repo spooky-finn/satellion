@@ -1,11 +1,10 @@
 use std::ptr::NonNull;
 
-use tauri::{AppHandle, Emitter};
-
 use block2::StackBlock;
 use objc2_foundation::{
     NSDistributedNotificationCenter, NSNotification, NSOperationQueue, NSString,
 };
+use tauri::{AppHandle, Emitter};
 
 use crate::system::session_monitor::{SYS_SESSION_LOCKED_EVENT, SYS_SESSION_UNLOCKED_EVENT};
 

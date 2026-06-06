@@ -1,18 +1,20 @@
 //! Generic envelope encryption module for secure data storage.
 //!
-//! This module implements envelope encryption (key wrapping) for any sensitive data.
-//! The encryption schema uses:
+//! This module implements envelope encryption (key wrapping) for any sensitive
+//! data. The encryption schema uses:
 //! - AES-256-GCM for authenticated encryption
 //! - Argon2 for password-based key derivation
-//! - Two-layer encryption: DEK (Data Encryption Key) encrypts plaintext,
-//!   KEK (Key Encryption Key) derived from passphrase encrypts DEK
+//! - Two-layer encryption: DEK (Data Encryption Key) encrypts plaintext, KEK
+//!   (Key Encryption Key) derived from passphrase encrypts DEK
 //!
 //! # Storage Format
 //! - `ciphertext`: [12 bytes dek_nonce][variable encrypted_data]
 //! - `wrapped_key`: [12 bytes kek_nonce][48 bytes wrapped_dek]
 //! - `kdf_salt`: 32 bytes for Argon2 KDF
-use aes_gcm::Aes256Gcm;
-use aes_gcm::aead::{Aead, KeyInit};
+use aes_gcm::{
+    Aes256Gcm,
+    aead::{Aead, KeyInit},
+};
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
@@ -36,12 +38,14 @@ impl ArgonSec {
             Self::secure()
         }
     }
+
     fn secure() -> Self {
         Self {
             memory_cost: 64 * 1024,
             time_cost: 3,
         }
     }
+
     fn debug() -> Self {
         Self {
             memory_cost: 512,

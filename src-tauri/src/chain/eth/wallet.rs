@@ -25,15 +25,16 @@ pub struct Prk {
 
 impl SecureKey for Prk {
     type Material = PrivateKeySigner;
+
     fn expose(&self) -> &Self::Material {
         &self.signer
     }
 }
 
 impl ChainTrait for EthereumWallet {
+    type AccountState = EthereumUnlock;
     type Prk = Prk;
     type UnlockContext = ();
-    type AccountState = EthereumUnlock;
 
     fn unlock(
         &mut self,

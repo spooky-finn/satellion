@@ -1,6 +1,7 @@
+use std::str::FromStr;
+
 use serde::Serialize;
 use specta::{Type, specta};
-use std::str::FromStr;
 use zeroize::Zeroize;
 
 use crate::{
@@ -211,6 +212,8 @@ pub async fn forget_wallet(
 #[derive(Type, Serialize)]
 pub struct UIConfig {
     eth_anvil: bool,
+    tor_enabled: bool,
+    tor_socks5_proxy: String,
 }
 
 #[specta]
@@ -218,7 +221,18 @@ pub struct UIConfig {
 pub async fn get_config(config: tauri::State<'_, Config>) -> Result<UIConfig, String> {
     Ok(UIConfig {
         eth_anvil: config.eth.anvil,
+        tor_enabled: config.tor.enabled,
+        tor_socks5_proxy: config.tor.socks5_proxy.clone(),
     })
+}
+
+#[specta]
+#[tauri::command]
+pub async fn set_tor_config(enabled: bool, socks5_proxy: String) -> Result<(), String> {
+    let mut config = Config::load().map_err(|e| e.to_string())?;
+    config.tor.enabled = enabled;
+    config.tor.socks5_proxy = socks5_proxy;
+    config.save()
 }
 
 #[specta]

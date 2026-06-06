@@ -61,6 +61,14 @@ async getConfig() : Promise<Result<UIConfig, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async setTorConfig(enabled: boolean, socks5Proxy: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_tor_config", { enabled, socks5Proxy }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async addAccount(chain: BlockChain, label: string) : Promise<Result<number, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("add_account", { chain, label }) };
@@ -125,7 +133,7 @@ export type CreationFlow = "Import" | "Generation"
 export type EthereumUnlock = { address: string }
 export type OutPointRef = { tx_id: string; vout: number }
 export type PriceFeedDto = { btc_usd: number; eth_usd: number }
-export type UIConfig = { eth_anvil: boolean }
+export type UIConfig = { eth_anvil: boolean; tor_enabled: boolean; tor_socks5_proxy: string; }
 export type UnlockDto = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock; last_used_chain: BlockChain }
 export type UtxoView = { utxo_id: OutPointRef; value: string; deriv_path: string; address_label: string | null; confirmed: boolean }
 

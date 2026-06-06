@@ -7,7 +7,7 @@ use crate::{
     chain::btc::{
         account::{Account, KeyChain, UtxoSet},
         key_derivation::{KeyDerivationPath, LabeledKeyDerivationPath},
-        providers::electrum_adapter::ElectrumAdapter,
+        providers::btc_node::select_btc_server,
         utxo::Utxo,
         wallet::BitcoinWallet,
     },
@@ -109,10 +109,11 @@ impl From<&BitcoinWallet> for WalletStored {
 
 impl BitcoinWallet {
     pub fn from_dto(dto: WalletStored, config: Config) -> Self {
+        let server = select_btc_server(&config);
         BitcoinWallet {
             accounts: dto.accounts.into_iter().map(Account::from).collect(),
             active_account: dto.active_account,
-            server: ElectrumAdapter::new(config.btc.clone()),
+            server,
             config,
             pending_tx: None,
         }

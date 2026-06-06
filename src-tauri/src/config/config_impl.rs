@@ -4,11 +4,28 @@ use serde::{Deserialize, Serialize};
 
 use crate::chain::{btc::config::BitcoinConfig, eth::config::EthereumConfig};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TorConfig {
+    pub enabled: bool,
+    pub socks5_proxy: String,
+}
+
+impl Default for TorConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            socks5_proxy: "socks5://127.0.0.1:9050".to_string(),
+        }
+    }
+}
+
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
     pub eth: EthereumConfig,
     pub btc: BitcoinConfig,
+    pub tor: TorConfig,
     /// Require a passphrase when generating private keys
     pub omit_passphrase_on_private_key: bool,
 }
@@ -43,6 +60,15 @@ impl Config {
         });
         tracing::debug!("config {:?}", json_config);
         Ok(json_config)
+    }
+
+    pub fn save(&self) -> Result<(), String> {
+        let config_path = Self::config_file_path();
+        let payload = serde_json::to_string_pretty(self)
+            .map_err(|e| format!("failed to stringify config: {e}"))?;
+        fs::write(&config_path, payload)
+            .map_err(|e| format!("failed to save config to {}: {e}", config_path.display()))?;
+        Ok(())
     }
 
     fn create_config() -> Result<Config, String> {
