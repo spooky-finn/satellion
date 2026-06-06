@@ -127,7 +127,7 @@ export type OutPointRef = { tx_id: string; vout: number }
 export type PriceFeedDto = { btc_usd: number; eth_usd: number }
 export type UIConfig = { eth_anvil: boolean }
 export type UnlockDto = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock; last_used_chain: BlockChain }
-export type UtxoView = { utxo_id: OutPointRef; value: string; deriv_path: string; address_label: string | null }
+export type UtxoView = { utxo_id: OutPointRef; value: string; deriv_path: string; address_label: string | null; confirmed: boolean }
 
 /** tauri-specta globals **/
 

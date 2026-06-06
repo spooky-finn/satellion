@@ -12,8 +12,10 @@ import { B, P, Progress, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
 import { fmt_usd } from '../utils/amount_formatters'
 import { DisplaySat } from '../utils/display_sat'
+import { FeeBumpModal } from './fee_bump'
 import { ChildAddressesModal } from './list_childs'
 import { UtxoListModal } from './list_utxo'
+import { PendingTxsSection } from './pending_txs'
 import { TransferModal } from './transfer'
 
 const BitcoinWallet = observer(() => {
@@ -75,6 +77,8 @@ const BitcoinDetails = observer(() => {
       {btc.height && <P level="body-xs">Blockchain head at {btc.height}</P>}
       <DisplaySat satoshis={btc.total_balance_sat} usd_price={btc.usd_price} />
       <P>Price {fmt_usd(btc.usd_price)}</P>
+      <PendingTxsSection />
+      <FeeBumpModal />
     </Stack>
   )
 })

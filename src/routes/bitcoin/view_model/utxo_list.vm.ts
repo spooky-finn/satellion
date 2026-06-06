@@ -36,6 +36,23 @@ export class UtxoListVM {
     return this.utxo.reduce((acc, utxo) => acc + BigInt(utxo.value), 0n)
   }
 
+  /**
+   * Groups unconfirmed UTXOs by their parent txid so the UI can offer a
+   * single "bump fee" action per pending transaction instead of one per UTXO.
+   */
+  get pending_parent_txs(): { parent_tx_id: string; value_sat: bigint }[] {
+    const groups = new Map<string, bigint>()
+    for (const u of this.utxo) {
+      if (u.confirmed) continue
+      const prev = groups.get(u.utxo_id.tx_id) ?? 0n
+      groups.set(u.utxo_id.tx_id, prev + BigInt(u.value))
+    }
+    return Array.from(groups, ([parent_tx_id, value_sat]) => ({
+      parent_tx_id,
+      value_sat,
+    }))
+  }
+
   _selected_utxo: number[] = []
   select_utxo(index: number) {
     if (this._selected_utxo.includes(index)) {

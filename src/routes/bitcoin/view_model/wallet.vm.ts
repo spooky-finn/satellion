@@ -6,6 +6,7 @@ import { unwrap_result } from '../../../lib/handle_err'
 import { notifier } from '../../../lib/notifier'
 import { Resource } from '../../../lib/resource'
 import { ChildAddressListVM } from './child_address_list.vm'
+import { FeeBumpVM } from './fee_bump.vm'
 import { TransferVM } from './transfer.vm'
 import { UtxoListVM } from './utxo_list.vm'
 
@@ -17,6 +18,7 @@ export class BitcoinWalletVM {
   readonly transfer = new TransferVM()
   readonly utxo_list = new UtxoListVM()
   readonly child_list = new ChildAddressListVM()
+  readonly fee_bump = new FeeBumpVM(() => this.load_account_info())
   readonly account_info = new Resource(() => this._fetch_account_info())
 
   constructor() {

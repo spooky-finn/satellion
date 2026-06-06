@@ -68,6 +68,14 @@ async broadcastTx(req: BroadcastTxRequest) : Promise<Result<BroadcastTxResponse,
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async bumpFeeCpfp(req: BumpFeeRequest) : Promise<Result<BumpFeeResponse, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("bump_fee_cpfp", { req }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -90,10 +98,22 @@ export type BroadcastTxRequest = Record<string, never>
 export type BroadcastTxResponse = { tx_id: string }
 export type BuildTxRequest = { value: string; recipient: string; utxo_selection_method: UtxoSelectionStrategy }
 export type BuildTxResponse = { fee: number }
+export type BumpFeeRequest = { 
+/**
+ * Txid of the unconfirmed transaction whose fee we're bumping.
+ */
+parent_tx_id: string; 
+/**
+ * sat/vB to pay on the *child* tx. With package-aware mining the parent
+ * is pulled in alongside; the package's effective rate is somewhere
+ * between this and the parent's own rate.
+ */
+target_fee_rate_sat_vb: number }
+export type BumpFeeResponse = { child_tx_id: string; child_fee: number }
 export type DerivedAddress = { label: string; path: string; address: string }
 export type OutPointRef = { tx_id: string; vout: number }
 export type UtxoSelectionStrategy = { Manual: OutPointRef[] } | { Auto: number }
-export type UtxoView = { utxo_id: OutPointRef; value: string; deriv_path: string; address_label: string | null }
+export type UtxoView = { utxo_id: OutPointRef; value: string; deriv_path: string; address_label: string | null; confirmed: boolean }
 
 /** tauri-specta globals **/
 

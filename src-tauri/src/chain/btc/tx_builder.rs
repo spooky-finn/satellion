@@ -69,7 +69,9 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
                 vout: utxo.vout,
             },
             script_sig: bitcoin::ScriptBuf::new(),
-            sequence: Sequence::MAX,
+            // Signal opt-in RBF so the user can replace the tx via fee-bump
+            // before it confirms (BIP125).
+            sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
             witness: Witness::new(),
         })
         .collect();

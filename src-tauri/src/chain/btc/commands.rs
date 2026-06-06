@@ -1,14 +1,15 @@
 use std::str::FromStr;
 
-use bitcoin::Address;
+use bitcoin::{Address, Txid};
 use specta::specta;
 
 use crate::{
     chain::btc::{
         dtos::{
             ActiveAccountView, BroadcastTxRequest, BroadcastTxResponse, BuildTxRequest,
-            BuildTxResponse, DerivedAddress, UtxoView,
+            BuildTxResponse, BumpFeeRequest, BumpFeeResponse, DerivedAddress, UtxoView,
         },
+        fee_bump::{BuildCpfpParams, build_cpfp_psbt},
         fee_estimator::estimate_fee_rate,
         key_derivation::{Change, Proposal},
         service::{self},
@@ -210,6 +211,49 @@ pub async fn build_tx(
     wallet.persist()?;
 
     Ok(BuildTxResponse { fee })
+}
+
+#[specta]
+#[tauri::command]
+pub async fn bump_fee_cpfp(
+    req: BumpFeeRequest,
+    sk: tauri::State<'_, SK>,
+) -> Result<BumpFeeResponse, String> {
+    let mut sk = sk.lock().await;
+    let wallet = sk.wallet()?;
+    let prk = wallet.btc_prk()?;
+    let parent_tx_id = Txid::from_str(&req.parent_tx_id)
+        .map_err(|e| format!("invalid parent_tx_id: {e}"))?;
+
+    let built = build_cpfp_psbt(&BuildCpfpParams {
+        parent_tx_id,
+        target_fee_rate_sat_vb: req.target_fee_rate_sat_vb,
+        config: wallet.config.btc.clone(),
+        account: wallet.btc.active_account()?,
+        xpriv: prk.expose(),
+    })?;
+    let change_key_path = built.change_key_path.clone();
+    let fee = built.fee;
+
+    let tx = sign_psbt(built.psbt, &prk)?;
+    let child_tx_id = wallet
+        .btc
+        .server
+        .broadcast_tx(&tx)
+        .await
+        .map_err(|e| format!("fail to broadcast cpfp tx: {e}"))?;
+
+    wallet
+        .btc
+        .get_active_account_mut()?
+        .keychain
+        .push(change_key_path);
+    wallet.persist()?;
+
+    Ok(BumpFeeResponse {
+        child_tx_id,
+        child_fee: fee,
+    })
 }
 
 #[specta]

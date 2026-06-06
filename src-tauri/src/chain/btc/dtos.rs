@@ -32,6 +32,22 @@ pub struct BroadcastTxResponse {
     pub tx_id: String,
 }
 
+#[derive(Type, Deserialize)]
+pub struct BumpFeeRequest {
+    /// Txid of the unconfirmed transaction whose fee we're bumping.
+    pub parent_tx_id: String,
+    /// sat/vB to pay on the *child* tx. With package-aware mining the parent
+    /// is pulled in alongside; the package's effective rate is somewhere
+    /// between this and the parent's own rate.
+    pub target_fee_rate_sat_vb: f64,
+}
+
+#[derive(Type, Serialize)]
+pub struct BumpFeeResponse {
+    pub child_tx_id: String,
+    pub child_fee: u32,
+}
+
 #[derive(Type, Serialize, Deserialize)]
 pub struct DerivedAddress {
     pub label: String,
@@ -57,6 +73,7 @@ pub struct UtxoView {
     pub value: String,
     pub deriv_path: String,
     pub address_label: Option<String>,
+    pub confirmed: bool,
 }
 
 impl Utxo {
@@ -66,6 +83,7 @@ impl Utxo {
             utxo_id: self.outpoint().into(),
             deriv_path: self.derivation.to_string(),
             address_label: self.label(address_label_map),
+            confirmed: self.height > 0,
         }
     }
 }
