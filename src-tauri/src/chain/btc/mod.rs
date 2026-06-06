@@ -1,4 +1,5 @@
 pub mod account;
+pub mod coin_selection;
 pub mod commands;
 pub mod config;
 pub mod dtos;

@@ -7,6 +7,7 @@ use specta::Type;
 use crate::{
     chain::btc::{
         Prk,
+        coin_selection,
         dtos::OutPointRef,
         key_derivation::{
             Change, Child, KeyDerivationPath, KeyDeriviationPathSlice, LabeledKeyDerivationPath,
@@ -174,11 +175,15 @@ impl UtxoSet {
         }
     }
 
-    /// Implementation of automated coin selection (e.g., Branch and Bound or
-    /// Knapsack).
-    fn select_automatically(&self, _min_value: u64) -> Vec<&Utxo> {
-        // TODO: implement
-        vec![]
+    /// Automated coin selection: Branch and Bound for an exact match (no change
+    /// output), falling back to largest-first when no exact solution exists.
+    fn select_automatically(&self, min_value: u64) -> Vec<&Utxo> {
+        let utxos: Vec<&Utxo> = self.entries.values().collect();
+        let values: Vec<u64> = utxos.iter().map(|u| u.output.value.to_sat()).collect();
+        coin_selection::select(&values, min_value)
+            .into_iter()
+            .map(|i| utxos[i])
+            .collect()
     }
 
     /// Retrieves specific UTXOs by their outpoints, ignoring any that aren't in
@@ -190,6 +195,7 @@ impl UtxoSet {
             .collect()
     }
 }
+
 
 pub type KeyDerivationPathLabelMap = HashMap<KeyDeriviationPathSlice, String>;
 pub type AddressPathMap = HashMap<Address<NetworkChecked>, KeyDerivationPath>;
