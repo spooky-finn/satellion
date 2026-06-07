@@ -37,8 +37,9 @@ pub fn run() {
     let db = db::connect();
     let wallet_keeper = WalletKeeper::default();
     let config = Config::new();
-    let tor = tauri::async_runtime::block_on(system::tor::start(&config.tor));
-    let eth_provider = eth::select_provider(config.eth.clone(), &config.tor);
+    let tor = system::tor::start_blocking(&config.tor);
+
+    let eth_provider = eth::select_provider(config.clone());
     let eth_batch_provider = eth::new_provider_batched(eth_provider.clone());
     let erc20_retriever = eth::Erc20Retriever::new(eth_provider.clone());
     let tx_builder = eth::TxBuilder::new(eth_batch_provider);

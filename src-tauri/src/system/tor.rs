@@ -7,6 +7,19 @@ use tokio::{
 
 use crate::config::TorConfig;
 
+pub fn start_blocking(config: &TorConfig) -> Option<TorProcess> {
+    let config = config.clone();
+    std::thread::spawn(move || {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(start(&config))
+    })
+    .join()
+    .unwrap()
+}
+
 /// Owns a spawned `tor` process and kills it on drop.
 /// Wrapping `Child` in `Mutex` makes this `Send + Sync` for use as Tauri state.
 pub struct TorProcess {

@@ -92,7 +92,7 @@ impl SessionKeeper {
     fn spawn_monitor(sk: SK, event_emitter: Option<EventEmitter>, monitor_interval: Duration) {
         let em = event_emitter.clone();
 
-        tokio::spawn(async move {
+        tauri::async_runtime::spawn(async move {
             let mut interval = tokio::time::interval(monitor_interval);
             loop {
                 interval.tick().await;

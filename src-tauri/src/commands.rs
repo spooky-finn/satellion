@@ -19,12 +19,14 @@ use crate::{
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "generate_mnemonic", skip_all, err)]
 pub async fn generate_mnemonic() -> Result<String, String> {
     mnemonic::new()
 }
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "validate_address", skip_all, err)]
 pub async fn validate_address(
     chain: BlockChain,
     address: String,
@@ -46,6 +48,7 @@ pub async fn validate_address(
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "create_wallet", skip_all, err)]
 pub async fn create_wallet(
     mut mnemonic: String,
     mut passphrase: String,
@@ -76,6 +79,7 @@ pub async fn create_wallet(
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "get_wallets", skip_all, err)]
 pub async fn get_wallets(
     wallet_keeper: tauri::State<'_, WalletKeeper>,
 ) -> Result<Vec<String>, String> {
@@ -84,6 +88,7 @@ pub async fn get_wallets(
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "switch_blockchain", skip_all, err)]
 pub async fn switch_blockchain(chain: BlockChain, sk: tauri::State<'_, SK>) -> Result<(), String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
@@ -94,6 +99,7 @@ pub async fn switch_blockchain(chain: BlockChain, sk: tauri::State<'_, SK>) -> R
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "add_account", skip_all, err)]
 pub async fn add_account(
     chain: BlockChain,
     label: String,
@@ -111,6 +117,7 @@ pub async fn add_account(
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "switch_account", skip_all, err)]
 pub async fn switch_account(
     chain: BlockChain,
     account: AccountIndex,
@@ -141,6 +148,7 @@ pub struct PriceFeedDto {
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "price_feed", skip_all, err)]
 pub async fn price_feed(price_feed: tauri::State<'_, PriceFeed>) -> Result<PriceFeedDto, String> {
     let btc_usd = price_feed.get_price(BTC_USD_PRICE_FEED).await?;
     let eth_usd = price_feed.get_price(ETH_USD_PRICE_FEED).await?;
@@ -159,6 +167,7 @@ pub async fn price_feed(price_feed: tauri::State<'_, PriceFeed>) -> Result<Price
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "unlock_wallet", skip_all, err)]
 pub async fn unlock_wallet(
     wallet_name: String,
     mut passphrase: String,
@@ -196,6 +205,7 @@ pub async fn unlock_wallet(
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "forget_wallet", skip_all, err)]
 pub async fn forget_wallet(
     wallet_name: String,
     wallet_keeper: tauri::State<'_, WalletKeeper>,
@@ -228,6 +238,7 @@ pub async fn get_config(config: tauri::State<'_, Config>) -> Result<UIConfig, St
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "set_tor_config", skip_all, err)]
 pub async fn set_tor_config(enabled: bool, socks5_proxy: String) -> Result<(), String> {
     let mut config = Config::load().map_err(|e| e.to_string())?;
     config.tor.enabled = enabled;

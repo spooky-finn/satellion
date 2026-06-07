@@ -21,6 +21,7 @@ use crate::{
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "account_info", skip_all, err)]
 pub async fn account_info(sk: tauri::State<'_, SK>) -> Result<ActiveAccountView, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
@@ -31,6 +32,7 @@ pub async fn account_info(sk: tauri::State<'_, SK>) -> Result<ActiveAccountView,
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "derive_external_address", skip_all, err)]
 pub async fn derive_external_address(
     label: String,
     index: u32,
@@ -62,6 +64,7 @@ pub async fn derive_external_address(
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "next_unused_index", skip_all, err)]
 pub async fn next_unused_index(sk: tauri::State<'_, SK>) -> Result<u32, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
@@ -71,6 +74,7 @@ pub async fn next_unused_index(sk: tauri::State<'_, SK>) -> Result<u32, String> 
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "get_external_addresess", skip_all, err)]
 pub async fn get_external_addresess(
     sk: tauri::State<'_, SK>,
 ) -> Result<Vec<DerivedAddress>, String> {
@@ -102,6 +106,7 @@ pub async fn get_external_addresess(
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "get_utxos", skip_all, err)]
 pub async fn get_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoView>, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
@@ -128,6 +133,7 @@ pub async fn get_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoView>, String
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "sync_utxos", skip_all, err)]
 pub async fn sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoView>, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
@@ -168,6 +174,7 @@ pub async fn sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoView>, Strin
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "build_tx", skip_all, err)]
 pub async fn build_tx(
     req: BuildTxRequest,
     sk: tauri::State<'_, SK>,
@@ -215,6 +222,7 @@ pub async fn build_tx(
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "bump_fee_cpfp", skip_all, err)]
 pub async fn bump_fee_cpfp(
     req: BumpFeeRequest,
     sk: tauri::State<'_, SK>,
@@ -258,6 +266,7 @@ pub async fn bump_fee_cpfp(
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "broadcast_tx", skip_all, err)]
 pub async fn broadcast_tx(
     _req: BroadcastTxRequest,
     sk: tauri::State<'_, SK>,

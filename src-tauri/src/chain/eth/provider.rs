@@ -4,15 +4,15 @@ use alloy::{providers::RootProvider, rpc::client::RpcClient};
 use alloy_provider::{DynProvider, Provider, ProviderBuilder};
 use tauri::Url;
 
-use crate::{config::TorConfig, eth::config::EthereumConfig};
+use crate::{config::Config, eth::config::EthereumConfig};
 
-pub fn select_provider(config: EthereumConfig, tor: &TorConfig) -> DynProvider {
-    if config.anvil {
-        new_provider_anvil(config)
-    } else if tor.enabled {
-        new_provider_tor(config, &tor.socks5_proxy)
+pub fn select_provider(config: Config) -> DynProvider {
+    if config.eth.anvil {
+        new_provider_anvil(config.eth)
+    } else if config.tor.enabled {
+        new_provider_tor(config.eth, &config.tor.socks5_proxy)
     } else {
-        new_provider(config)
+        new_provider(config.eth)
     }
 }
 

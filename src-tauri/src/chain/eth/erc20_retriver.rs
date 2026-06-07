@@ -97,16 +97,31 @@ mod tests {
     use once_cell::sync::Lazy;
 
     use super::*;
-    use crate::eth::{
-        config::EthereumConfig,
-        constants::{USDC, USDT},
-        select_provider,
+    use crate::{
+        chain::btc::config::BitcoinConfig,
+        config::{Config, TorConfig},
+        eth::{
+            config::EthereumConfig,
+            constants::{USDC, USDT},
+            select_provider,
+        },
     };
 
-    fn get_config() -> EthereumConfig {
-        EthereumConfig {
-            rpc_url: "".to_string(),
-            anvil: true,
+    fn get_config() -> Config {
+        Config {
+            btc: BitcoinConfig {
+                regtest: todo!(),
+                electrum_server: todo!(),
+            },
+            eth: EthereumConfig {
+                rpc_url: "".to_string(),
+                anvil: true,
+            },
+            tor: TorConfig {
+                enabled: todo!(),
+                socks5_proxy: todo!(),
+            },
+            omit_passphrase_on_private_key: todo!(),
         }
     }
 

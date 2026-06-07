@@ -25,6 +25,7 @@ use crate::{
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "get_network_status", skip_all, err)]
 pub async fn get_network_status(
     provider: tauri::State<'_, DynProvider>,
 ) -> Result<NetworkStatus, String> {
@@ -45,6 +46,7 @@ pub async fn get_network_status(
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "get_wallet_balance", skip_all, err)]
 pub async fn get_wallet_balance(
     address: String,
     provider: tauri::State<'_, DynProvider>,
@@ -94,6 +96,7 @@ pub async fn get_wallet_balance(
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "estimate_transfer", skip_all, err)]
 pub async fn estimate_transfer(
     req: TransferRequest,
     tx_builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
@@ -161,6 +164,7 @@ pub async fn estimate_transfer(
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "execute_transfer", skip_all, err)]
 pub async fn execute_transfer(
     builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
     sk: tauri::State<'_, SK>,
@@ -175,6 +179,7 @@ pub async fn execute_transfer(
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "track_token", skip_all, err)]
 pub async fn track_token(
     address: String,
     erc20_retriever: tauri::State<'_, Erc20Retriever>,
@@ -207,6 +212,7 @@ pub async fn track_token(
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "untrack_token", skip_all, err)]
 pub async fn untrack_token(token_address: String, sk: tauri::State<'_, SK>) -> Result<(), String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
@@ -227,6 +233,7 @@ pub async fn untrack_token(token_address: String, sk: tauri::State<'_, SK>) -> R
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "anvil_set_initial_balances", skip_all, err)]
 pub async fn anvil_set_initial_balances(
     address: String,
     provider: tauri::State<'_, DynProvider>,
