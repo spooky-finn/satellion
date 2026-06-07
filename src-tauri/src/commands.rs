@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use specta::{Type, specta};
 use zeroize::Zeroize;
 
@@ -222,27 +222,53 @@ pub async fn forget_wallet(
 #[derive(Type, Serialize)]
 pub struct UIConfig {
     eth_anvil: bool,
+    eth_rpc_url: String,
     tor_enabled: bool,
     tor_socks5_proxy: String,
+    btc_regtest: bool,
+    btc_electrum_server: Option<String>,
+    omit_passphrase_on_private_key: bool,
+}
+
+impl From<&Config> for UIConfig {
+    fn from(c: &Config) -> Self {
+        Self {
+            eth_anvil: c.eth.anvil,
+            eth_rpc_url: c.eth.rpc_url.clone(),
+            tor_enabled: c.tor.enabled,
+            tor_socks5_proxy: c.tor.socks5_proxy.clone(),
+            btc_regtest: c.btc.regtest,
+            btc_electrum_server: c.btc.electrum_server.clone(),
+            omit_passphrase_on_private_key: c.omit_passphrase_on_private_key,
+        }
+    }
 }
 
 #[specta]
 #[tauri::command]
 pub async fn get_config(config: tauri::State<'_, Config>) -> Result<UIConfig, String> {
-    Ok(UIConfig {
-        eth_anvil: config.eth.anvil,
-        tor_enabled: config.tor.enabled,
-        tor_socks5_proxy: config.tor.socks5_proxy.clone(),
-    })
+    Ok(config.inner().into())
+}
+
+#[derive(Type, Deserialize)]
+pub struct ConfigInput {
+    tor_enabled: bool,
+    tor_socks5_proxy: String,
+    eth_rpc_url: String,
+    btc_electrum_server: Option<String>,
+    omit_passphrase_on_private_key: bool,
 }
 
 #[specta]
 #[tauri::command]
-#[tracing::instrument(name = "set_tor_config", skip_all, err)]
-pub async fn set_tor_config(enabled: bool, socks5_proxy: String) -> Result<(), String> {
+#[tracing::instrument(name = "set_config", skip_all, err)]
+pub async fn set_config(input: ConfigInput) -> Result<(), String> {
     let mut config = Config::load().map_err(|e| e.to_string())?;
-    config.tor.enabled = enabled;
-    config.tor.socks5_proxy = socks5_proxy;
+    config.tor.enabled = input.tor_enabled;
+    config.tor.socks5_proxy = input.tor_socks5_proxy;
+    config.eth.rpc_url = input.eth_rpc_url;
+    config.btc.electrum_server = input.btc_electrum_server;
+    config.omit_passphrase_on_private_key = input.omit_passphrase_on_private_key;
     config.save()
 }
 
