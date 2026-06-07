@@ -18,6 +18,7 @@ export class Unlock {
   target_wallet: string | null = null
   set_target_wallet(w: string) {
     this.target_wallet = w
+    this.passphrase = ''
   }
 
   passphrase: string = ''

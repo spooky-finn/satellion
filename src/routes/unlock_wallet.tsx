@@ -66,6 +66,7 @@ const UnlockWallet = () => {
             </>
           ) : (
             <PassphraseInput
+              key={unlock.target_wallet}
               autoFocus
               variant="soft"
               color="primary"
@@ -92,7 +93,9 @@ const UnlockWallet = () => {
             key={name}
             size="sm"
             color="neutral"
-            onClick={() => unlock.set_target_wallet(name)}
+            onClick={() => {
+              unlock.set_target_wallet(name)
+            }}
             variant={unlock.target_wallet === name ? 'solid' : 'outlined'}
           >
             {name}
