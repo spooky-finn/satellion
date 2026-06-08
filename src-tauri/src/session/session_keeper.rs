@@ -15,17 +15,12 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn new(wallet: Wallet) -> Self {
+    pub fn new(wallet: Wallet, inactivity_timeout: Duration) -> Self {
         Self {
             wallet,
             activated_at: Utc::now(),
-            inactivity_timeout: Duration::from_mins(30),
+            inactivity_timeout,
         }
-    }
-
-    pub fn with_inactivity_timeout(mut self, inactivity_timeout: Duration) -> Self {
-        self.inactivity_timeout = inactivity_timeout;
-        self
     }
 
     pub fn is_expired(&self) -> bool {
@@ -154,7 +149,7 @@ mod tests {
 
         let wallet = new_wallet();
 
-        let session = Session::new(wallet).with_inactivity_timeout(Duration::from_millis(100));
+        let session = Session::new(wallet, Duration::from_millis(100));
         {
             let mut keeper = sk.lock().await;
             keeper.set(session);

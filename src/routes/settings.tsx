@@ -172,6 +172,28 @@ const SecuritySection = observer(() => {
           onChange={e => s.set_omit_passphrase(e.target.checked)}
         />
       </SettingRow>
+
+      <SettingRow
+        label="Session timeout"
+        description="Lock the wallet after this many minutes of inactivity"
+      >
+        <Input
+          type="number"
+          value={s.session_timeout_mins}
+          onChange={e => {
+            const v = parseInt(e.target.value, 10)
+            if (!isNaN(v) && v > 0) s.set_session_timeout_mins(v)
+          }}
+          slotProps={{ input: { min: 1, max: 1440 } }}
+          size="sm"
+          sx={{ width: 80 }}
+          endDecorator={
+            <P level="body-xs" color="neutral">
+              min
+            </P>
+          }
+        />
+      </SettingRow>
     </Section>
   )
 })

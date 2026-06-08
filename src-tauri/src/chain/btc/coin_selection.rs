@@ -78,7 +78,10 @@ const MAX_DP_TARGET: u64 = 10_000_000;
 
 impl KnapsackSolver {
     fn new(values: &[u64], target: u64) -> Self {
-        Self { values: values.to_vec(), target }
+        Self {
+            values: values.to_vec(),
+            target,
+        }
     }
 
     fn solve(&self) -> Option<Vec<usize>> {

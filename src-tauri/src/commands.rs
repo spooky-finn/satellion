@@ -192,7 +192,7 @@ pub async fn unlock_wallet(
         btc::service::unlock(&wallet.btc, &btc_prk)?,
     );
 
-    let session = Session::new(wallet).with_inactivity_timeout(config.session_inactivity_timeout());
+    let session = Session::new(wallet, config.session_inactivity_timeout());
     sk.lock().await.set(session);
 
     passphrase.zeroize();
@@ -242,6 +242,7 @@ pub struct UIConfig {
     btc_regtest: bool,
     btc_electrum_server: Option<String>,
     omit_passphrase_on_private_key: bool,
+    session_inactivity_timeout_mins: u32,
 }
 
 impl From<&Config> for UIConfig {
@@ -254,6 +255,7 @@ impl From<&Config> for UIConfig {
             btc_regtest: c.btc.regtest,
             btc_electrum_server: c.btc.electrum_server.clone(),
             omit_passphrase_on_private_key: c.omit_passphrase_on_private_key,
+            session_inactivity_timeout_mins: c.session_inactivity_timeout_mins,
         }
     }
 }
@@ -271,6 +273,7 @@ pub struct ConfigInput {
     eth_rpc_url: String,
     btc_electrum_server: Option<String>,
     omit_passphrase_on_private_key: bool,
+    session_inactivity_timeout_mins: u32,
 }
 
 #[specta]
@@ -283,6 +286,7 @@ pub async fn set_config(input: ConfigInput) -> Result<(), String> {
     config.eth.rpc_url = input.eth_rpc_url;
     config.btc.electrum_server = input.btc_electrum_server;
     config.omit_passphrase_on_private_key = input.omit_passphrase_on_private_key;
+    config.session_inactivity_timeout_mins = input.session_inactivity_timeout_mins;
     config.save()
 }
 

@@ -12,6 +12,7 @@ export class SettingsVM {
   eth_rpc_url: string = 'https://ethereum-rpc.publicnode.com'
   electrum_server: string = ''
   omit_passphrase: boolean = false
+  session_timeout_mins: number = 30
   saved: boolean = false
 
   eth_anvil: boolean = false
@@ -30,6 +31,7 @@ export class SettingsVM {
     this.eth_rpc_url = config.eth_rpc_url
     this.electrum_server = config.btc_electrum_server ?? ''
     this.omit_passphrase = config.omit_passphrase_on_private_key
+    this.session_timeout_mins = config.session_inactivity_timeout_mins
     this.eth_anvil = config.eth_anvil
     this.btc_regtest = config.btc_regtest
     this.saved = false
@@ -61,6 +63,11 @@ export class SettingsVM {
     this.saved = false
   }
 
+  set_session_timeout_mins(v: number) {
+    this.session_timeout_mins = v
+    this.saved = false
+  }
+
   set_rename_draft(v: string) {
     this.rename_draft = v
   }
@@ -82,6 +89,7 @@ export class SettingsVM {
       eth_rpc_url: this.eth_rpc_url,
       btc_electrum_server: this.electrum_server.trim() || null,
       omit_passphrase_on_private_key: this.omit_passphrase,
+      session_inactivity_timeout_mins: this.session_timeout_mins,
     })
     if (res.status === 'error') {
       notifier.err(res.error)

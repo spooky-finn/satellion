@@ -119,9 +119,7 @@ impl WalletRepository {
         self.save(wallet)?;
 
         if old_sanitized != new_sanitized {
-            FsRepository
-                .delete(&old_name)
-                .map_err(|e| e.to_string())?;
+            FsRepository.delete(&old_name).map_err(|e| e.to_string())?;
         }
         Ok(())
     }

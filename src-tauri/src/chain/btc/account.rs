@@ -6,8 +6,7 @@ use specta::Type;
 
 use crate::{
     chain::btc::{
-        Prk,
-        coin_selection,
+        Prk, coin_selection,
         dtos::OutPointRef,
         key_derivation::{
             Change, Child, KeyDerivationPath, KeyDeriviationPathSlice, LabeledKeyDerivationPath,
@@ -195,7 +194,6 @@ impl UtxoSet {
             .collect()
     }
 }
-
 
 pub type KeyDerivationPathLabelMap = HashMap<KeyDeriviationPathSlice, String>;
 pub type AddressPathMap = HashMap<Address<NetworkChecked>, KeyDerivationPath>;

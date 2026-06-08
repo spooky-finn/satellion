@@ -137,12 +137,12 @@ export type ActiveAccountView = { index: number;
 address: string; total_balance: string; utxo: UtxoView[] }
 export type BitcoinUnlock = { accounts: AccountSummary[]; active_account: ActiveAccountView }
 export type BlockChain = "Bitcoin" | "Ethereum"
-export type ConfigInput = { tor_enabled: boolean; tor_socks5_proxy: string; eth_rpc_url: string; btc_electrum_server: string | null; omit_passphrase_on_private_key: boolean }
+export type ConfigInput = { tor_enabled: boolean; tor_socks5_proxy: string; eth_rpc_url: string; btc_electrum_server: string | null; omit_passphrase_on_private_key: boolean; session_inactivity_timeout_mins: number }
 export type CreationFlow = "Import" | "Generation"
 export type EthereumUnlock = { address: string }
 export type OutPointRef = { tx_id: string; vout: number }
 export type PriceFeedDto = { btc_usd: number; eth_usd: number }
-export type UIConfig = { eth_anvil: boolean; eth_rpc_url: string; tor_enabled: boolean; tor_socks5_proxy: string; btc_regtest: boolean; btc_electrum_server: string | null; omit_passphrase_on_private_key: boolean }
+export type UIConfig = { eth_anvil: boolean; eth_rpc_url: string; tor_enabled: boolean; tor_socks5_proxy: string; btc_regtest: boolean; btc_electrum_server: string | null; omit_passphrase_on_private_key: boolean; session_inactivity_timeout_mins: number }
 export type UnlockDto = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock; last_used_chain: BlockChain }
 export type UtxoView = { utxo_id: OutPointRef; value: string; deriv_path: string; address_label: string | null; confirmed: boolean }
 

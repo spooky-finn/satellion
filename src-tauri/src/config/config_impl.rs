@@ -20,7 +20,7 @@ impl Default for TorConfig {
     }
 }
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
     pub eth: EthereumConfig,
@@ -28,6 +28,19 @@ pub struct Config {
     pub tor: TorConfig,
     /// Require a passphrase when generating private keys
     pub omit_passphrase_on_private_key: bool,
+    pub session_inactivity_timeout_mins: u32,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            eth: EthereumConfig::default(),
+            btc: BitcoinConfig::default(),
+            tor: TorConfig::default(),
+            omit_passphrase_on_private_key: false,
+            session_inactivity_timeout_mins: 30,
+        }
+    }
 }
 
 impl Config {
@@ -38,7 +51,7 @@ impl Config {
     }
 
     pub fn session_inactivity_timeout(&self) -> Duration {
-        Duration::from_mins(10)
+        Duration::from_mins(self.session_inactivity_timeout_mins as u64)
     }
 
     pub fn load() -> Result<Self, Box<dyn std::error::Error>> {
