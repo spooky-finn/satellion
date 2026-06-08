@@ -9,6 +9,7 @@ export class Wallet {
   readonly btc = new BitcoinWalletVM()
 
   name?: string
+
   constructor() {
     makeAutoObservable(this)
   }

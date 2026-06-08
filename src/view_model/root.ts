@@ -1,15 +1,16 @@
 import { makeAutoObservable, runInAction } from 'mobx'
-import { commands, type UIConfig } from '../bindings'
+import { commands } from '../bindings'
 import { unwrap_result } from '../lib/handle_err'
+import { SettingsVM } from './settings'
 import { Unlock } from './unlock'
 import { Wallet } from './wallet'
 
 class RootStore {
-  ui_config?: UIConfig
   mnemonic_wordlist: string[] = []
 
   readonly unlock = new Unlock()
   readonly wallet = new Wallet()
+  readonly settings = new SettingsVM(this.wallet)
 
   constructor() {
     makeAutoObservable(this)
@@ -20,15 +21,7 @@ class RootStore {
   }
 
   on_unlock() {
-    this.request_config()
     this.request_prices()
-  }
-
-  async request_config() {
-    const res = await commands.getConfig().then(unwrap_result)
-    runInAction(() => {
-      this.ui_config = res
-    })
   }
 
   async request_prices() {

@@ -1,13 +1,26 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
+import SettingsIcon from '@mui/icons-material/Settings'
 import { Alert, Divider, Input, Stack, Switch } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useEffect } from 'react'
 import { useNavigate } from 'react-router'
-import { commands } from '../bindings'
 import { notifier } from '../lib/notifier'
 import { route } from '../lib/routes'
-import { B, P, Row } from '../shortcuts'
+import { B, LinkButton, P, Row } from '../shortcuts'
 import { root_store } from '../view_model/root'
+
+export const SettingsLink = observer(() => {
+  const torEnabled = root_store.settings.tor_enabled
+  return (
+    <LinkButton
+      to={route.settings}
+      variant="plain"
+      color={torEnabled ? 'success' : 'neutral'}
+    >
+      <SettingsIcon />
+    </LinkButton>
+  )
+})
 
 const Section = ({
   title,
@@ -51,40 +64,180 @@ const SettingRow = ({
   </Row>
 )
 
+const TorSection = observer(() => {
+  const s = root_store.settings
+  return (
+    <Section title="Network">
+      <SettingRow
+        label="Tor Network"
+        description="Route connections through Tor for enhanced privacy"
+      >
+        <Switch
+          checked={s.tor_enabled}
+          onChange={e => s.set_tor_enabled(e.target.checked)}
+        />
+      </SettingRow>
+
+      <Stack gap={0.5}>
+        <P level="body-sm" color="neutral">
+          Tor SOCKS5 proxy
+        </P>
+        <Input
+          value={s.tor_proxy}
+          onChange={e => s.set_tor_proxy(e.target.value)}
+          disabled={!s.tor_enabled}
+          placeholder="socks5://127.0.0.1:9050"
+          size="sm"
+        />
+        <P level="body-xs" color="neutral">
+          Tor must be running locally. Bitcoin routes Electrum connections
+          through the proxy; Ethereum routes the configured RPC URL through the
+          proxy.
+        </P>
+      </Stack>
+    </Section>
+  )
+})
+
+const EthereumSection = observer(() => {
+  const s = root_store.settings
+  return (
+    <Section title="Ethereum">
+      <Stack gap={0.5}>
+        <P level="body-sm" color="neutral">
+          RPC URL
+        </P>
+        <Input
+          value={s.eth_rpc_url}
+          onChange={e => s.set_eth_rpc_url(e.target.value)}
+          placeholder="https://ethereum-rpc.publicnode.com"
+          size="sm"
+        />
+      </Stack>
+
+      {s.eth_anvil && (
+        <SettingRow
+          label="Anvil"
+          description="Local testnet mode is active for this session"
+        >
+          <P level="body-sm" color="success">
+            Active
+          </P>
+        </SettingRow>
+      )}
+    </Section>
+  )
+})
+
+const BitcoinSection = observer(() => {
+  const s = root_store.settings
+  return (
+    <Section title="Bitcoin">
+      <Stack gap={0.5}>
+        <P level="body-sm" color="neutral">
+          Electrum server
+        </P>
+        <Input
+          value={s.electrum_server}
+          onChange={e => s.set_electrum_server(e.target.value)}
+          placeholder="Leave blank to use default"
+          size="sm"
+        />
+      </Stack>
+
+      {s.btc_regtest && (
+        <SettingRow
+          label="Regtest"
+          description="Local regtest mode is active for this session"
+        >
+          <P level="body-sm" color="warning">
+            Active
+          </P>
+        </SettingRow>
+      )}
+    </Section>
+  )
+})
+
+const SecuritySection = observer(() => {
+  const s = root_store.settings
+  return (
+    <Section title="Security">
+      <SettingRow
+        label="Omit passphrase from private key"
+        description="Derive private keys without including the wallet passphrase"
+      >
+        <Switch
+          checked={s.omit_passphrase}
+          onChange={e => s.set_omit_passphrase(e.target.checked)}
+        />
+      </SettingRow>
+    </Section>
+  )
+})
+
+const WalletSection = observer(() => {
+  const navigate = useNavigate()
+  const { wallet, settings } = root_store
+
+  if (!wallet.name) return null
+
+  return (
+    <Section title="Wallet">
+      <Stack gap={0.5}>
+        <P level="body-sm" color="neutral">
+          Wallet name
+        </P>
+        <Row gap={1}>
+          <Input
+            value={settings.rename_draft}
+            onChange={e => settings.set_rename_draft(e.target.value)}
+            size="sm"
+            sx={{ flex: 1 }}
+          />
+          <B
+            size="sm"
+            disabled={
+              !settings.rename_draft.trim() ||
+              settings.rename_draft.trim() === wallet.name
+            }
+            onClick={async () => {
+              const ok = await root_store.settings.rename_wallet()
+              if (ok) notifier.ok('Wallet renamed')
+            }}
+          >
+            Rename
+          </B>
+        </Row>
+      </Stack>
+
+      <SettingRow
+        label="Forget wallet"
+        description="Remove this wallet from the device. Your funds are safe as long as you have the seed phrase."
+      >
+        <B
+          size="sm"
+          color="danger"
+          variant="soft"
+          onClick={async () => {
+            await wallet.forget(wallet.name!)
+            navigate(route.unlock_wallet)
+          }}
+        >
+          Forget
+        </B>
+      </SettingRow>
+    </Section>
+  )
+})
+
 export const Settings = observer(() => {
   const navigate = useNavigate()
-  const config = root_store.ui_config
+  const s = root_store.settings
 
-  const [torEnabled, setTorEnabled] = useState(config?.tor_enabled ?? false)
-  const [torProxy, setTorProxy] = useState(
-    config?.tor_socks5_proxy ?? 'socks5://127.0.0.1:9050',
-  )
-  const [ethRpcUrl, setEthRpcUrl] = useState(
-    config?.eth_rpc_url ?? 'https://ethereum-rpc.publicnode.com',
-  )
-  const [electrumServer, setElectrumServer] = useState(
-    config?.btc_electrum_server ?? '',
-  )
-  const [omitPassphrase, setOmitPassphrase] = useState(
-    config?.omit_passphrase_on_private_key ?? false,
-  )
-  const [saved, setSaved] = useState(false)
-
-  async function save() {
-    const res = await commands.setConfig({
-      tor_enabled: torEnabled,
-      tor_socks5_proxy: torProxy,
-      eth_rpc_url: ethRpcUrl,
-      btc_electrum_server: electrumServer.trim() || null,
-      omit_passphrase_on_private_key: omitPassphrase,
-    })
-    if (res.status === 'error') {
-      notifier.err(res.error)
-      return
-    }
-    await root_store.request_config()
-    setSaved(true)
-  }
+  useEffect(() => {
+    root_store.settings.load_settings()
+  }, [])
 
   return (
     <Stack gap={3} maxWidth={480} p={1}>
@@ -100,145 +253,30 @@ export const Settings = observer(() => {
         <P level="title-lg">Settings</P>
       </Row>
 
-      <Section title="Network">
-        <SettingRow
-          label="Tor Network"
-          description="Route connections through Tor for enhanced privacy"
-        >
-          <Switch
-            checked={torEnabled}
-            onChange={e => {
-              setTorEnabled(e.target.checked)
-              setSaved(false)
-            }}
-          />
-        </SettingRow>
+      <TorSection />
+      <EthereumSection />
+      <BitcoinSection />
+      <SecuritySection />
 
-        <Stack gap={0.5}>
-          <P level="body-sm" color="neutral">
-            Tor SOCKS5 proxy
-          </P>
-          <Input
-            value={torProxy}
-            onChange={e => {
-              setTorProxy(e.target.value)
-              setSaved(false)
-            }}
-            disabled={!torEnabled}
-            placeholder="socks5://127.0.0.1:9050"
-            size="sm"
-          />
-          <P level="body-xs" color="neutral">
-            Tor must be running locally. Bitcoin routes Electrum connections
-            through the proxy; Ethereum routes the configured RPC URL through
-            the proxy.
-          </P>
-        </Stack>
-      </Section>
-
-      <Section title="Ethereum">
-        <Stack gap={0.5}>
-          <P level="body-sm" color="neutral">
-            RPC URL
-          </P>
-          <Input
-            value={ethRpcUrl}
-            onChange={e => {
-              setEthRpcUrl(e.target.value)
-              setSaved(false)
-            }}
-            placeholder="https://ethereum-rpc.publicnode.com"
-            size="sm"
-          />
-        </Stack>
-
-        {config?.eth_anvil && (
-          <SettingRow
-            label="Anvil"
-            description="Local testnet mode is active for this session"
-          >
-            <P level="body-sm" color="success">
-              Active
-            </P>
-          </SettingRow>
-        )}
-      </Section>
-
-      <Section title="Bitcoin">
-        <Stack gap={0.5}>
-          <P level="body-sm" color="neutral">
-            Electrum server
-          </P>
-          <Input
-            value={electrumServer}
-            onChange={e => {
-              setElectrumServer(e.target.value)
-              setSaved(false)
-            }}
-            placeholder="Leave blank to use default"
-            size="sm"
-          />
-        </Stack>
-
-        {config?.btc_regtest && (
-          <SettingRow
-            label="Regtest"
-            description="Local regtest mode is active for this session"
-          >
-            <P level="body-sm" color="warning">
-              Active
-            </P>
-          </SettingRow>
-        )}
-      </Section>
-
-      <Section title="Security">
-        <SettingRow
-          label="Omit passphrase from private key"
-          description="Derive private keys without including the wallet passphrase"
-        >
-          <Switch
-            checked={omitPassphrase}
-            onChange={e => {
-              setOmitPassphrase(e.target.checked)
-              setSaved(false)
-            }}
-          />
-        </SettingRow>
-      </Section>
-
-      {saved && (
+      {s.saved && (
         <Alert color="warning" size="sm">
           Restart the app to apply network changes.
         </Alert>
       )}
 
       <Row justifyContent="flex-end">
-        <B size="sm" onClick={save}>
+        <B
+          size="sm"
+          onClick={async () => {
+            await s.save()
+            await root_store.settings.load_settings()
+          }}
+        >
           Save
         </B>
       </Row>
 
-      {root_store.wallet.name && (
-        <Section title="Wallet">
-          <SettingRow
-            label="Forget wallet"
-            description="Remove this wallet from the device. Your funds are safe as long as you have the seed phrase."
-          >
-            <B
-              size="sm"
-              color="danger"
-              variant="soft"
-              onClick={async () => {
-                await root_store.wallet.forget(root_store.wallet.name!)
-                navigate(route.unlock_wallet)
-              }}
-            >
-              Forget
-            </B>
-          </SettingRow>
-        </Section>
-      )}
+      <WalletSection />
     </Stack>
   )
 })

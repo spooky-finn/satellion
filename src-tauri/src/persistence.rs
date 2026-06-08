@@ -101,6 +101,31 @@ impl WalletRepository {
         Ok(())
     }
 
+    pub fn rename(&self, wallet: &mut Wallet, new_name: &str) -> Result<(), String> {
+        let new_name = new_name.trim().to_string();
+        if new_name.is_empty() {
+            return Err("Wallet name cannot be empty".to_string());
+        }
+
+        let old_name = wallet.name.clone();
+        let old_sanitized = FsRepository.sanitize_filename(&old_name);
+        let new_sanitized = FsRepository.sanitize_filename(&new_name);
+
+        if old_sanitized != new_sanitized && FsRepository.get_file_path(&new_name).exists() {
+            return Err(format!("A wallet named '{}' already exists", new_name));
+        }
+
+        wallet.name = new_name;
+        self.save(wallet)?;
+
+        if old_sanitized != new_sanitized {
+            FsRepository
+                .delete(&old_name)
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+
     pub fn delete(&self, wallet_name: &str) -> Result<(), io::Error> {
         FsRepository.delete(wallet_name)
     }

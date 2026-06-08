@@ -4,8 +4,8 @@ import { Link, useLocation, useNavigate } from 'react-router'
 import { type BlockChain, commands } from '../bindings'
 import { notifier } from '../lib/notifier'
 import { route } from '../lib/routes'
+import { SettingsLink } from '../routes/settings'
 import { B, Row } from '../shortcuts'
-import { AppMenu } from './menu'
 import { ThemeSwitcher } from './theme_switcher'
 
 export const Navbar = ({ hideLedgers }: { hideLedgers?: boolean }) => {
@@ -28,7 +28,7 @@ export const Navbar = ({ hideLedgers }: { hideLedgers?: boolean }) => {
       )}
       <Row ml="auto" gap={0}>
         <ThemeSwitcher />
-        <AppMenu />
+        <SettingsLink />
         <Tooltip title="Lock wallet" size="sm">
           <B
             variant="plain"

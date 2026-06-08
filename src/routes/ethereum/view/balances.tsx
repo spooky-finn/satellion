@@ -28,7 +28,7 @@ export const BalanceCard = observer(() => (
       <Balances />
 
       <Row alignItems="center" gap={1}>
-        {root_store.ui_config?.eth_anvil && <AnvilSetBalanceButton />}
+        {root_store.settings.eth_anvil && <AnvilSetBalanceButton />}
         <SpecifyTokenToTrack />
         <IconButton
           onClick={() => root_store.wallet.eth.getBalance()}

@@ -45,6 +45,14 @@ async unlockWallet(walletName: string, passphrase: string) : Promise<Result<Unlo
     else return { status: "error", error: e  as any };
 }
 },
+async renameWallet(newName: string) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("rename_wallet", { newName }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async forgetWallet(walletName: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("forget_wallet", { walletName }) };

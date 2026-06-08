@@ -205,6 +205,20 @@ pub async fn unlock_wallet(
 
 #[specta]
 #[tauri::command]
+#[tracing::instrument(name = "rename_wallet", skip_all, err)]
+pub async fn rename_wallet(
+    new_name: String,
+    wallet_keeper: tauri::State<'_, WalletKeeper>,
+    sk: tauri::State<'_, SK>,
+) -> Result<String, String> {
+    let mut sk = sk.lock().await;
+    let wallet = sk.wallet()?;
+    wallet_keeper.repository.rename(wallet, &new_name)?;
+    Ok(wallet.name.clone())
+}
+
+#[specta]
+#[tauri::command]
 #[tracing::instrument(name = "forget_wallet", skip_all, err)]
 pub async fn forget_wallet(
     wallet_name: String,
