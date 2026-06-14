@@ -33,7 +33,7 @@ export const CreateWallet = observer(() => {
 
 const SelectFlow = observer(({ state }: { state: State }) => (
   <Stack gap={2} alignItems={'center'}>
-    <P level="h2">add wallet</P>
+    <P level="h2">Add wallet</P>
     <Row sx={{ width: 'min-content' }}>
       <B
         variant="soft"

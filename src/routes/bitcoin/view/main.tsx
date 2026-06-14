@@ -24,12 +24,8 @@ const BitcoinWallet = observer(() => {
   const addr = btc.address
 
   useEffect(() => {
-    if (!addr) {
-      navigate(route.unlock_wallet)
-      return
-    }
-    btc.account_info.refresh()
-  }, [addr, navigate, btc.account_info])
+    if (!addr) navigate(route.unlock_wallet)
+  }, [addr, navigate])
 
   useKeyboardRefetch(async () => {
     btc.account_info.refresh()

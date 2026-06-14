@@ -28,6 +28,7 @@ export class BitcoinWalletVM {
   init(unlock: BitcoinUnlock) {
     this.account_selector.init(unlock.accounts, unlock.active_account.index)
     this.init_with_account_info(unlock.active_account)
+    this.account_info.refresh()
   }
 
   init_with_account_info(info: BitcoinUnlock['active_account']) {

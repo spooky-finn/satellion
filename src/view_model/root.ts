@@ -1,6 +1,7 @@
 import { makeAutoObservable, runInAction } from 'mobx'
 import { commands } from '../bindings'
 import { unwrap_result } from '../lib/handle_err'
+import { BiometricVM } from './biometric'
 import { SettingsVM } from './settings'
 import { Unlock } from './unlock'
 import { Wallet } from './wallet'
@@ -8,9 +9,10 @@ import { Wallet } from './wallet'
 class RootStore {
   mnemonic_wordlist: string[] = []
 
+  readonly biometric = new BiometricVM()
   readonly unlock = new Unlock()
   readonly wallet = new Wallet()
-  readonly settings = new SettingsVM(this.wallet)
+  readonly settings = new SettingsVM(this.wallet, this.biometric)
 
   constructor() {
     makeAutoObservable(this)

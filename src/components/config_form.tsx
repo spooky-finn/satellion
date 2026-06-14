@@ -1,6 +1,6 @@
 import { Divider, Input, Stack, Switch } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
-import { type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { P, Row } from '../shortcuts'
 
 export interface FieldSchema {

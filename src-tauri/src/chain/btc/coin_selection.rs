@@ -35,7 +35,8 @@ pub fn select(values: &[u64], target: u64) -> Vec<usize> {
 }
 
 /// Picks values one by one from largest to smallest until `target` is covered.
-/// Always terminates with a valid selection; may include more value than needed.
+/// Always terminates with a valid selection; may include more value than
+/// needed.
 fn largest_first(sorted_values: &[u64], target: u64) -> Vec<usize> {
     let mut result = vec![];
     let mut accumulated = 0u64;

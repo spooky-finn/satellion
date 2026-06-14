@@ -6,6 +6,7 @@ import type { Wallet } from './wallet'
 
 export class Unlock {
   readonly loader = new Loader()
+
   constructor() {
     makeAutoObservable(this)
   }

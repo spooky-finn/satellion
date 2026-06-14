@@ -4,9 +4,9 @@ import { CompactSrt } from '../../../components/compact_str'
 import { NumberInput } from '../../../components/number_input'
 import { B, FullScreenModal, P, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
-import { FeeBumpState } from '../view_model/fee_bump.vm'
 import { DisplaySat } from '../utils/display_sat'
 import { ExplorerLink } from '../utils/explorer'
+import { FeeBumpState } from '../view_model/fee_bump.vm'
 
 export const FeeBumpModal = observer(() => {
   const { fee_bump } = root_store.wallet.btc

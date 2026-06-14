@@ -1,11 +1,13 @@
 use std::str::FromStr;
 
 use serde::Serialize;
+use shush_rs::{ExposeSecret, SecretBox};
 use specta::{Type, specta};
 use tokio::sync::Mutex;
 use zeroize::Zeroize;
 
 use crate::{
+    biometric,
     chain::btc,
     chain_trait::{AccountIndex, ChainTrait},
     config::{BlockChain, Config, constants},
@@ -167,21 +169,17 @@ pub async fn price_feed(price_feed: tauri::State<'_, PriceFeed>) -> Result<Price
     })
 }
 
-#[specta]
-#[tauri::command]
-#[tracing::instrument(name = "unlock_wallet", skip_all, err)]
-pub async fn unlock_wallet(
-    wallet_name: String,
-    mut passphrase: String,
-    wallet_keeper: tauri::State<'_, WalletKeeper>,
-    sk: tauri::State<'_, SK>,
-    config: tauri::State<'_, Mutex<Config>>,
+async fn do_unlock(
+    wallet_name: &str,
+    passphrase: &str,
+    wallet_keeper: &WalletKeeper,
+    sk: &SK,
+    config: &Mutex<Config>,
 ) -> Result<UnlockDto, String> {
     let cfg = config.lock().await.clone();
-    let mut wallet =
-        wallet_keeper
-            .repository
-            .load(cfg.clone(), &wallet_name, &passphrase)?;
+    let mut wallet = wallet_keeper
+        .repository
+        .load(cfg.clone(), wallet_name, passphrase)?;
 
     let (eth_prk, btc_prk, last_used_chain) = {
         let eth_prk = wallet.eth_prk()?;
@@ -198,12 +196,85 @@ pub async fn unlock_wallet(
     let session = Session::new(wallet, cfg.session_inactivity_timeout());
     sk.lock().await.set(session);
 
-    passphrase.zeroize();
     Ok(UnlockDto {
         ethereum,
         bitcoin,
         last_used_chain,
     })
+}
+
+#[specta]
+#[tauri::command]
+#[tracing::instrument(name = "unlock_wallet", skip_all, err)]
+pub async fn unlock_wallet(
+    wallet_name: String,
+    mut passphrase: String,
+    wallet_keeper: tauri::State<'_, WalletKeeper>,
+    sk: tauri::State<'_, SK>,
+    config: tauri::State<'_, Mutex<Config>>,
+) -> Result<UnlockDto, String> {
+    let result = do_unlock(
+        &wallet_name,
+        &passphrase,
+        wallet_keeper.inner(),
+        sk.inner(),
+        config.inner(),
+    )
+    .await;
+    passphrase.zeroize();
+    result
+}
+
+#[specta]
+#[tauri::command]
+#[tracing::instrument(name = "unlock_wallet_with_biometric", skip_all, err)]
+pub async fn unlock_wallet_with_biometric(
+    wallet_name: String,
+    wallet_keeper: tauri::State<'_, WalletKeeper>,
+    sk: tauri::State<'_, SK>,
+    config: tauri::State<'_, Mutex<Config>>,
+) -> Result<UnlockDto, String> {
+    let passphrase = biometric::prompt_unlock(&wallet_name).await?;
+    do_unlock(
+        &wallet_name,
+        passphrase.expose_secret().as_str(),
+        wallet_keeper.inner(),
+        sk.inner(),
+        config.inner(),
+    )
+    .await
+}
+
+#[specta]
+#[tauri::command]
+#[tracing::instrument(name = "is_biometric_unlock_supported", skip_all)]
+pub async fn is_biometric_unlock_supported() -> Result<bool, String> {
+    Ok(biometric::is_supported())
+}
+
+#[specta]
+#[tauri::command]
+#[tracing::instrument(name = "is_biometric_unlock_enabled", skip_all, err)]
+pub async fn is_biometric_unlock_enabled(wallet_name: String) -> Result<bool, String> {
+    biometric::is_enabled(&wallet_name).map_err(Into::into)
+}
+
+#[specta]
+#[tauri::command]
+#[tracing::instrument(name = "enable_biometric_unlock", skip_all, err)]
+pub async fn enable_biometric_unlock(sk: tauri::State<'_, SK>) -> Result<(), String> {
+    let mut sk = sk.lock().await;
+    let wallet = sk.wallet()?;
+    let passphrase: biometric::Passphrase =
+        SecretBox::new(Box::new(wallet.passphrase.expose_secret().to_string()));
+    biometric::enable(&wallet.name, &passphrase).map_err(Into::into)
+}
+
+#[specta]
+#[tauri::command]
+#[tracing::instrument(name = "disable_biometric_unlock", skip_all, err)]
+pub async fn disable_biometric_unlock(wallet_name: String) -> Result<(), String> {
+    biometric::disable(&wallet_name).map_err(Into::into)
 }
 
 #[specta]
@@ -216,8 +287,13 @@ pub async fn rename_wallet(
 ) -> Result<String, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
+    let old_name = wallet.name.clone();
+    let passphrase: biometric::Passphrase =
+        SecretBox::new(Box::new(wallet.passphrase.expose_secret().to_string()));
     wallet_keeper.repository.rename(wallet, &new_name)?;
-    Ok(wallet.name.clone())
+    let actual_name = wallet.name.clone();
+    let _ = biometric::migrate(&old_name, &actual_name, &passphrase);
+    Ok(actual_name)
 }
 
 #[specta]
@@ -233,6 +309,7 @@ pub async fn forget_wallet(
         .repository
         .delete(&wallet_name)
         .map_err(|e| e.to_string())?;
+    biometric::forget(&wallet_name);
     Ok(())
 }
 

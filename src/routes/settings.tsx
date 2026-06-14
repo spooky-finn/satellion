@@ -1,10 +1,12 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
+import FingerprintIcon from '@mui/icons-material/Fingerprint'
 import SettingsIcon from '@mui/icons-material/Settings'
-import { Alert, Input, Stack } from '@mui/joy'
+import { Alert, Input, Stack, Switch } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { DynamicConfigForm } from '../components/config_form'
+import { useKeyDown } from '../components/use_key_down'
 import { notifier } from '../lib/notifier'
 import { route } from '../lib/routes'
 import { B, LinkButton, P, Row } from '../shortcuts'
@@ -98,6 +100,8 @@ export const Settings = observer(() => {
     s.load_settings()
   }, [])
 
+  useKeyDown('Escape', () => navigate(-1))
+
   return (
     <Stack gap={3} maxWidth={480} p={1}>
       <Row alignItems="center" gap={1}>
@@ -111,6 +115,25 @@ export const Settings = observer(() => {
         </B>
         <P level="title-lg">Settings</P>
       </Row>
+
+      {s.biometric_supported && (
+        <Row alignItems="center" justifyContent="space-between">
+          <Stack gap={0.25}>
+            <Row alignItems="center" gap={0.5}>
+              <FingerprintIcon fontSize="sm" />
+              <P level="body-md">Unlock with Touch ID</P>
+            </Row>
+            <P level="body-xs" color="neutral">
+              Stores the passphrase in the macOS Keychain.
+            </P>
+          </Stack>
+          <Switch
+            checked={s.biometric_enabled}
+            disabled={s.biometric_busy}
+            onChange={e => s.toggle_biometric(e.target.checked)}
+          />
+        </Row>
+      )}
 
       {s.config && s.schema && (
         <DynamicConfigForm

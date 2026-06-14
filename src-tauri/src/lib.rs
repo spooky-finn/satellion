@@ -1,3 +1,4 @@
+pub mod biometric;
 pub mod chain;
 pub mod chain_trait;
 pub mod codegen;
@@ -16,5 +17,4 @@ pub mod utils;
 pub mod wallet;
 pub mod wallet_keeper;
 
-// Allow `crate::btc` and `crate::eth` shorthand paths used across the codebase
 use chain::{btc, eth};

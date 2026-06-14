@@ -4,12 +4,8 @@
 use std::time::Duration;
 
 use satellion_lib::{
-    chain::{btc, eth},
-    codegen, db, system, utils,
-    config::Config,
-    event_emitter::EventEmitter,
-    session::SessionKeeper,
-    wallet_keeper::WalletKeeper,
+    chain::eth, codegen, config::Config, db, event_emitter::EventEmitter, session::SessionKeeper,
+    system, utils, wallet_keeper::WalletKeeper,
 };
 use tauri::Manager;
 use tokio::sync::Mutex;

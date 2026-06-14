@@ -11,14 +11,16 @@ import { useKeyboardRefetch } from '../components/use_keyboard_refetch'
 import { route } from '../lib/routes'
 import { B, P, Progress } from '../shortcuts'
 import { root_store } from '../view_model/root'
+import { BiometricUnlockButton, useBiometricUnlock } from './biometric_unlock'
 
 const UnlockWallet = () => {
   const { unlock, wallet } = root_store
   const navigate = useNavigate()
+  const biometric_flow = useBiometricUnlock()
 
   function handleUnlockWallet() {
     root_store.on_unlock()
-    unlock.unlock_wallet(root_store.wallet).then(lastUsedChain => {
+    unlock.unlock_wallet(wallet).then(lastUsedChain => {
       navigate(lastUsedChain === 'Bitcoin' ? route.bitcoin : route.ethereum)
     })
   }
@@ -65,15 +67,18 @@ const UnlockWallet = () => {
               <P level="body-sm">Inspecting blockchain ... </P>
             </>
           ) : (
-            <PassphraseInput
-              key={unlock.target_wallet}
-              autoFocus
-              variant="soft"
-              color="primary"
-              placeholder={`Passphrase`}
-              value={unlock.passphrase}
-              onChange={e => unlock.set_passphrase(e.target.value)}
-            />
+            <Stack spacing={1} alignItems="center" width="100%">
+              <PassphraseInput
+                key={unlock.target_wallet}
+                autoFocus
+                variant="soft"
+                color="primary"
+                placeholder={`Passphrase`}
+                value={unlock.passphrase}
+                onChange={e => unlock.set_passphrase(e.target.value)}
+              />
+              <BiometricUnlockButton onClick={biometric_flow.unlock_now} />
+            </Stack>
           ))}
       </Stack>
       <Box

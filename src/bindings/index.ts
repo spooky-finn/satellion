@@ -45,6 +45,46 @@ async unlockWallet(walletName: string, passphrase: string) : Promise<Result<Unlo
     else return { status: "error", error: e  as any };
 }
 },
+async unlockWalletWithBiometric(walletName: string) : Promise<Result<UnlockDto, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("unlock_wallet_with_biometric", { walletName }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async isBiometricUnlockSupported() : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("is_biometric_unlock_supported") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async isBiometricUnlockEnabled(walletName: string) : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("is_biometric_unlock_enabled", { walletName }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async enableBiometricUnlock() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("enable_biometric_unlock") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async disableBiometricUnlock(walletName: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("disable_biometric_unlock", { walletName }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async renameWallet(newName: string) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("rename_wallet", { newName }) };
