@@ -5,6 +5,10 @@ description = "Another Bitcoin & Ethereum light wallet"
 authors = ["Fin"]
 edition = "2024"
 
+[lib]
+name = "satellion_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = ["isolation"] }
 

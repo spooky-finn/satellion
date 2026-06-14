@@ -42,7 +42,7 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
         None,
     )
     .unwrap();
-    sk.lock().await.set(Session::new(wallet));
+    sk.lock().await.set(Session::new(wallet, std::time::Duration::from_secs(300)));
 
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;

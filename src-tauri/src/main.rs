@@ -1,37 +1,18 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-pub mod chain;
-pub mod chain_trait;
-pub mod codegen;
-pub mod commands;
-pub mod config;
-pub mod db;
-pub mod encryptor;
-pub mod event_emitter;
-pub mod mnemonic;
-pub mod persistence;
-pub mod repository;
-pub mod schema;
-pub mod session;
-pub mod system;
-pub mod utils;
-pub mod wallet;
-pub mod wallet_keeper;
+use std::time::Duration;
 
-pub use core::fmt;
-pub use std::{sync::Arc, time::Duration};
-
-use tauri::Manager;
-use tokio::sync::Mutex;
-
-use crate::{
+use satellion_lib::{
     chain::{btc, eth},
+    codegen, db, system, utils,
     config::Config,
     event_emitter::EventEmitter,
     session::SessionKeeper,
     wallet_keeper::WalletKeeper,
 };
+use tauri::Manager;
+use tokio::sync::Mutex;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 #[tokio::main]
