@@ -1,13 +1,22 @@
 use std::{fs, path::PathBuf, time::Duration};
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use crate::chain::{btc::config::BitcoinConfig, eth::config::EthereumConfig};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(default)]
+#[schemars(title = "Network")]
 pub struct TorConfig {
+    /// Route connections through Tor for enhanced privacy
+    #[schemars(title = "Tor Network")]
     pub enabled: bool,
+    /// SOCKS5 proxy address. Tor must be running locally.
+    /// Bitcoin routes Electrum connections through this proxy;
+    /// Ethereum routes the configured RPC URL through this proxy.
+    #[schemars(title = "SOCKS5 Proxy")]
     pub socks5_proxy: String,
 }
 
@@ -20,15 +29,35 @@ impl Default for TorConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Security and access settings
+#[derive(Debug, Clone, Serialize, Deserialize, Type, JsonSchema)]
+#[schemars(title = "Security")]
+pub struct ConfigSecurity {
+    /// Derive private keys without including the wallet passphrase
+    #[schemars(title = "Omit Passphrase from Private Key")]
+    pub omit_passphrase_on_private_key: bool,
+
+    /// Lock the wallet after this many minutes of inactivity
+    #[schemars(title = "Session Timeout (minutes)", range(min = 1, max = 1440))]
+    pub session_inactivity_timeout_mins: u32,
+}
+
+impl Default for ConfigSecurity {
+    fn default() -> Self {
+        Self {
+            omit_passphrase_on_private_key: false,
+            session_inactivity_timeout_mins: 30,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(default)]
 pub struct Config {
     pub eth: EthereumConfig,
     pub btc: BitcoinConfig,
     pub tor: TorConfig,
-    /// Require a passphrase when generating private keys
-    pub omit_passphrase_on_private_key: bool,
-    pub session_inactivity_timeout_mins: u32,
+    pub security: ConfigSecurity,
 }
 
 impl Default for Config {
@@ -37,8 +66,7 @@ impl Default for Config {
             eth: EthereumConfig::default(),
             btc: BitcoinConfig::default(),
             tor: TorConfig::default(),
-            omit_passphrase_on_private_key: false,
-            session_inactivity_timeout_mins: 30,
+            security: ConfigSecurity::default(),
         }
     }
 }
@@ -51,7 +79,7 @@ impl Config {
     }
 
     pub fn session_inactivity_timeout(&self) -> Duration {
-        Duration::from_mins(self.session_inactivity_timeout_mins as u64)
+        Duration::from_mins(self.security.session_inactivity_timeout_mins as u64)
     }
 
     pub fn load() -> Result<Self, Box<dyn std::error::Error>> {
@@ -129,7 +157,7 @@ impl Config {
     }
 
     pub fn xprk_passphrase<'a>(&self, passphrase: &'a str) -> &'a str {
-        if self.omit_passphrase_on_private_key {
+        if self.security.omit_passphrase_on_private_key {
             ""
         } else {
             passphrase

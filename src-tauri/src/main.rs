@@ -56,7 +56,7 @@ pub async fn main() {
         .manage(eth_provider.clone())
         .manage(erc20_retriever)
         .manage(price_feed)
-        .manage(config)
+        .manage(Mutex::new(config))
         .manage(tor)
         .manage(Mutex::new(tx_builder))
         .setup(move |app| {

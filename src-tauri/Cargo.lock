@@ -5860,6 +5860,7 @@ dependencies = [
  "rand 0.10.0",
  "reqwest 0.13.4",
  "rustls",
+ "schemars 0.8.22",
  "serde",
  "serde_json",
  "shush-rs",

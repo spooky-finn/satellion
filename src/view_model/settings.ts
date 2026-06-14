@@ -1,5 +1,6 @@
 import { makeAutoObservable, runInAction } from 'mobx'
-import { commands, type UIConfig } from '../bindings'
+import { type Config, commands } from '../bindings'
+import type { FieldSchema } from '../components/config_form'
 import { unwrap_result } from '../lib/handle_err'
 import { notifier } from '../lib/notifier'
 import type { Wallet } from './wallet'
@@ -7,95 +8,60 @@ import type { Wallet } from './wallet'
 export class SettingsVM {
   private wallet: Wallet
 
-  tor_enabled: boolean = false
-  tor_proxy: string = 'socks5://127.0.0.1:9050'
-  eth_rpc_url: string = 'https://ethereum-rpc.publicnode.com'
-  electrum_server: string = ''
-  omit_passphrase: boolean = false
-  session_timeout_mins: number = 30
-  saved: boolean = false
-
-  eth_anvil: boolean = false
-  btc_regtest: boolean = false
-
-  rename_draft: string = ''
+  config: Config | null = null
+  schema: FieldSchema | null = null
+  restart_hint = false
+  rename_draft = ''
 
   constructor(wallet: Wallet) {
     this.wallet = wallet
     makeAutoObservable(this)
   }
 
-  load(config: UIConfig, walletName?: string) {
-    this.tor_enabled = config.tor_enabled
-    this.tor_proxy = config.tor_socks5_proxy
-    this.eth_rpc_url = config.eth_rpc_url
-    this.electrum_server = config.btc_electrum_server ?? ''
-    this.omit_passphrase = config.omit_passphrase_on_private_key
-    this.session_timeout_mins = config.session_inactivity_timeout_mins
-    this.eth_anvil = config.eth_anvil
-    this.btc_regtest = config.btc_regtest
-    this.saved = false
-    if (walletName !== undefined) this.rename_draft = walletName
-  }
-
-  set_tor_enabled(v: boolean) {
-    this.tor_enabled = v
-    this.saved = false
-  }
-
-  set_tor_proxy(v: string) {
-    this.tor_proxy = v
-    this.saved = false
-  }
-
-  set_eth_rpc_url(v: string) {
-    this.eth_rpc_url = v
-    this.saved = false
-  }
-
-  set_electrum_server(v: string) {
-    this.electrum_server = v
-    this.saved = false
-  }
-
-  set_omit_passphrase(v: boolean) {
-    this.omit_passphrase = v
-    this.saved = false
-  }
-
-  set_session_timeout_mins(v: number) {
-    this.session_timeout_mins = v
-    this.saved = false
-  }
-
-  set_rename_draft(v: string) {
-    this.rename_draft = v
+  set_value(path: string[], value: unknown) {
+    if (!this.config) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let obj: any = this.config
+    for (let i = 0; i < path.length - 1; i++) {
+      obj = obj[path[i]]
+    }
+    obj[path[path.length - 1]] = value
+    this.restart_hint = false
   }
 
   async load_settings() {
-    const config = await commands.getConfig().then(unwrap_result)
-    runInAction(() => this.load(config, this.wallet.name))
+    const [config, schemaStr] = await Promise.all([
+      commands.getConfig().then(unwrap_result),
+      commands.getConfigSchema().then(unwrap_result),
+    ])
+    runInAction(() => {
+      this.config = config
+      this.schema = JSON.parse(schemaStr) as FieldSchema
+      if (this.wallet.name !== undefined) this.rename_draft = this.wallet.name
+    })
   }
 
   async request_config() {
     const config = await commands.getConfig().then(unwrap_result)
-    runInAction(() => this.load(config))
+    runInAction(() => {
+      this.config = config
+    })
   }
 
   async save() {
-    const res = await commands.setConfig({
-      tor_enabled: this.tor_enabled,
-      tor_socks5_proxy: this.tor_proxy,
-      eth_rpc_url: this.eth_rpc_url,
-      btc_electrum_server: this.electrum_server.trim() || null,
-      omit_passphrase_on_private_key: this.omit_passphrase,
-      session_inactivity_timeout_mins: this.session_timeout_mins,
-    })
+    if (!this.config) return
+    const res = await commands.setConfig(this.config)
     if (res.status === 'error') {
       notifier.err(res.error)
       return
     }
-    this.saved = true
+    runInAction(() => {
+      this.restart_hint = true
+    })
+  }
+
+  set_rename_draft(v: string) {
+    this.rename_draft = v
   }
 
   async rename(): Promise<string | null> {
@@ -104,7 +70,11 @@ export class SettingsVM {
       notifier.err(r.error)
       return null
     }
-    this.rename_draft = r.data
+
+    runInAction(() => {
+      this.rename_draft = r.data
+    })
+
     return r.data
   }
 

@@ -108,21 +108,7 @@ mod tests {
     };
 
     fn get_config() -> Config {
-        Config {
-            btc: BitcoinConfig {
-                regtest: todo!(),
-                electrum_server: todo!(),
-            },
-            eth: EthereumConfig {
-                rpc_url: "".to_string(),
-                anvil: true,
-            },
-            tor: TorConfig {
-                enabled: todo!(),
-                socks5_proxy: todo!(),
-            },
-            omit_passphrase_on_private_key: todo!(),
-        }
+        Config::default()
     }
 
     #[tokio::test]

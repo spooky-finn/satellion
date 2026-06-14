@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use specta::{Type, specta};
+use tokio::sync::Mutex;
 use zeroize::Zeroize;
 
 use crate::{
@@ -30,8 +31,9 @@ pub async fn generate_mnemonic() -> Result<String, String> {
 pub async fn validate_address(
     chain: BlockChain,
     address: String,
-    config: tauri::State<'_, Config>,
+    config: tauri::State<'_, Mutex<Config>>,
 ) -> Result<(), String> {
+    let config = config.lock().await;
     match chain {
         BlockChain::Bitcoin => {
             bitcoin::Address::from_str(&address)
@@ -55,7 +57,7 @@ pub async fn create_wallet(
     name: String,
     creation_type: CreationFlow,
     wallet_keeper: tauri::State<'_, WalletKeeper>,
-    config: tauri::State<'_, Config>,
+    config: tauri::State<'_, Mutex<Config>>,
 ) -> Result<bool, String> {
     if creation_type == CreationFlow::Generation && passphrase.len() < constants::MIN_PASSPHRASE_LEN
     {
@@ -65,7 +67,7 @@ pub async fn create_wallet(
         ));
     }
     wallet_keeper.create(
-        config.inner().clone(),
+        config.lock().await.clone(),
         &mnemonic,
         &passphrase,
         &name,
@@ -173,12 +175,13 @@ pub async fn unlock_wallet(
     mut passphrase: String,
     wallet_keeper: tauri::State<'_, WalletKeeper>,
     sk: tauri::State<'_, SK>,
-    config: tauri::State<'_, Config>,
+    config: tauri::State<'_, Mutex<Config>>,
 ) -> Result<UnlockDto, String> {
+    let cfg = config.lock().await.clone();
     let mut wallet =
         wallet_keeper
             .repository
-            .load(config.inner().clone(), &wallet_name, &passphrase)?;
+            .load(cfg.clone(), &wallet_name, &passphrase)?;
 
     let (eth_prk, btc_prk, last_used_chain) = {
         let eth_prk = wallet.eth_prk()?;
@@ -192,7 +195,7 @@ pub async fn unlock_wallet(
         btc::service::unlock(&wallet.btc, &btc_prk)?,
     );
 
-    let session = Session::new(wallet, config.session_inactivity_timeout());
+    let session = Session::new(wallet, cfg.session_inactivity_timeout());
     sk.lock().await.set(session);
 
     passphrase.zeroize();
@@ -233,61 +236,28 @@ pub async fn forget_wallet(
     Ok(())
 }
 
-#[derive(Type, Serialize)]
-pub struct UIConfig {
-    eth_anvil: bool,
-    eth_rpc_url: String,
-    tor_enabled: bool,
-    tor_socks5_proxy: String,
-    btc_regtest: bool,
-    btc_electrum_server: Option<String>,
-    omit_passphrase_on_private_key: bool,
-    session_inactivity_timeout_mins: u32,
-}
-
-impl From<&Config> for UIConfig {
-    fn from(c: &Config) -> Self {
-        Self {
-            eth_anvil: c.eth.anvil,
-            eth_rpc_url: c.eth.rpc_url.clone(),
-            tor_enabled: c.tor.enabled,
-            tor_socks5_proxy: c.tor.socks5_proxy.clone(),
-            btc_regtest: c.btc.regtest,
-            btc_electrum_server: c.btc.electrum_server.clone(),
-            omit_passphrase_on_private_key: c.omit_passphrase_on_private_key,
-            session_inactivity_timeout_mins: c.session_inactivity_timeout_mins,
-        }
-    }
+#[specta]
+#[tauri::command]
+pub async fn get_config(config: tauri::State<'_, Mutex<Config>>) -> Result<Config, String> {
+    Ok(config.lock().await.clone())
 }
 
 #[specta]
 #[tauri::command]
-pub async fn get_config(config: tauri::State<'_, Config>) -> Result<UIConfig, String> {
-    Ok(config.inner().into())
-}
-
-#[derive(Type, Deserialize)]
-pub struct ConfigInput {
-    tor_enabled: bool,
-    tor_socks5_proxy: String,
-    eth_rpc_url: String,
-    btc_electrum_server: Option<String>,
-    omit_passphrase_on_private_key: bool,
-    session_inactivity_timeout_mins: u32,
+pub async fn get_config_schema() -> Result<String, String> {
+    serde_json::to_string(&schemars::schema_for!(Config)).map_err(|e| e.to_string())
 }
 
 #[specta]
 #[tauri::command]
 #[tracing::instrument(name = "set_config", skip_all, err)]
-pub async fn set_config(input: ConfigInput) -> Result<(), String> {
-    let mut config = Config::load().map_err(|e| e.to_string())?;
-    config.tor.enabled = input.tor_enabled;
-    config.tor.socks5_proxy = input.tor_socks5_proxy;
-    config.eth.rpc_url = input.eth_rpc_url;
-    config.btc.electrum_server = input.btc_electrum_server;
-    config.omit_passphrase_on_private_key = input.omit_passphrase_on_private_key;
-    config.session_inactivity_timeout_mins = input.session_inactivity_timeout_mins;
-    config.save()
+pub async fn set_config(
+    input: Config,
+    config: tauri::State<'_, Mutex<Config>>,
+) -> Result<(), String> {
+    input.save()?;
+    *config.lock().await = input;
+    Ok(())
 }
 
 #[specta]

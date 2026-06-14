@@ -61,7 +61,7 @@ async forgetWallet(walletName: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async getConfig() : Promise<Result<UIConfig, string>> {
+async getConfig() : Promise<Result<Config, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_config") };
 } catch (e) {
@@ -69,7 +69,15 @@ async getConfig() : Promise<Result<UIConfig, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async setConfig(input: ConfigInput) : Promise<Result<null, string>> {
+async getConfigSchema() : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_config_schema") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setConfig(input: Config) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("set_config", { input }) };
 } catch (e) {
@@ -135,14 +143,46 @@ export type ActiveAccountView = { index: number;
  * main external address to accept payments
  */
 address: string; total_balance: string; utxo: UtxoView[] }
+export type BitcoinConfig = { regtest: boolean; 
+/**
+ * Custom Electrum server URL. Leave blank to use the default.
+ */
+electrum_server: string | null }
 export type BitcoinUnlock = { accounts: AccountSummary[]; active_account: ActiveAccountView }
 export type BlockChain = "Bitcoin" | "Ethereum"
-export type ConfigInput = { tor_enabled: boolean; tor_socks5_proxy: string; eth_rpc_url: string; btc_electrum_server: string | null; omit_passphrase_on_private_key: boolean; session_inactivity_timeout_mins: number }
+export type Config = { eth: EthereumConfig; btc: BitcoinConfig; tor: TorConfig; security: ConfigSecurity }
+/**
+ * Security and access settings
+ */
+export type ConfigSecurity = { 
+/**
+ * Derive private keys without including the wallet passphrase
+ */
+omit_passphrase_on_private_key: boolean; 
+/**
+ * Lock the wallet after this many minutes of inactivity
+ */
+session_inactivity_timeout_mins: number }
 export type CreationFlow = "Import" | "Generation"
+export type EthereumConfig = { 
+/**
+ * Ethereum JSON-RPC endpoint URL
+ */
+rpc_url: string; anvil: boolean }
 export type EthereumUnlock = { address: string }
 export type OutPointRef = { tx_id: string; vout: number }
 export type PriceFeedDto = { btc_usd: number; eth_usd: number }
-export type UIConfig = { eth_anvil: boolean; eth_rpc_url: string; tor_enabled: boolean; tor_socks5_proxy: string; btc_regtest: boolean; btc_electrum_server: string | null; omit_passphrase_on_private_key: boolean; session_inactivity_timeout_mins: number }
+export type TorConfig = { 
+/**
+ * Route connections through Tor for enhanced privacy
+ */
+enabled: boolean; 
+/**
+ * SOCKS5 proxy address. Tor must be running locally.
+ * Bitcoin routes Electrum connections through this proxy;
+ * Ethereum routes the configured RPC URL through this proxy.
+ */
+socks5_proxy: string }
 export type UnlockDto = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock; last_used_chain: BlockChain }
 export type UtxoView = { utxo_id: OutPointRef; value: string; deriv_path: string; address_label: string | null; confirmed: boolean }
 

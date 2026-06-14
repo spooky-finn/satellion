@@ -1,11 +1,17 @@
 use std::path::PathBuf;
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(default)]
+#[schemars(title = "Ethereum")]
 pub struct EthereumConfig {
+    /// Ethereum JSON-RPC endpoint URL
+    #[schemars(title = "RPC URL")]
     pub rpc_url: String,
+    #[schemars(skip)]
     pub anvil: bool,
 }
 
