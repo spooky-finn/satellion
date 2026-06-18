@@ -1,4 +1,5 @@
 # Tasks
+- [ ] btc: initial scan for derived addresses and accounts.
 - [ ] btc: fix: persist change address only after transaction send, not when i build
 - [ ] btc: implement auto utxo selection algo
 - [ ] btc: select estimated coins delivery time
@@ -6,9 +7,9 @@
 - [ ] btc: after tx send - show link to the explorer
 - [ ] btc: transaction history
 - [ ] btc: replace tx by fee
-- [ ] Ui based configuration framework
-- [ ] Error Logging
 - [ ] Lock the application when the computer enters sleep mode. (now implemented for mac os only)
+- [x] Ui based configuration framework
+- [x] Error Logging
 - [x] Implement a Bitcoin transaction fee calculator.
 - [x] Add UI support for manual UTXO selection.
 - [x] Implement Bitcoin transaction construction (inputs, outputs, change, fee handling, signing).
