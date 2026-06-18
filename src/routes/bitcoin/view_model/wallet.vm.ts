@@ -1,10 +1,11 @@
 import { makeAutoObservable, runInAction } from 'mobx'
 import type { BitcoinUnlock, BlockChain } from '../../../bindings'
-import { commands } from '../../../bindings/btc'
+import { commands, type DiscoveryReportView } from '../../../bindings/btc'
 import { AccountSelectorVM } from '../../../components/account_selector'
 import { unwrap_result } from '../../../lib/handle_err'
 import { notifier } from '../../../lib/notifier'
 import { Resource } from '../../../lib/resource'
+import { Loader } from '../../../view_model/loader'
 import { ChildAddressListVM } from './child_address_list.vm'
 import { FeeBumpVM } from './fee_bump.vm'
 import { TransferVM } from './transfer.vm'
@@ -20,6 +21,7 @@ export class BitcoinWalletVM {
   readonly child_list = new ChildAddressListVM()
   readonly fee_bump = new FeeBumpVM(() => this.load_account_info())
   readonly account_info = new Resource(() => this._fetch_account_info())
+  readonly discovery_loader = new Loader<DiscoveryReportView>()
 
   constructor() {
     makeAutoObservable(this)
@@ -44,6 +46,40 @@ export class BitcoinWalletVM {
 
   async load_account_info() {
     await this.account_info.refresh()
+  }
+
+  async discover_wallet() {
+    this.discovery_loader.start()
+    try {
+      const report = await commands.discoverWallet().then(unwrap_result)
+      runInAction(() => {
+        this.merge_discovered_accounts(report.accounts)
+        this.discovery_loader.set(report)
+      })
+      notifier.ok(
+        `Discovery added ${report.paths_added} paths and ${report.utxos_added} UTXOs`,
+      )
+      await this.load_account_info()
+    } finally {
+      this.discovery_loader.stop()
+    }
+  }
+
+  private merge_discovered_accounts(account_indexes: number[]) {
+    const known = new Set(this.account_selector.accounts.map(a => a.index))
+    const discovered = account_indexes
+      .filter(index => !known.has(index))
+      .map(index => ({
+        index,
+        name: `Account ${index}`,
+      }))
+
+    if (!discovered.length) return
+
+    this.account_selector.accounts = [
+      ...this.account_selector.accounts,
+      ...discovered,
+    ].toSorted((a, b) => a.index - b.index)
   }
 
   private async _fetch_account_info(): Promise<void> {

@@ -38,6 +38,11 @@ pub struct BuildTxResult {
     pub psbt: Psbt,
     pub change_key_path: LabeledKeyDerivationPath,
     pub fee: u32,
+    /// Resolved recipient address (None for CPFP-style txs with no external
+    /// payee).
+    pub recipient: Option<String>,
+    /// Amount paid to the recipient in satoshis (0 for CPFP).
+    pub send_value_sat: u64,
 }
 
 const MIN_RELAY_FEE: u32 = 16;
@@ -80,7 +85,7 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
 
     let change_index = p.account.keychain.next_unused_index(Change::Internal);
     let change_key_path = KeyDerivationPath::new(
-        Proposal::Bip86,
+        Proposal::Taproot,
         p.config.network(),
         p.account.index,
         Change::Internal,
@@ -146,6 +151,8 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
             label: "Change".to_string(),
             path: change_key_path,
         },
+        recipient: Some(p.recipient.to_string()),
+        send_value_sat: amounts.send_value_sat,
     })
 }
 

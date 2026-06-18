@@ -44,6 +44,7 @@ alloy-signer-local = { version = "1.8.3", features = ["mnemonic"] }
 bitcoin = "0.32.8"
 bip39 = "2.2.2"
 esplora-client = "0.12.3"
+strum = { version = "0.28", features = ["derive"] }
 # Codegen
 schemars = { version = "0.8", features = ["preserve_order"] }
 specta = "=2.0.0-rc.22"

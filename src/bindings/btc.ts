@@ -45,6 +45,19 @@ async syncUtxos() : Promise<Result<UtxoView[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Automated wallet discovery. Walks the derivation tree across all
+ * supported schemes and collects every used path plus its UTXOs. Idempotent
+ * against the current wallet state and safe to call multiple times.
+ */
+async discoverWallet() : Promise<Result<DiscoveryReportView, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("discover_wallet") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async accountInfo() : Promise<Result<ActiveAccountView, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("account_info") };
@@ -111,6 +124,24 @@ parent_tx_id: string;
 target_fee_rate_sat_vb: number }
 export type BumpFeeResponse = { child_tx_id: string; child_fee: number }
 export type DerivedAddress = { label: string; path: string; address: string }
+export type DiscoveryReportView = { 
+/**
+ * Account indexes that have on-chain activity (existing or newly created).
+ */
+accounts: number[]; 
+/**
+ * Number of new derivation paths added to the wallet.
+ */
+paths_added: number; 
+/**
+ * Number of new UTXOs added across all accounts.
+ */
+utxos_added: number; 
+/**
+ * Aggregate value (sat) of newly added UTXOs, serialized as a string to
+ * preserve precision across the IPC boundary.
+ */
+total_value_sat: string }
 export type OutPointRef = { tx_id: string; vout: number }
 export type UtxoSelectionStrategy = { Manual: OutPointRef[] } | { Auto: number }
 export type UtxoView = { utxo_id: OutPointRef; value: string; deriv_path: string; address_label: string | null; confirmed: boolean }

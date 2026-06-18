@@ -60,7 +60,7 @@ pub fn build_cpfp_psbt(p: &BuildCpfpParams) -> Result<BuildTxResult, String> {
 
     let change_index = p.account.keychain.next_unused_index(Change::Internal);
     let change_key_path = KeyDerivationPath::new(
-        Proposal::Bip86,
+        Proposal::Taproot,
         p.config.network(),
         p.account.index,
         Change::Internal,
@@ -120,5 +120,7 @@ pub fn build_cpfp_psbt(p: &BuildCpfpParams) -> Result<BuildTxResult, String> {
             label: "Change".to_string(),
             path: change_key_path,
         },
+        recipient: None,
+        send_value_sat: 0,
     })
 }

@@ -53,8 +53,13 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
     let network = wallet.config.btc.network();
 
     let account_info = service::get_account_info(account, &prk, network)?;
-    let key_derive_path =
-        KeyDerivationPath::new(Proposal::Bip86, network, account.index, Change::External, 0);
+    let key_derive_path = KeyDerivationPath::new(
+        Proposal::Taproot,
+        network,
+        account.index,
+        Change::External,
+        0,
+    );
 
     let recipient =
         Address::from_str("bcrt1p04x2uthh0arxzuct6hpetdtg2p7c23yuu855z3srs332ga4k9gasjv0av6")

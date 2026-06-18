@@ -68,6 +68,13 @@ impl BitcoinWallet {
             .ok_or("account not found".to_string())
     }
 
+    pub fn get_account_mut(&mut self, index: u32) -> Result<&mut Account, String> {
+        self.accounts
+            .iter_mut()
+            .find(|each| each.index == index)
+            .ok_or("account not found".to_string())
+    }
+
     pub fn active_account(&self) -> Result<&Account, String> {
         self.accounts
             .iter()
@@ -91,6 +98,11 @@ impl BitcoinWallet {
 
     pub fn switch_account(&mut self, account: AccountIndex) {
         self.active_account = account;
+    }
+
+    pub fn rename_account(&mut self, account: AccountIndex, name: String) -> Result<(), String> {
+        self.get_account_mut(account)?.name = name;
+        Ok(())
     }
 
     pub fn new_deriviation_path(

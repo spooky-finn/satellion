@@ -31,6 +31,22 @@ impl BtcNode {
         }
     }
 
+    /// Returns one boolean per input address indicating whether it has any
+    /// on-chain history. Used by automated wallet discovery to detect used
+    /// addresses without pulling full UTXO sets.
+    pub async fn batch_has_activity(
+        &self,
+        addresses: &[bitcoin::Address],
+    ) -> Result<Vec<bool>, String> {
+        match self {
+            BtcNode::Electrum(e) => e.batch_has_activity(addresses).await,
+            BtcNode::Esplora(e) => e
+                .batch_has_activity(addresses)
+                .await
+                .map_err(|e| e.to_string()),
+        }
+    }
+
     pub async fn broadcast_tx(&self, tx: &bitcoin::Transaction) -> Result<String, String> {
         match self {
             BtcNode::Electrum(e) => e.broadcast_tx(tx).await,

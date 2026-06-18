@@ -1,6 +1,6 @@
 use alloy::{
     eips::{BlockId, BlockNumberOrTag},
-    primitives::utils::format_units,
+    primitives::utils::{format_units, parse_units},
     providers::Provider,
 };
 use alloy_provider::{DynProvider, ext::AnvilApi};
@@ -20,7 +20,9 @@ use crate::{
         transfer_builder::TransferPayload,
         wallet::parse_addres,
     },
+    repository::{EthChainData, NewTx, TxDirection, TxRepository, TxStatus},
     session::SK,
+    utils,
 };
 
 #[specta]
@@ -168,13 +170,46 @@ pub async fn estimate_transfer(
 pub async fn execute_transfer(
     builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
     sk: tauri::State<'_, SK>,
+    tx_repository: tauri::State<'_, TxRepository>,
 ) -> Result<String, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let mut builder = builder.try_lock().map_err(|e| e.to_string())?;
     let prk = wallet.eth_prk()?;
     let hash = builder.sign_and_send_tx(prk.expose()).await?;
-    Ok(hash.to_string())
+    let hash_str = hash.to_string();
+
+    if let Some(meta) = builder.take_pending_meta() {
+        let chain_data = EthChainData {
+            nonce: meta.nonce,
+            token_address: meta.payload.token.address.to_string(),
+            token_symbol: meta.payload.token.symbol.clone(),
+            token_decimals: meta.payload.token.decimals,
+            max_fee_per_gas: meta.metadata_max_fee_per_gas.to_string(),
+            max_priority_fee_per_gas: meta.metadata_max_priority_fee_per_gas.to_string(),
+            gas_limit: meta.metadata_estimated_gas.to_string(),
+        };
+        let fee_wei = meta.metadata_estimated_gas as u128 * meta.metadata_max_fee_per_gas;
+        let _ = tx_repository.insert(NewTx {
+            wallet_name: wallet.name.clone(),
+            chain: BlockChain::Ethereum,
+            account_index: wallet.eth.active_account as i32,
+            tx_hash: hash_str.clone(),
+            direction: TxDirection::Outgoing,
+            status: TxStatus::Pending,
+            from_address: Some(meta.payload.sender.to_string()),
+            to_address: Some(meta.payload.recipient.to_string()),
+            amount: parse_units(&meta.payload.raw_amount, meta.payload.token.decimals)
+                .map(|u| u.get_absolute().try_into().unwrap_or(i64::MAX))
+                .unwrap_or(0),
+            fee: Some(fee_wei.min(i32::MAX as u128) as i32),
+            block_height: None,
+            chain_data: serde_json::to_value(chain_data).unwrap_or_default(),
+            created_at: utils::now() as i64,
+        });
+    }
+
+    Ok(hash_str)
 }
 
 #[specta]

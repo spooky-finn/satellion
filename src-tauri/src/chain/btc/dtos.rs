@@ -97,6 +97,19 @@ pub struct ActiveAccountView {
     pub utxo: Vec<UtxoView>,
 }
 
+#[derive(Type, Serialize)]
+pub struct DiscoveryReportView {
+    /// Account indexes that have on-chain activity (existing or newly created).
+    pub accounts: Vec<u32>,
+    /// Number of new derivation paths added to the wallet.
+    pub paths_added: u32,
+    /// Number of new UTXOs added across all accounts.
+    pub utxos_added: u32,
+    /// Aggregate value (sat) of newly added UTXOs, serialized as a string to
+    /// preserve precision across the IPC boundary.
+    pub total_value_sat: String,
+}
+
 #[derive(Type, Deserialize, Serialize, Clone, Hash, PartialEq, Eq, Debug)]
 pub struct OutPointRef {
     pub tx_id: String,

@@ -141,6 +141,14 @@ async switchAccount(chain: BlockChain, account: number) : Promise<Result<null, s
     else return { status: "error", error: e  as any };
 }
 },
+async renameAccount(chain: BlockChain, account: number, name: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("rename_account", { chain, account, name }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async switchBlockchain(chain: BlockChain) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("switch_blockchain", { chain }) };
@@ -160,6 +168,14 @@ async priceFeed() : Promise<Result<PriceFeedDto, string>> {
 async validateAddress(chain: BlockChain, address: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("validate_address", { chain, address }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async listTransactions(req: ListTransactionsRequest) : Promise<Result<TxRecord[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_transactions", { req }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -210,6 +226,7 @@ export type EthereumConfig = {
  */
 rpc_url: string; anvil: boolean }
 export type EthereumUnlock = { address: string }
+export type ListTransactionsRequest = { chain: BlockChain; account_index: number; limit: number | null }
 export type OutPointRef = { tx_id: string; vout: number }
 export type PriceFeedDto = { btc_usd: number; eth_usd: number }
 export type TorConfig = { 
@@ -223,6 +240,14 @@ enabled: boolean;
  * Ethereum routes the configured RPC URL through this proxy.
  */
 socks5_proxy: string }
+export type TxDirection = "incoming" | "outgoing" | "selftransfer"
+export type TxRecord = { tx_hash: string; wallet_name: string; chain: BlockChain; account_index: number; direction: TxDirection; status: TxStatus; from_address: string | null; to_address: string | null; amount: string; fee: number | null; block_height: string | null; 
+/**
+ * Chain-specific JSON payload. Stored verbatim so the frontend can decode
+ * it according to the [`chain`] discriminator.
+ */
+chain_data: string; created_at: string; confirmed_at: string | null }
+export type TxStatus = "pending" | "confirmed" | "failed"
 export type UnlockDto = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock; last_used_chain: BlockChain }
 export type UtxoView = { utxo_id: OutPointRef; value: string; deriv_path: string; address_label: string | null; confirmed: boolean }
 

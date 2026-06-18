@@ -35,6 +35,15 @@ pub struct Child {
     pub segwit_address: Address,
 }
 
+impl Child {
+    pub fn address_for(&self, purpose: Proposal) -> &Address {
+        match purpose {
+            Proposal::Taproot => &self.taproot_address,
+            Proposal::SegWit => &self.segwit_address,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Copy, Eq, Hash)]
 pub enum Change {
     /// External chain is used for addresses that are meant to be visible
@@ -59,8 +68,8 @@ impl TryFrom<u32> for Change {
 
 #[derive(Debug, Clone, PartialEq, Copy, Eq, Hash)]
 pub enum Proposal {
-    Bip84 = 84,
-    Bip86 = 86,
+    SegWit = 84,
+    Taproot = 86,
 }
 
 impl TryFrom<u32> for Proposal {
@@ -68,8 +77,8 @@ impl TryFrom<u32> for Proposal {
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         match value {
-            86 => Ok(Proposal::Bip86),
-            84 => Ok(Proposal::Bip84),
+            86 => Ok(Proposal::Taproot),
+            84 => Ok(Proposal::SegWit),
             v => Err(format!("invalid purpose {}", v)),
         }
     }
@@ -238,14 +247,14 @@ mod tests {
 
     #[test]
     fn test_purpose_conversion() {
-        assert_eq!(Proposal::try_from(86), Ok(Proposal::Bip86));
+        assert_eq!(Proposal::try_from(86), Ok(Proposal::Taproot));
         assert!(Proposal::try_from(44).is_err());
     }
 
     #[test]
     fn test_to_u32_vec() {
         let path = KeyDerivationPath {
-            purpose: Proposal::Bip86,
+            purpose: Proposal::Taproot,
             account: 0,
             network: Network::Bitcoin,
             change: Change::External,
@@ -260,7 +269,7 @@ mod tests {
         let result = KeyDerivationPath::from_slice(vec);
         assert!(result.is_ok());
         let path = result.unwrap();
-        assert_eq!(path.purpose, Proposal::Bip86);
+        assert_eq!(path.purpose, Proposal::Taproot);
         assert_eq!(path.network, Network::Bitcoin);
         assert_eq!(path.change, Change::External);
         assert_eq!(path.index, 0);
@@ -270,7 +279,7 @@ mod tests {
     #[test]
     fn test_derive_path_roundtrip() {
         let original = KeyDerivationPath {
-            purpose: Proposal::Bip86,
+            purpose: Proposal::Taproot,
             account: 0,
             network: Network::Bitcoin,
             change: Change::Internal,
@@ -284,7 +293,7 @@ mod tests {
     #[test]
     fn test_derive_path_display() {
         let path = KeyDerivationPath {
-            purpose: Proposal::Bip86,
+            purpose: Proposal::Taproot,
             account: 0,
             network: Network::Bitcoin,
             change: Change::External,
@@ -293,7 +302,7 @@ mod tests {
         assert_eq!(path.to_string(), "m/86'/0'/0'/0/0");
 
         let path = KeyDerivationPath {
-            purpose: Proposal::Bip86,
+            purpose: Proposal::Taproot,
             account: 5,
             network: Network::Regtest,
             change: Change::Internal,
@@ -323,7 +332,7 @@ mod tests {
     #[test]
     fn test_regtest_network() {
         let path = KeyDerivationPath {
-            purpose: Proposal::Bip86,
+            purpose: Proposal::Taproot,
             account: 0,
             network: Network::Regtest,
             change: Change::External,

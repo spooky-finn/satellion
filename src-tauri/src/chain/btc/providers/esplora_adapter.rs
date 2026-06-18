@@ -66,6 +66,22 @@ impl EsploraAdapter {
         self.client.get_fee_estimates().await
     }
 
+    /// Returns one boolean per address indicating whether the address has any
+    /// on-chain history (confirmed or in-mempool). Esplora has no native batch
+    /// endpoint, so the lightweight `/address/:addr` stats requests run
+    /// concurrently.
+    pub async fn batch_has_activity(&self, addresses: &[Address]) -> Result<Vec<bool>, Error> {
+        let futures = addresses.iter().map(|addr| {
+            let addr_clone = addr.clone();
+            async move {
+                let stats = self.client.get_address_stats(&addr_clone).await?;
+                Ok::<bool, Error>(stats.chain_stats.tx_count + stats.mempool_stats.tx_count > 0)
+            }
+        });
+        let resolved = join_all(futures).await;
+        resolved.into_iter().collect()
+    }
+
     /// Fetches all UTXOs for a list of addresses.
     pub async fn get_utxos_by_addresses(
         &self,

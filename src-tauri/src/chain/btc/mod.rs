@@ -2,6 +2,7 @@ pub mod account;
 pub mod coin_selection;
 pub mod commands;
 pub mod config;
+pub mod discovery;
 pub mod dtos;
 pub mod fee_bump;
 pub mod fee_estimator;

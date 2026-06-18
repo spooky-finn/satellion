@@ -43,7 +43,7 @@ impl Account {
         network: Network,
     ) -> Result<(Child, KeyDerivationPath), String> {
         let main_key_derive_path =
-            KeyDerivationPath::new(Proposal::Bip86, network, self.index, Change::External, 0);
+            KeyDerivationPath::new(Proposal::Taproot, network, self.index, Change::External, 0);
         let child = main_key_derive_path
             .derive(prk.expose())
             .map_err(|e| e.to_string())?;
@@ -82,7 +82,7 @@ impl KeyChain {
             paths: vec![LabeledKeyDerivationPath {
                 label: "main".to_string(),
                 path: KeyDerivationPath::new(
-                    Proposal::Bip86,
+                    Proposal::Taproot,
                     network,
                     account,
                     Change::External,

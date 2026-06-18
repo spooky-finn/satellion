@@ -30,9 +30,11 @@ pub fn handlers() -> tauri_specta::Builder {
                 commands::set_config,
                 commands::add_account,
                 commands::switch_account,
+                commands::rename_account,
                 commands::switch_blockchain,
                 commands::price_feed,
                 commands::validate_address,
+                commands::list_transactions,
             ])
             .constant("MIN_PASSPHRASE_LEN", config::MIN_PASSPHRASE_LEN)
             .events(event_emitter::list_events())
@@ -46,6 +48,7 @@ pub fn handlers() -> tauri_specta::Builder {
                 btc::commands::get_external_addresess,
                 btc::commands::get_utxos,
                 btc::commands::sync_utxos,
+                btc::commands::discover_wallet,
                 btc::commands::account_info,
                 btc::commands::build_tx,
                 btc::commands::broadcast_tx,
@@ -87,15 +90,18 @@ pub fn handlers() -> tauri_specta::Builder {
         commands::set_config,
         commands::add_account,
         commands::switch_account,
+        commands::rename_account,
         commands::switch_blockchain,
         commands::price_feed,
         commands::validate_address,
+        commands::list_transactions,
         //
         btc::commands::derive_external_address,
         btc::commands::next_unused_index,
         btc::commands::get_external_addresess,
         btc::commands::get_utxos,
         btc::commands::sync_utxos,
+        btc::commands::discover_wallet,
         btc::commands::account_info,
         btc::commands::build_tx,
         btc::commands::broadcast_tx,

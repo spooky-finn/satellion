@@ -4,8 +4,8 @@
 use std::time::Duration;
 
 use satellion_lib::{
-    chain::eth, codegen, config::Config, db, event_emitter::EventEmitter, session::SessionKeeper,
-    system, utils, wallet_keeper::WalletKeeper,
+    chain::eth, codegen, config::Config, db, event_emitter::EventEmitter, repository::TxRepository,
+    session::SessionKeeper, system, utils, wallet_keeper::WalletKeeper,
 };
 use tauri::Manager;
 use tokio::sync::Mutex;
@@ -16,6 +16,7 @@ pub async fn main() {
     utils::tracing::init();
     db::initialize();
     let db = db::connect();
+    let tx_repository = TxRepository::new(db.clone());
     let wallet_keeper = WalletKeeper::default();
     let config = Config::new();
     let tor = system::tor::start_blocking(&config.tor);
@@ -29,6 +30,7 @@ pub async fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(db.clone())
+        .manage(tx_repository)
         .manage(wallet_keeper)
         .manage(eth_provider.clone())
         .manage(erc20_retriever)

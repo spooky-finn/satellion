@@ -16,6 +16,7 @@ use crate::{
         constants::{BTC_USD_PRICE_FEED, ETH_USD_PRICE_FEED},
     },
     mnemonic,
+    repository::{TxQuery, TxRecord, TxRepository},
     session::{SK, Session},
     wallet_keeper::{CreationFlow, WalletKeeper},
 };
@@ -132,6 +133,30 @@ pub async fn switch_account(
     match chain {
         BlockChain::Bitcoin => wallet.btc.active_account = account,
         BlockChain::Ethereum => wallet.eth.active_account = account,
+    }
+    wallet.persist()?;
+    Ok(())
+}
+
+#[specta]
+#[tauri::command]
+#[tracing::instrument(name = "rename_account", skip_all, err)]
+pub async fn rename_account(
+    chain: BlockChain,
+    account: AccountIndex,
+    name: String,
+    sk: tauri::State<'_, SK>,
+) -> Result<(), String> {
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err("Account name cannot be empty".to_string());
+    }
+
+    let mut sk = sk.lock().await;
+    let wallet = sk.wallet()?;
+    match chain {
+        BlockChain::Bitcoin => wallet.btc.rename_account(account, name)?,
+        BlockChain::Ethereum => return Err("Ethereum account rename is not supported".to_string()),
     }
     wallet.persist()?;
     Ok(())
@@ -341,4 +366,29 @@ pub async fn set_config(
 #[tauri::command]
 pub async fn mnemonic_wordlist() -> Result<&'static [&'static str], String> {
     Ok(mnemonic::word_list())
+}
+
+#[derive(Type, serde::Deserialize)]
+pub struct ListTransactionsRequest {
+    pub chain: BlockChain,
+    pub account_index: i32,
+    pub limit: Option<i32>,
+}
+
+#[specta]
+#[tauri::command]
+#[tracing::instrument(name = "list_transactions", skip_all, err)]
+pub async fn list_transactions(
+    req: ListTransactionsRequest,
+    sk: tauri::State<'_, SK>,
+    tx_repository: tauri::State<'_, TxRepository>,
+) -> Result<Vec<TxRecord>, String> {
+    let mut sk = sk.lock().await;
+    let wallet = sk.wallet()?;
+    tx_repository.list(&TxQuery {
+        wallet_name: wallet.name.clone(),
+        chain: req.chain,
+        account_index: req.account_index,
+        limit: req.limit.map(|l| l as i64),
+    })
 }

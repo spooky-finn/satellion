@@ -1,4 +1,4 @@
-import { Add } from '@mui/icons-material'
+import { Add, Edit } from '@mui/icons-material'
 import { IconButton, Input, Option, Select } from '@mui/joy'
 import { makeAutoObservable, runInAction } from 'mobx'
 import { observer } from 'mobx-react-lite'
@@ -37,8 +37,35 @@ class CreateAccountVM {
   }
 }
 
+class RenameAccountVM {
+  readonly loader = new Loader()
+
+  account: Account['index'] | null = null
+  input: string = ''
+
+  constructor() {
+    makeAutoObservable(this)
+  }
+
+  start(account: Account) {
+    this.account = account.index
+    this.input = account.name
+  }
+
+  set_input(v: string) {
+    this.input = v
+  }
+
+  reset() {
+    this.account = null
+    this.input = ''
+    this.loader.reset()
+  }
+}
+
 export class AccountSelectorVM {
   readonly create = new CreateAccountVM()
+  readonly rename = new RenameAccountVM()
   readonly account_loader = new Loader()
   accounts: Account[] = []
 
@@ -57,6 +84,13 @@ export class AccountSelectorVM {
   init(accounts: Account[], active: Account['index']) {
     this.accounts = accounts
     this.active_account = active
+    this.rename.reset()
+  }
+
+  get active_account_item() {
+    return (
+      this.accounts.find(each => each.index === this.active_account) ?? null
+    )
   }
 
   async create_account() {
@@ -96,57 +130,132 @@ export class AccountSelectorVM {
 
     await this.switch_handler(account)
   }
+
+  start_rename_active_account() {
+    const active = this.active_account_item
+    if (!active) return
+
+    this.rename.start(active)
+  }
+
+  cancel_rename_account() {
+    this.rename.reset()
+  }
+
+  async save_rename_account() {
+    const account = this.rename.account
+    if (account == null) return
+
+    const name = this.rename.input.trim()
+    const current = this.accounts.find(each => each.index === account)
+    if (!name || current?.name === name) {
+      this.rename.reset()
+      return
+    }
+
+    this.rename.loader.start()
+    const res = await commands.renameAccount(this.chain, account, name)
+    if (res.status !== 'ok') {
+      notifier.err(res.error)
+      this.rename.loader.stop()
+      return
+    }
+
+    runInAction(() => {
+      this.accounts = this.accounts.map(each =>
+        each.index === account ? { ...each, name } : each,
+      )
+      this.rename.reset()
+    })
+  }
 }
 
-export const AccountSelector = observer(({ vm }: { vm: AccountSelectorVM }) => (
-  <Row alignItems={'center'} gap={0.5}>
-    <P>Account</P>
-    <Select
-      variant="plain"
-      color="primary"
-      value={vm.active_account}
-      onChange={(_, v) => {
-        vm.set_active_account(v)
-        vm.handle_account_switch(v)
-      }}
-      sx={{ width: 'min-content', gap: 0.5 }}
-      size="sm"
-      slotProps={{
-        listbox: { variant: 'outlined', color: 'neutral', size: 'md' },
-      }}
-      disabled={vm.account_loader.loading}
-    >
-      {vm.accounts.map(each => (
-        <Option value={each.index} key={each.index}>
-          <P level="body-xs">[{each.index}]</P> {each.name}
-        </Option>
-      ))}
+export const AccountSelector = observer(({ vm }: { vm: AccountSelectorVM }) => {
+  const renaming = vm.rename.account != null
 
-      <Row gap={0.5} px={1} pt={0.5}>
-        {vm.create.name_unput_visible && (
-          <Input
-            sx={{ minWidth: '50px' }}
-            size="sm"
-            placeholder="Account name"
-            value={vm.create.name_input}
-            onChange={e => {
-              vm.create.set_name_input(e.target.value)
-            }}
-          />
-        )}
-        <IconButton
-          loading={vm.create.loader.loading}
+  return (
+    <Row alignItems={'center'} gap={0.5}>
+      <P>Account</P>
+      {renaming ? (
+        <Input
+          autoFocus
           variant="plain"
-          color="neutral"
-          sx={{
-            width: 'min-content',
+          color="primary"
+          size="sm"
+          value={vm.rename.input}
+          onBlur={() => vm.save_rename_account()}
+          onChange={e => vm.rename.set_input(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              e.currentTarget.blur()
+            }
+            if (e.key === 'Escape') {
+              vm.cancel_rename_account()
+            }
           }}
-          size="md"
-          onClick={() => vm.handle_plus_button_click()}
-        >
-          <Add size="sm" />
-        </IconButton>
-      </Row>
-    </Select>
-  </Row>
-))
+          sx={{ minWidth: 130 }}
+          disabled={vm.rename.loader.loading}
+        />
+      ) : (
+        <>
+          <Select
+            variant="plain"
+            color="primary"
+            value={vm.active_account}
+            onChange={(_, v) => {
+              vm.set_active_account(v)
+              vm.handle_account_switch(v)
+            }}
+            sx={{ width: 'min-content', gap: 0.5 }}
+            size="sm"
+            slotProps={{
+              listbox: { variant: 'outlined', color: 'neutral', size: 'md' },
+            }}
+            disabled={vm.account_loader.loading}
+          >
+            {vm.accounts.map(each => (
+              <Option value={each.index} key={each.index}>
+                <P level="body-xs">[{each.index}]</P> {each.name}
+              </Option>
+            ))}
+
+            <Row gap={0.5} px={1} pt={0.5}>
+              {vm.create.name_unput_visible && (
+                <Input
+                  sx={{ minWidth: '50px' }}
+                  size="sm"
+                  placeholder="Account name"
+                  value={vm.create.name_input}
+                  onChange={e => {
+                    vm.create.set_name_input(e.target.value)
+                  }}
+                />
+              )}
+              <IconButton
+                loading={vm.create.loader.loading}
+                variant="plain"
+                color="neutral"
+                sx={{
+                  width: 'min-content',
+                }}
+                size="md"
+                onClick={() => vm.handle_plus_button_click()}
+              >
+                <Add size="sm" />
+              </IconButton>
+            </Row>
+          </Select>
+          <IconButton
+            variant="plain"
+            color="neutral"
+            size="sm"
+            disabled={!vm.active_account_item || vm.account_loader.loading}
+            onClick={() => vm.start_rename_active_account()}
+          >
+            <Edit sx={{ fontSize: 18 }} />
+          </IconButton>
+        </>
+      )}
+    </Row>
+  )
+})

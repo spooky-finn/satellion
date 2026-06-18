@@ -39,6 +39,37 @@ impl ElectrumAdapter {
             .ok_or_else(|| "invalid fee response".to_string())
     }
 
+    /// Batch query the activity flag for the given addresses. Uses
+    /// `blockchain.scripthash.get_history` (much smaller payload than
+    /// `listunspent` for empty addresses) and returns one boolean per input
+    /// address, in the same order.
+    pub async fn batch_has_activity(
+        &self,
+        addresses: &[bitcoin::Address],
+    ) -> Result<Vec<bool>, String> {
+        if addresses.is_empty() {
+            return Ok(vec![]);
+        }
+        let calls: Vec<_> = addresses
+            .iter()
+            .map(|a| {
+                (
+                    "blockchain.scripthash.get_history",
+                    vec![json!(scripthash(a))],
+                )
+            })
+            .collect();
+        let results = self.client.batch(calls).await?;
+        results
+            .into_iter()
+            .map(|r| {
+                r.as_array()
+                    .map(|a| !a.is_empty())
+                    .ok_or_else(|| "get_history: expected array".to_string())
+            })
+            .collect()
+    }
+
     pub async fn get_utxos(&self, address_path_map: AddressPathMap) -> Result<Vec<Utxo>, String> {
         let addresses: Vec<_> = address_path_map.keys().collect();
         let calls: Vec<_> = addresses

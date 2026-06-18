@@ -66,8 +66,24 @@ const BitcoinDetails = observer(() => {
             <UtxoListModal />
 
             <B onClick={() => btc.transfer.set_open(true)}>Send</B>
+
+            <B
+              sx={{ ml: 'auto' }}
+              loading={btc.discovery_loader.loading}
+              variant="plain"
+              onClick={() => btc.discover_wallet()}
+            >
+              Discover
+            </B>
             <TransferModal />
           </Row>
+          {btc.discovery_loader.data && (
+            <P level="body-xs">
+              Discovery found {btc.discovery_loader.data.accounts.length}{' '}
+              accounts, added {btc.discovery_loader.data.paths_added} paths and{' '}
+              {btc.discovery_loader.data.utxos_added} UTXOs
+            </P>
+          )}
         </Card>
       )}
       {btc.height && <P level="body-xs">Blockchain head at {btc.height}</P>}

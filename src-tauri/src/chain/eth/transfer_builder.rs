@@ -111,11 +111,25 @@ pub struct TransactionMetadata {
     pub fee_ceiling: U256,
 }
 
+/// Captured metadata for the transaction currently held in `pending_tx`. We
+/// stash this so [`TxBuilder::sign_and_send_tx`] can surface enough info to
+/// record a history entry without us having to dig back into the alloy
+/// `TransactionRequest`.
+#[derive(Debug, Clone)]
+pub struct PendingTxMeta {
+    pub payload: TransferPayload,
+    pub metadata_estimated_gas: u64,
+    pub metadata_max_fee_per_gas: u128,
+    pub metadata_max_priority_fee_per_gas: u128,
+    pub nonce: u64,
+}
+
 pub struct TxBuilder {
     provider: DynProvider,
     fee_estimator: FeeEstimator,
     transfer_builder_factory: TransferBuilderFactory,
     pending_tx: Option<TransactionRequest>,
+    pending_meta: Option<PendingTxMeta>,
 }
 
 impl TxBuilder {
@@ -124,6 +138,7 @@ impl TxBuilder {
             fee_estimator: FeeEstimator::new(provider.clone()),
             provider,
             pending_tx: None,
+            pending_meta: None,
             transfer_builder_factory: TransferBuilderFactory,
         }
     }
@@ -157,8 +172,22 @@ impl TxBuilder {
         transfer_builder
             .check_balance(&req, &ctx, metadata.estimated_gas, metadata.estimator)
             .await?;
+        self.pending_meta = Some(PendingTxMeta {
+            payload: req,
+            metadata_estimated_gas: metadata.estimated_gas,
+            metadata_max_fee_per_gas: metadata.estimator.max_fee_per_gas,
+            metadata_max_priority_fee_per_gas: metadata.estimator.max_priority_fee_per_gas,
+            nonce,
+        });
         self.pending_tx = Some(transaction);
         Ok(metadata)
+    }
+
+    /// Consume the metadata recorded by the last [`Self::create_transfer`]
+    /// call. Useful right after [`Self::sign_and_send_tx`] for writing a
+    /// history row.
+    pub fn take_pending_meta(&mut self) -> Option<PendingTxMeta> {
+        self.pending_meta.take()
     }
 
     pub async fn sign_and_send_tx(
@@ -187,6 +216,11 @@ impl TxBuilder {
 
         self.pending_tx = None;
         Ok(*pending_tx.tx_hash())
+    }
+
+    pub fn discard_pending(&mut self) {
+        self.pending_tx = None;
+        self.pending_meta = None;
     }
 
     async fn calc_gas(

@@ -5,7 +5,7 @@ use std::sync::{
 
 use rustls::{ClientConfig as RustlsConfig, RootCertStore, pki_types::ServerName};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::Value;
 use tokio::{
     io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader, split},
     net::TcpStream,
@@ -56,10 +56,14 @@ impl Conn {
 
     async fn recv(&mut self) -> Result<String, String> {
         let mut line = String::new();
-        self.reader
+        let bytes = self
+            .reader
             .read_line(&mut line)
             .await
             .map_err(|e| format!("read: {e}"))?;
+        if bytes == 0 {
+            return Err("read: connection closed by Electrum server".to_string());
+        }
         Ok(line)
     }
 }
@@ -122,21 +126,22 @@ impl ElectrumClient {
         let base_id = self
             .request_id
             .fetch_add(calls.len() as u64, Ordering::SeqCst);
-        let batch: Vec<Value> = calls
+        let lines = calls
             .iter()
             .enumerate()
             .map(|(i, (method, params))| {
-                json!({ "jsonrpc": "2.0", "id": base_id + i as u64, "method": method, "params": params })
+                build_request_line(base_id + i as u64, method, params.clone())
             })
-            .collect();
-        let line = format!(
-            "{}\n",
-            serde_json::to_string(&batch).map_err(|e| e.to_string())?
-        );
+            .collect::<Result<String, String>>()?;
         let conn = self.get_conn().await?;
         let mut g = conn.lock().await;
-        g.send(&line).await?;
-        parse_batch(&g.recv().await?, calls.len())
+        g.send(&lines).await?;
+
+        let mut responses = Vec::with_capacity(calls.len());
+        for _ in 0..calls.len() {
+            responses.push(parse_single(&g.recv().await?)?);
+        }
+        Ok(responses)
     }
 }
 
@@ -266,27 +271,6 @@ fn parse_single(line: &str) -> Result<Value, String> {
         return Err(err.message);
     }
     resp.result.ok_or_else(|| "empty result".to_string())
-}
-
-fn parse_batch(line: &str, expected: usize) -> Result<Vec<Value>, String> {
-    let responses: Vec<RpcResp> =
-        serde_json::from_str(line).map_err(|e| format!("parse batch: {e}"))?;
-    if responses.len() != expected {
-        return Err(format!(
-            "batch: got {} responses, expected {}",
-            responses.len(),
-            expected
-        ));
-    }
-    responses
-        .into_iter()
-        .map(|r| {
-            if let Some(err) = r.error {
-                return Err(err.message);
-            }
-            r.result.ok_or_else(|| "empty result".to_string())
-        })
-        .collect()
 }
 
 pub fn parse_host_port(addr: &str) -> Result<(&str, u16), String> {
