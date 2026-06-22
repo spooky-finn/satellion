@@ -117,7 +117,6 @@ impl SessionKeeper {
 mod tests {
     use std::sync::Mutex as StdMutex;
 
-    use shush_rs::SecretBox;
     use tokio::time::{Duration, sleep};
 
     use super::*;
@@ -133,7 +132,7 @@ mod tests {
             config,
             name.to_string(),
             MNEMONIC.to_string(),
-            SecretBox::new(Box::new("333".to_string())),
+            "333".to_string(),
             None,
         )
         .expect("Failed to create test wallet");

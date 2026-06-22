@@ -7,7 +7,7 @@ use specta::Type;
 use crate::{
     chain::btc::{
         Prk, coin_selection,
-        dtos::OutPointRef,
+        dtos::{ActiveAccountView, OutPointRef},
         key_derivation::{
             Change, Child, KeyDerivationPath, KeyDeriviationPathSlice, LabeledKeyDerivationPath,
             Proposal,
@@ -69,6 +69,31 @@ impl Account {
             .collect();
         map.insert(main_addr.0.taproot_address, main_addr.1);
         map
+    }
+
+    pub fn info(&self, prk: &Prk, network: Network) -> Result<ActiveAccountView, String> {
+        let (mainkey, _) = self.main_key(prk, network)?;
+        let address_label_map = self.keychain.to_label_map();
+
+        let mut utxo: Vec<_> = self
+            .utxo_set
+            .entries
+            .values()
+            .map(|utxo| utxo.to_view(&address_label_map))
+            .collect();
+        utxo.sort_by(|a, b| {
+            b.value
+                .parse::<u64>()
+                .unwrap_or(0)
+                .cmp(&a.value.parse::<u64>().unwrap_or(0))
+        });
+
+        Ok(ActiveAccountView {
+            index: self.index,
+            address: mainkey.taproot_address.to_string(),
+            total_balance: self.utxo_set.total_value().to_string(),
+            utxo,
+        })
     }
 }
 

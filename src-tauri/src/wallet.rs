@@ -1,4 +1,7 @@
-use shush_rs::{ExposeSecret, SecretBox};
+use std::sync::Arc;
+
+use shush_rs::SecretBox;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::{
     chain::btc,
@@ -7,10 +10,25 @@ use crate::{
     wallet_keeper::WalletKeeper,
 };
 
+#[derive(ZeroizeOnDrop, Zeroize)]
+pub struct WalletSecret {
+    pub(crate) mnemonic: String,
+    pub(crate) passphrase: String,
+}
+
+pub type Secretik = Arc<SecretBox<WalletSecret>>;
+
+impl WalletSecret {
+    pub fn new(mnemonic: String, passphrase: String) -> Secretik {
+        Arc::new(shush_rs::SecretBox::new(Box::new(Self {
+            mnemonic,
+            passphrase,
+        })))
+    }
+}
+
 pub struct Wallet {
     pub name: String,
-    pub mnemonic: SecretBox<String>,
-    pub passphrase: SecretBox<String>,
     pub last_used_chain: BlockChain,
     pub birth_date: Option<u64>,
     pub version: u16,
@@ -27,36 +45,21 @@ impl Wallet {
         config: Config,
         name: String,
         mnemonic: String,
-        passphrase: SecretBox<String>,
+        passphrase: String,
         birth_date: Option<u64>,
     ) -> Result<Self, String> {
         mnemonic::validate(&mnemonic)?;
+        let secret = WalletSecret::new(mnemonic, passphrase);
         Ok(Wallet {
             name,
-            mnemonic: SecretBox::new(Box::new(mnemonic)),
-            passphrase,
             last_used_chain: BlockChain::Bitcoin,
             birth_date,
             version: 1,
-            btc: btc::BitcoinWallet::new(config.clone()),
-            eth: eth::EthereumWallet::new(config.clone()),
+            btc: btc::BitcoinWallet::new(config.clone(), Arc::clone(&secret)),
+            eth: eth::EthereumWallet::new(config.clone(), secret),
             keeper: WalletKeeper::default(),
             config,
         })
-    }
-
-    pub fn btc_prk(&self) -> Result<btc::Prk, String> {
-        self.btc.build_prk(
-            &self.mnemonic.expose_secret(),
-            &self.passphrase.expose_secret(),
-        )
-    }
-
-    pub fn eth_prk(&self) -> Result<eth::Prk, String> {
-        self.eth.build_prk(
-            &self.mnemonic.expose_secret(),
-            &self.passphrase.expose_secret(),
-        )
     }
 
     pub fn persist(&self) -> Result<(), String> {

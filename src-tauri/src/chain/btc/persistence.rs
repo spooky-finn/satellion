@@ -13,6 +13,7 @@ use crate::{
     },
     chain_trait::AccountIndex,
     config::Config,
+    wallet::Secretik,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -108,9 +109,10 @@ impl From<&BitcoinWallet> for WalletStored {
 }
 
 impl BitcoinWallet {
-    pub fn from_dto(dto: WalletStored, config: Config) -> Self {
+    pub fn from_dto(dto: WalletStored, config: Config, secret: Secretik) -> Self {
         let server = select_btc_server(&config);
         BitcoinWallet {
+            secret,
             accounts: dto.accounts.into_iter().map(Account::from).collect(),
             active_account: dto.active_account,
             server,

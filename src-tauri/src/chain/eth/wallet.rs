@@ -1,18 +1,21 @@
 use std::str::FromStr;
 
 use crate::{
-    chain_trait::{AccountIndex, AssetTracker, ChainTrait, SecureKey},
+    chain_trait::{AccountIndex, AssetTracker, SecureKey},
     config::Config,
     eth::{
         constants::{self},
         dtos::EthereumUnlock,
         token::Token,
     },
+    wallet::Secretik,
 };
 use alloy::primitives::Address;
 use alloy_signer_local::{MnemonicBuilder, PrivateKeySigner, coins_bip39::English};
+use shush_rs::ExposeSecret;
 
 pub struct EthereumWallet {
+    pub(crate) secret: Secretik,
     pub config: Config,
     pub active_account: AccountIndex,
     pub accounts: Vec<Account>,
@@ -34,27 +37,6 @@ impl SecureKey for Prk {
 
     fn expose(&self) -> &Self::Material {
         &self.signer
-    }
-}
-
-impl ChainTrait for EthereumWallet {
-    type AccountState = EthereumUnlock;
-    type Prk = Prk;
-    type UnlockContext = Vec<String>;
-
-    fn unlock(
-        &mut self,
-        addresses: Self::UnlockContext,
-        prk: &Self::Prk,
-    ) -> Result<Self::AccountState, String> {
-        let account = self.active_account()?;
-        Ok(EthereumUnlock {
-            accounts: self.account_summaries(addresses)?,
-            active_account: crate::eth::dtos::EthereumActiveAccountView {
-                index: account.index,
-                address: prk.expose().address().to_string(),
-            },
-        })
     }
 }
 
@@ -80,25 +62,41 @@ impl AssetTracker<Token> for EthereumWallet {
 }
 
 impl EthereumWallet {
-    pub fn build_prk(&self, mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
-        self.build_account_prkey(mnemonic, passphrase, self.active_account)
+    pub fn prk(&self) -> Result<Prk, String> {
+        self.build_account_prk(self.active_account)
     }
 
-    pub fn build_account_prkey(
-        &self,
-        mnemonic: &str,
-        passphrase: &str,
-        account: AccountIndex,
-    ) -> Result<Prk, String> {
+    pub fn unlock(&mut self) -> Result<EthereumUnlock, String> {
+        Ok(EthereumUnlock {
+            accounts: self.account_summaries()?,
+            active_account: crate::eth::dtos::EthereumActiveAccountView {
+                index: self.active_account()?.index,
+                address: self.prk()?.expose().address().to_string(),
+            },
+        })
+    }
+
+    pub fn build_account_prk(&self, account: AccountIndex) -> Result<Prk, String> {
         self.get_account(account)?;
+        let secret = self.secret.expose_secret();
         MnemonicBuilder::<English>::default()
-            .phrase(mnemonic)
-            .derivation_path(&format!("m/44'/60'/{}'/0/0", account))
+            .phrase(&secret.mnemonic)
+            .derivation_path(format!("m/44'/60'/{}'/0/0", account))
             .unwrap()
-            .password(self.config.xprk_passphrase(passphrase))
+            .password(self.config.xprk_passphrase(&secret.passphrase))
             .build()
             .map_err(|e| format!("fail to derive eth signer: {}", e))
             .map(|signer| Prk { signer })
+    }
+
+    pub fn addresses(&self) -> Result<Vec<String>, String> {
+        self.accounts
+            .iter()
+            .map(|account| {
+                self.build_account_prk(account.index)
+                    .map(|prk| prk.expose().address().to_string())
+            })
+            .collect()
     }
 
     pub fn get_tracked_token(&self, token: Address) -> Option<&Token> {
@@ -134,8 +132,8 @@ impl EthereumWallet {
 
     pub fn account_summaries(
         &self,
-        addresses: Vec<String>,
     ) -> Result<Vec<crate::eth::dtos::EthereumAccountSummary>, String> {
+        let addresses = self.addresses()?;
         if addresses.len() != self.accounts.len() {
             return Err("account address count does not match accounts".to_string());
         }
@@ -187,8 +185,9 @@ impl EthereumWallet {
 }
 
 impl EthereumWallet {
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: Config, secret: Secretik) -> Self {
         Self {
+            secret,
             config,
             active_account: 0,
             accounts: vec![Account {
@@ -210,26 +209,34 @@ mod tests {
         chain_trait::{AssetTracker, SecureKey},
         config::Config,
         eth::constants::ETH,
+        wallet::WalletSecret,
     };
 
     use super::EthereumWallet;
 
     const MNEMONIC: &str = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
 
+    fn new_wallet() -> EthereumWallet {
+        EthereumWallet::new(
+            Config::default(),
+            WalletSecret::new(MNEMONIC.to_string(), String::new()),
+        )
+    }
+
     #[test]
     fn accounts_use_separate_bip44_derivation_paths() {
-        let mut wallet = EthereumWallet::new(Config::default());
-        let first = wallet.build_prk(MNEMONIC, "").unwrap();
+        let mut wallet = new_wallet();
+        let first = wallet.prk().unwrap();
 
         assert_eq!(wallet.create_account("frequent".to_string()), 1);
-        let second = wallet.build_prk(MNEMONIC, "").unwrap();
+        let second = wallet.prk().unwrap();
 
         assert_ne!(first.expose().address(), second.expose().address());
     }
 
     #[test]
     fn account_lifecycle_keeps_a_valid_active_account() {
-        let mut wallet = EthereumWallet::new(Config::default());
+        let mut wallet = new_wallet();
         let second = wallet.create_account("cold".to_string());
 
         assert_eq!(wallet.active_account, second);
@@ -245,7 +252,7 @@ mod tests {
 
     #[test]
     fn tracked_tokens_are_isolated_per_account() {
-        let mut wallet = EthereumWallet::new(Config::default());
+        let mut wallet = new_wallet();
         let second = wallet.create_account("cold".to_string());
 
         wallet.track(ETH.clone()).unwrap();

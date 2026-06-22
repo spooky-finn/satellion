@@ -14,7 +14,6 @@ use crate::{
         fee_bump::{BuildCpfpParams, build_cpfp_psbt},
         fee_estimator::estimate_fee_rate,
         key_derivation::{Change, Proposal},
-        service::{self},
         tx_builder::{BuildPsbtParams, build_psbt, sign_psbt},
     },
     chain_trait::SecureKey,
@@ -30,9 +29,9 @@ use crate::{
 pub async fn account_info(sk: tauri::State<'_, SK>) -> Result<ActiveAccountView, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
-    let prk = wallet.btc_prk()?;
+    let prk = wallet.btc.prk()?;
     let account = wallet.btc.active_account()?;
-    service::get_account_info(account, &prk, wallet.config.btc.network())
+    account.info(&prk, wallet.config.btc.network())
 }
 
 #[specta]
@@ -46,7 +45,7 @@ pub async fn derive_external_address(
 ) -> Result<String, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
-    let prk = wallet.btc_prk()?;
+    let prk = wallet.btc.prk()?;
 
     let key_derivation_path = wallet
         .btc
@@ -85,7 +84,7 @@ pub async fn get_external_addresess(
 ) -> Result<Vec<DerivedAddress>, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
-    let prk = wallet.btc_prk()?;
+    let prk = wallet.btc.prk()?;
     let account = wallet.btc.active_account()?;
     let external_paths: Vec<_> = account
         .keychain
@@ -145,7 +144,7 @@ pub async fn get_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoView>, String
 pub async fn discover_wallet(sk: tauri::State<'_, SK>) -> Result<DiscoveryReportView, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
-    let prk = wallet.btc_prk()?;
+    let prk = wallet.btc.prk()?;
     let network = wallet.config.btc.network();
 
     let discovered = WalletDiscoverer::new(&wallet.btc.server, prk.expose(), network)
@@ -169,7 +168,7 @@ pub async fn discover_wallet(sk: tauri::State<'_, SK>) -> Result<DiscoveryReport
 pub async fn sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoView>, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
-    let prk = wallet.btc_prk()?;
+    let prk = wallet.btc.prk()?;
     let address_path_map = wallet
         .btc
         .active_account()?
@@ -214,7 +213,7 @@ pub async fn build_tx(
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let account = wallet.btc.active_account()?;
-    let prk = wallet.btc_prk()?;
+    let prk = wallet.btc.prk()?;
     let xpriv = prk.expose();
 
     let recipient: Address = Address::from_str(&req.recipient)
@@ -261,7 +260,7 @@ pub async fn bump_fee_cpfp(
 ) -> Result<BumpFeeResponse, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
-    let prk = wallet.btc_prk()?;
+    let prk = wallet.btc.prk()?;
     let parent_tx_id =
         Txid::from_str(&req.parent_tx_id).map_err(|e| format!("invalid parent_tx_id: {e}"))?;
 
@@ -313,7 +312,7 @@ pub async fn broadcast_tx(
     let send_value_sat = tx_build_res.send_value_sat;
     let psbt = tx_build_res.psbt;
 
-    let prk = wallet.btc_prk()?;
+    let prk = wallet.btc.prk()?;
     let tx = sign_psbt(psbt, &prk)?;
     let vsize = tx.vsize() as u32;
 

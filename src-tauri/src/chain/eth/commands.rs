@@ -33,7 +33,7 @@ pub async fn ethereum_account_info(
 ) -> Result<EthereumActiveAccountView, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
-    let prk = wallet.eth_prk()?;
+    let prk = wallet.eth.prk()?;
     let account = wallet.eth.active_account()?;
 
     Ok(EthereumActiveAccountView {
@@ -130,7 +130,7 @@ pub async fn estimate_transfer(
     } = req;
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
-    let prk = wallet.eth_prk()?;
+    let prk = wallet.eth.prk()?;
     let sender = prk.expose().address();
     let recipient = parse_addres(&recipient)?;
     let token_address = parse_addres(&token_address)?;
@@ -192,7 +192,7 @@ pub async fn execute_transfer(
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let mut builder = builder.try_lock().map_err(|e| e.to_string())?;
-    let prk = wallet.eth_prk()?;
+    let prk = wallet.eth.prk()?;
     let hash = builder.sign_and_send_tx(prk.expose()).await?;
     let hash_str = hash.to_string();
 

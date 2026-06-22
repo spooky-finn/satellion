@@ -10,7 +10,6 @@ use satellion_lib::{
         account::UtxoSelectionStrategy,
         dtos::OutPointRef,
         key_derivation::{Change, KeyDerivationPath, Proposal},
-        service,
         tx_builder::{BuildPsbtParams, build_psbt},
     },
     chain_trait::SecureKey,
@@ -20,7 +19,6 @@ use satellion_lib::{
     utils,
     wallet::Wallet,
 };
-use shush_rs::SecretBox;
 
 use crate::bitcoind::BitcoindHarness;
 
@@ -38,7 +36,7 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
         config.clone(),
         wallet_name.clone(),
         TEST_MNEMONIC.to_string(),
-        SecretBox::new(Box::new("1111".to_string())),
+        "1111".to_string(),
         None,
     )
     .unwrap();
@@ -49,10 +47,10 @@ async fn bitcon_e2e() -> Result<(), Box<dyn Error>> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let account = wallet.btc.active_account()?;
-    let prk = wallet.btc_prk()?;
+    let prk = wallet.btc.prk()?;
     let network = wallet.config.btc.network();
 
-    let account_info = service::get_account_info(account, &prk, network)?;
+    let account_info = account.info(&prk, network)?;
     let key_derive_path = KeyDerivationPath::new(
         Proposal::Taproot,
         network,

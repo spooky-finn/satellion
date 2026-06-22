@@ -6,6 +6,7 @@ use crate::{
         wallet::{Account, EthereumWallet, parse_addres},
     },
     config::Config,
+    wallet::Secretik,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -72,7 +73,7 @@ impl From<&EthereumWallet> for WalletStored {
 }
 
 impl EthereumWallet {
-    pub fn from_dto(dto: WalletStored, config: Config) -> Result<Self, String> {
+    pub fn from_dto(dto: WalletStored, config: Config, secret: Secretik) -> Result<Self, String> {
         let accounts = dto
             .accounts
             .into_iter()
@@ -90,6 +91,7 @@ impl EthereumWallet {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(EthereumWallet {
+            secret,
             config,
             accounts,
             active_account: dto.active_account,

@@ -98,13 +98,9 @@ mod tests {
 
     use super::*;
     use crate::{
-        chain::btc::config::BitcoinConfig,
-        config::{Config, TorConfig},
-        eth::{
-            config::EthereumConfig,
-            constants::{USDC, USDT},
-            select_provider,
-        },
+        chain::eth::constants::{USDC, USDT},
+        config::Config,
+        eth::select_provider,
     };
 
     fn get_config() -> Config {

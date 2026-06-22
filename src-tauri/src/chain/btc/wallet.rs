@@ -1,15 +1,21 @@
 use bip39::Language;
-use bitcoin::bip32::{self, Xpriv};
+use bitcoin::{
+    Network,
+    bip32::{self, Xpriv},
+};
+use shush_rs::ExposeSecret;
 
 use crate::{
     chain::btc::{
         account::Account,
+        dtos::{AccountSummary, BitcoinUnlock},
         key_derivation::{Change, KeyDerivationPath, Proposal},
         providers::btc_node::{BtcNode, select_btc_server},
         tx_builder::BuildTxResult,
     },
     chain_trait::{AccountIndex, SecureKey},
     config::Config,
+    wallet::{Secretik, WalletSecret},
 };
 
 pub struct Prk {
@@ -31,6 +37,7 @@ impl SecureKey for Prk {
 }
 
 pub struct BitcoinWallet {
+    pub(crate) secret: Secretik,
     pub active_account: AccountIndex,
     pub accounts: Vec<Account>,
     pub server: BtcNode,
@@ -39,11 +46,12 @@ pub struct BitcoinWallet {
 }
 
 impl BitcoinWallet {
-    pub fn new(config: Config) -> BitcoinWallet {
+    pub fn new(config: Config, secret: Secretik) -> BitcoinWallet {
         let active_account = 0;
         let account = Account::new(config.btc.network(), active_account, "main".to_string());
         let server = select_btc_server(&config);
         BitcoinWallet {
+            secret,
             config,
             active_account,
             accounts: vec![account],
@@ -52,13 +60,44 @@ impl BitcoinWallet {
         }
     }
 
-    pub fn build_prk(&self, mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
-        let mnemonic = bip39::Mnemonic::parse_in_normalized(Language::English, mnemonic)
+    pub fn prk(&self) -> Result<Prk, String> {
+        let secret = self.secret.expose_secret();
+        let mnemonic = bip39::Mnemonic::parse_in_normalized(Language::English, &secret.mnemonic)
             .map_err(|e| e.to_string())?;
-        let seed = mnemonic.to_seed(self.config.xprk_passphrase(passphrase));
+        let seed = mnemonic.to_seed(self.config.xprk_passphrase(&secret.passphrase));
         let xpriv = bip32::Xpriv::new_master(self.config.btc.network(), &seed)
             .map_err(|e| e.to_string())?;
         Ok(Prk { xpriv })
+    }
+
+    pub fn unlock(&self) -> Result<BitcoinUnlock, String> {
+        let network = self.config.btc.network();
+        let account = self.active_account()?;
+        let prk = self.prk()?;
+
+        Ok(BitcoinUnlock {
+            accounts: self.list_all_accounts(network)?,
+            active_account: account.info(&prk, network)?,
+        })
+    }
+
+    pub fn list_all_accounts(&self, network: Network) -> Result<Vec<AccountSummary>, String> {
+        let prk = self.prk()?;
+        self.accounts
+            .iter()
+            .map(|account| {
+                let (main_key, _) = account.main_key(&prk, network)?;
+                Ok(AccountSummary {
+                    index: account.index,
+                    name: account.name.clone(),
+                    address: main_key.taproot_address.to_string(),
+                })
+            })
+            .collect()
+    }
+
+    pub fn with_secret<T>(&self, f: impl FnOnce(&WalletSecret) -> T) -> T {
+        f(&self.secret.expose_secret())
     }
 
     pub fn get_account(&self, index: u32) -> Result<&Account, String> {

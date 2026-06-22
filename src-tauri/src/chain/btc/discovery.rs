@@ -312,6 +312,7 @@ impl BitcoinWallet {
             }
             for u in da.utxos {
                 let op = u.outpoint();
+
                 if !account.utxo_set.entries.contains_key(&op) {
                     report.total_value_sat = report
                         .total_value_sat

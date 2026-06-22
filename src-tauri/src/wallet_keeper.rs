@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use shush_rs::SecretBox;
 use specta::Type;
 
 use crate::{config::Config, persistence, utils, wallet::Wallet};
@@ -48,7 +47,7 @@ impl WalletKeeper {
             config,
             name,
             mnemonic.to_string(),
-            SecretBox::new(Box::new(passphrase.to_string())),
+            passphrase.to_string(),
             birth_date,
         )?;
         self.repository.save(&wallet)?;

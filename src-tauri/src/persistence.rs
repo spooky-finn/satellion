@@ -1,12 +1,11 @@
-use std::{fs, io, path::PathBuf};
+use std::{fs, io, path::PathBuf, sync::Arc};
 
 use serde::{Deserialize, Serialize};
-use shush_rs::{ExposeSecret, SecretBox};
 
 use crate::{
     config::{Config, constants::BlockChain},
     encryptor::{self, Envelope},
-    wallet::Wallet,
+    wallet::{Wallet, WalletSecret},
     wallet_keeper::WalletKeeper,
 };
 
@@ -27,19 +26,20 @@ pub struct WalletEntity {
 }
 
 impl WalletEntity {
-    pub fn to_model(&self, config: Config, passphrase: &str) -> Result<Wallet, String> {
+    pub fn to_model(self, config: Config, passphrase: &str) -> Result<Wallet, String> {
+        let secret = WalletSecret::new(self.mnemonic, passphrase.to_owned());
         Ok(Wallet {
             keeper: WalletKeeper::default(),
             name: self.name.clone(),
-            mnemonic: SecretBox::new(Box::new(self.mnemonic.clone())),
-            passphrase: SecretBox::new(Box::new(passphrase.to_string())),
             btc: crate::chain::btc::BitcoinWallet::from_dto(
                 self.chain_set.bitcoin.clone(),
                 config.clone(),
+                Arc::clone(&secret),
             ),
             eth: crate::chain::eth::EthereumWallet::from_dto(
                 self.chain_set.ethereum.clone(),
                 config.clone(),
+                secret,
             )?,
             last_used_chain: BlockChain::from(self.last_used_chain),
             birth_date: self.birth_date,
@@ -51,7 +51,7 @@ impl WalletEntity {
     pub fn from_model(wallet: &Wallet) -> Self {
         WalletEntity {
             name: wallet.name.clone(),
-            mnemonic: wallet.mnemonic.expose_secret().to_string(),
+            mnemonic: wallet.btc.with_secret(|secret| secret.mnemonic.clone()),
             chain_set: ChainSet {
                 bitcoin: crate::chain::btc::persistence::WalletStored::from(&wallet.btc),
                 ethereum: crate::chain::eth::persistence::WalletStored::from(&wallet.eth),
@@ -90,11 +90,13 @@ impl WalletRepository {
         let wallet_name = wallet.name.clone();
         let json = serde_json::to_string(&persisted_wallet)
             .map_err(|e| format!("fait to serialize persisted_wallet {}", e))?;
-        let ciphertext = encryptor::encrypt(
-            json.as_bytes(),
-            wallet.passphrase.expose_secret().as_bytes(),
-            wallet.version,
-        )?;
+        let ciphertext = wallet.btc.with_secret(|secret| {
+            encryptor::encrypt(
+                json.as_bytes(),
+                secret.passphrase.as_bytes(),
+                wallet.version,
+            )
+        })?;
         FsRepository
             .insert(&wallet_name, ciphertext)
             .map_err(|e| format!("fail to save wallet on disk {}", e))?;
@@ -213,6 +215,8 @@ impl FsRepository {
 
 #[cfg(test)]
 mod tests {
+    use crate::wallet::WalletSecret;
+
     use super::*;
 
     #[test]
@@ -222,8 +226,9 @@ mod tests {
         let passphrase = "1111";
         let config = Config::new();
 
-        let btc = crate::chain::btc::BitcoinWallet::new(config.clone());
-        let eth = crate::chain::eth::EthereumWallet::new(config.clone());
+        let secret = WalletSecret::new("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about".to_string(), passphrase.to_string());
+        let btc = crate::chain::btc::BitcoinWallet::new(config.clone(), Arc::clone(&secret));
+        let eth = crate::chain::eth::EthereumWallet::new(config.clone(), secret);
 
         let persisted_wallet = WalletEntity {
             name: name.clone(),
@@ -249,8 +254,10 @@ mod tests {
             .load(config.clone(), &name, &passphrase)
             .expect("fail to load wallet");
         assert_eq!(
-            wallet.mnemonic.expose_secret().to_string(),
-            saved_wallet.mnemonic.expose_secret().to_string()
+            wallet.btc.with_secret(|secret| secret.mnemonic.clone()),
+            saved_wallet
+                .btc
+                .with_secret(|secret| secret.mnemonic.clone())
         )
     }
 }

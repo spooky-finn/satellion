@@ -51,24 +51,13 @@ impl Default for ConfigSecurity {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type, JsonSchema)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(default)]
 pub struct Config {
     pub eth: EthereumConfig,
     pub btc: BitcoinConfig,
     pub tor: TorConfig,
     pub security: ConfigSecurity,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            eth: EthereumConfig::default(),
-            btc: BitcoinConfig::default(),
-            tor: TorConfig::default(),
-            security: ConfigSecurity::default(),
-        }
-    }
 }
 
 impl Config {

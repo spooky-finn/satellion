@@ -9,7 +9,7 @@ use zeroize::Zeroize;
 use crate::{
     biometric,
     chain::btc,
-    chain_trait::{AccountIndex, ChainTrait, SecureKey},
+    chain_trait::AccountIndex,
     config::{BlockChain, Config, constants},
     eth::{
         self, PriceFeed,
@@ -206,32 +206,8 @@ async fn do_unlock(
         .repository
         .load(cfg.clone(), wallet_name, passphrase)?;
 
-    let (eth_prk, eth_addresses, btc_prk, last_used_chain) = {
-        let eth_prk = wallet.eth_prk()?;
-        let eth_addresses = wallet
-            .eth
-            .accounts
-            .iter()
-            .map(|account| {
-                wallet
-                    .eth
-                    .build_account_prkey(
-                        &wallet.mnemonic.expose_secret(),
-                        &wallet.passphrase.expose_secret(),
-                        account.index,
-                    )
-                    .map(|prk| prk.expose().address().to_string())
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        let btc_prk = wallet.btc_prk()?;
-        let last_used_chain = wallet.last_used_chain;
-        (eth_prk, eth_addresses, btc_prk, last_used_chain)
-    };
-
-    let (ethereum, bitcoin) = (
-        wallet.eth.unlock(eth_addresses, &eth_prk)?,
-        btc::service::unlock(&wallet.btc, &btc_prk)?,
-    );
+    let last_used_chain = wallet.last_used_chain;
+    let (ethereum, bitcoin) = (wallet.eth.unlock()?, wallet.btc.unlock()?);
 
     let session = Session::new(wallet, cfg.session_inactivity_timeout());
     sk.lock().await.set(session);
@@ -305,8 +281,9 @@ pub async fn is_biometric_unlock_enabled(wallet_name: String) -> Result<bool, St
 pub async fn enable_biometric_unlock(sk: tauri::State<'_, SK>) -> Result<(), String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
-    let passphrase: biometric::Passphrase =
-        SecretBox::new(Box::new(wallet.passphrase.expose_secret().to_string()));
+    let passphrase: biometric::Passphrase = SecretBox::new(Box::new(
+        wallet.btc.with_secret(|secret| secret.passphrase.clone()),
+    ));
     biometric::enable(&wallet.name, &passphrase).map_err(Into::into)
 }
 
@@ -328,8 +305,9 @@ pub async fn rename_wallet(
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let old_name = wallet.name.clone();
-    let passphrase: biometric::Passphrase =
-        SecretBox::new(Box::new(wallet.passphrase.expose_secret().to_string()));
+    let passphrase: biometric::Passphrase = SecretBox::new(Box::new(
+        wallet.btc.with_secret(|secret| secret.passphrase.clone()),
+    ));
     wallet_keeper.repository.rename(wallet, &new_name)?;
     let actual_name = wallet.name.clone();
     let _ = biometric::migrate(&old_name, &actual_name, &passphrase);
