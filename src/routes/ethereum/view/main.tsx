@@ -2,6 +2,7 @@ import { Card, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
+import { AccountSelector } from '../../../components/account_selector'
 import { CompactSrt } from '../../../components/compact_str'
 import { Navbar } from '../../../components/navbar'
 import { route } from '../../../lib/routes'
@@ -23,6 +24,9 @@ export const EthereumWallet = observer(() => {
   return (
     <Stack gap={1}>
       <Navbar />
+      <Row gap={3}>
+        <AccountSelector vm={eth.account_selector} />
+      </Row>
       {eth && (
         <>
           {addr && (

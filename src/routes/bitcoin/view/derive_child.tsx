@@ -1,9 +1,18 @@
-import { Divider, Input, Modal, ModalClose, ModalDialog } from '@mui/joy'
+import {
+  Divider,
+  Input,
+  Modal,
+  ModalClose,
+  ModalDialog,
+  Option,
+  Select,
+} from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
 import { CompactSrt } from '../../../components/compact_str'
 import { NumberInput } from '../../../components/number_input'
 import { B, P, Row } from '../../../shortcuts'
+import { Proposal } from '../proposal'
 import { DeriveChildVM } from '../view_model/derive_child.vm'
 
 export const DeriveChildAddress = observer((props: { refetch: () => void }) => {
@@ -38,9 +47,19 @@ export const DeriveChildAddress = observer((props: { refetch: () => void }) => {
             value={state.label}
             onChange={e => state.setLabel(e.target.value)}
           />
+          <Select
+            size="sm"
+            value={state.proposal}
+            onChange={(_, value) => {
+              if (value) state.setProposal(value)
+            }}
+          >
+            <Option value={Proposal.Taproot}>Taproot (BIP86)</Option>
+            <Option value={Proposal.SegWit}>SegWit (BIP84)</Option>
+          </Select>
           <B
             loading={state.loader.loading}
-            disabled={!state.label || !state.index}
+            disabled={!state.label || state.index === null}
             onClick={() => state.derive().then(props.refetch)}
           >
             Derive

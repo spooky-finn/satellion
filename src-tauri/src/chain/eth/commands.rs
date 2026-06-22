@@ -13,8 +13,8 @@ use crate::{
         self, PriceFeed,
         constants::{ETH, ETH_USD_PRICE_FEED},
         dtos::{
-            NetworkStatus, TokenBalance, TrackedTokenInfo, TransferEstimation, TransferRequest,
-            WalletBalance,
+            EthereumActiveAccountView, NetworkStatus, TokenBalance, TrackedTokenInfo,
+            TransferEstimation, TransferRequest, WalletBalance,
         },
         erc20_retriver::Erc20Retriever,
         transfer_builder::TransferPayload,
@@ -24,6 +24,23 @@ use crate::{
     session::SK,
     utils,
 };
+
+#[specta]
+#[tauri::command]
+#[tracing::instrument(name = "ethereum_account_info", skip_all, err)]
+pub async fn ethereum_account_info(
+    sk: tauri::State<'_, SK>,
+) -> Result<EthereumActiveAccountView, String> {
+    let mut sk = sk.lock().await;
+    let wallet = sk.wallet()?;
+    let prk = wallet.eth_prk()?;
+    let account = wallet.eth.active_account()?;
+
+    Ok(EthereumActiveAccountView {
+        index: account.index,
+        address: prk.expose().address().to_string(),
+    })
+}
 
 #[specta]
 #[tauri::command]
@@ -66,7 +83,7 @@ pub async fn get_wallet_balance(
         .map_err(|e| e.to_string())?;
 
     let token_balances = erc20_retriever
-        .balances(address, wallet.eth.tracked_tokens.clone())
+        .balances(address, wallet.eth.active_tracked_tokens()?.to_vec())
         .await
         .map_err(|e| e.to_string())?;
 
@@ -119,7 +136,7 @@ pub async fn estimate_transfer(
     let token_address = parse_addres(&token_address)?;
 
     let token = if token_address != ETH.address {
-        let tracked_tokens = &wallet.eth.tracked_tokens;
+        let tracked_tokens = wallet.eth.active_tracked_tokens()?;
         if let Some(t) = tracked_tokens.iter().find(|t| t.address == token_address) {
             t.clone()
         } else {

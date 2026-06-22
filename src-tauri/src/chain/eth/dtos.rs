@@ -5,6 +5,19 @@ use crate::{chain::eth::fee_estimator::FeeMode, config::BlockChain};
 
 #[derive(Serialize, Type)]
 pub struct EthereumUnlock {
+    pub accounts: Vec<EthereumAccountSummary>,
+    pub active_account: EthereumActiveAccountView,
+}
+
+#[derive(Serialize, Type)]
+pub struct EthereumAccountSummary {
+    pub index: u32,
+    pub name: String,
+}
+
+#[derive(Serialize, Type)]
+pub struct EthereumActiveAccountView {
+    pub index: u32,
     pub address: String,
 }
 

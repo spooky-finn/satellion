@@ -220,12 +220,14 @@ omit_passphrase_on_private_key: boolean;
  */
 session_inactivity_timeout_mins: number }
 export type CreationFlow = "Import" | "Generation"
+export type EthereumAccountSummary = { index: number; name: string }
+export type EthereumActiveAccountView = { index: number; address: string }
 export type EthereumConfig = { 
 /**
  * Ethereum JSON-RPC endpoint URL
  */
 rpc_url: string; anvil: boolean }
-export type EthereumUnlock = { address: string }
+export type EthereumUnlock = { accounts: EthereumAccountSummary[]; active_account: EthereumActiveAccountView }
 export type ListTransactionsRequest = { chain: BlockChain; account_index: number; limit: number | null }
 export type OutPointRef = { tx_id: string; vout: number }
 export type PriceFeedDto = { btc_usd: number; eth_usd: number }

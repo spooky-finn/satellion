@@ -1,7 +1,8 @@
 import { makeAutoObservable, runInAction } from 'mobx'
-import { commands } from '../../../bindings/btc'
+import { commands, type Proposal as ProposalDto } from '../../../bindings/btc'
 import { unwrap_result } from '../../../lib/handle_err'
 import { Loader } from '../../../view_model/loader'
+import { Proposal } from '../proposal'
 
 export class DeriveChildVM {
   readonly loader = new Loader()
@@ -21,6 +22,10 @@ export class DeriveChildVM {
     this.index = i
   }
   address: string | null = null
+  proposal: ProposalDto = Proposal.Taproot
+  setProposal(proposal: ProposalDto) {
+    this.proposal = proposal
+  }
 
   async next_unused_key_index() {
     const index = await commands.nextUnusedIndex().then(unwrap_result)
@@ -31,12 +36,12 @@ export class DeriveChildVM {
 
   async derive() {
     if (!this.label) throw Error('label is not set')
-    if (!this.index) throw Error('index is not set')
+    if (this.index === null) throw Error('index is not set')
 
     this.address = null
     this.loader.start()
     const address = await commands
-      .deriveExternalAddress(this.label, this.index)
+      .deriveExternalAddress(this.label, this.index, this.proposal)
       .then(unwrap_result)
       .finally(() => this.loader.stop())
 

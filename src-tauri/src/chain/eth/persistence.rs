@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     chain::eth::{
         token::Token,
-        wallet::{EthereumWallet, parse_addres},
+        wallet::{Account, EthereumWallet, parse_addres},
     },
     config::Config,
 };
@@ -39,29 +39,60 @@ impl TryFrom<TokenStored> for Token {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WalletStored {
+    pub accounts: Vec<AccountStored>,
+    pub active_account: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AccountStored {
+    pub index: u32,
+    pub name: String,
     pub tracked_tokens: Vec<TokenStored>,
 }
 
 impl From<&EthereumWallet> for WalletStored {
     fn from(w: &EthereumWallet) -> Self {
         WalletStored {
-            tracked_tokens: w.tracked_tokens.iter().map(TokenStored::from).collect(),
+            accounts: w
+                .accounts
+                .iter()
+                .map(|account| AccountStored {
+                    index: account.index,
+                    name: account.name.clone(),
+                    tracked_tokens: account
+                        .tracked_tokens
+                        .iter()
+                        .map(TokenStored::from)
+                        .collect(),
+                })
+                .collect(),
+            active_account: w.active_account,
         }
     }
 }
 
 impl EthereumWallet {
     pub fn from_dto(dto: WalletStored, config: Config) -> Result<Self, String> {
-        let tracked_tokens = dto
-            .tracked_tokens
+        let accounts = dto
+            .accounts
             .into_iter()
-            .map(Token::try_from)
+            .map(|account| {
+                Ok::<Account, String>(Account {
+                    index: account.index,
+                    name: account.name,
+                    tracked_tokens: account
+                        .tracked_tokens
+                        .into_iter()
+                        .map(Token::try_from)
+                        .collect::<Result<Vec<_>, _>>()?,
+                })
+            })
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(EthereumWallet {
             config,
-            tracked_tokens,
-            active_account: 0,
+            accounts,
+            active_account: dto.active_account,
         })
     }
 }

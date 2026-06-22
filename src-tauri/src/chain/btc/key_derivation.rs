@@ -6,6 +6,7 @@ use bitcoin::{
     key::{Keypair, Secp256k1},
 };
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use crate::chain_trait::AccountIndex;
 
@@ -66,7 +67,8 @@ impl TryFrom<u32> for Change {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Copy, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Copy, Eq, Hash, Serialize, Deserialize, Type)]
+#[serde(rename_all = "lowercase")]
 pub enum Proposal {
     SegWit = 84,
     Taproot = 86,

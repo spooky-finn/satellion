@@ -41,17 +41,17 @@ pub async fn account_info(sk: tauri::State<'_, SK>) -> Result<ActiveAccountView,
 pub async fn derive_external_address(
     label: String,
     index: u32,
+    proposal: Proposal,
     sk: tauri::State<'_, SK>,
 ) -> Result<String, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let prk = wallet.btc_prk()?;
 
-    let taproot_key_path =
-        wallet
-            .btc
-            .new_deriviation_path(Proposal::Taproot, Change::External, index)?;
-    let key_derivation_path = taproot_key_path.with_label(label.clone());
+    let key_derivation_path = wallet
+        .btc
+        .new_deriviation_path(proposal, Change::External, index)?
+        .with_label(label.clone());
     let child_key = key_derivation_path
         .path
         .derive(prk.expose())
@@ -64,7 +64,7 @@ pub async fn derive_external_address(
         .push(key_derivation_path);
 
     wallet.persist()?;
-    Ok(child_key.taproot_address.to_string())
+    Ok(child_key.address_for(proposal).to_string())
 }
 
 #[specta]
@@ -103,7 +103,7 @@ pub async fn get_external_addresess(
             Ok(DerivedAddress {
                 path: scheme.path.to_string(),
                 label: scheme.label.clone(),
-                address: key.taproot_address.to_string(),
+                address: key.address_for(scheme.path.purpose).to_string(),
             })
         })
         .collect::<Result<Vec<_>, String>>()

@@ -59,6 +59,7 @@ pub fn handlers() -> tauri_specta::Builder {
 
         tauri_specta::Builder::<tauri::Wry>::new()
             .commands(tauri_specta::collect_commands![
+                eth::commands::ethereum_account_info,
                 eth::commands::get_network_status,
                 eth::commands::get_wallet_balance,
                 eth::commands::estimate_transfer,
@@ -107,6 +108,7 @@ pub fn handlers() -> tauri_specta::Builder {
         btc::commands::broadcast_tx,
         btc::commands::bump_fee_cpfp,
         //
+        eth::commands::ethereum_account_info,
         eth::commands::get_network_status,
         eth::commands::get_wallet_balance,
         eth::commands::estimate_transfer,

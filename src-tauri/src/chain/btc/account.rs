@@ -59,11 +59,12 @@ impl Account {
             .paths
             .iter()
             .filter_map(|schema| {
-                schema
-                    .path
-                    .derive(prk.expose())
-                    .ok()
-                    .map(|child| (child.taproot_address, schema.path.clone()))
+                schema.path.derive(prk.expose()).ok().map(|child| {
+                    (
+                        child.address_for(schema.path.purpose).clone(),
+                        schema.path.clone(),
+                    )
+                })
             })
             .collect();
         map.insert(main_addr.0.taproot_address, main_addr.1);

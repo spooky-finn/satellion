@@ -5,6 +5,14 @@
 
 
 export const commands = {
+async ethereumAccountInfo() : Promise<Result<EthereumActiveAccountView, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("ethereum_account_info") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getNetworkStatus() : Promise<Result<NetworkStatus, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_network_status") };
@@ -74,6 +82,7 @@ async anvilSetInitialBalances(address: string) : Promise<Result<string, string>>
 /** user-defined types **/
 
 export type BlockChain = "Bitcoin" | "Ethereum"
+export type EthereumActiveAccountView = { index: number; address: string }
 export type FeeMode = "Minimal" | "Standard" | "Increased"
 export type NetworkStatus = { block_number: string; block_hash: string; base_fee_per_gas: string | null }
 export type TokenBalance = { symbol: string; balance: string; decimals: number; address: string }

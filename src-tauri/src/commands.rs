@@ -114,7 +114,7 @@ pub async fn add_account(
     let wallet = sk.wallet()?;
     let account_index = match chain {
         BlockChain::Bitcoin => wallet.btc.create_account(label),
-        BlockChain::Ethereum => todo!(),
+        BlockChain::Ethereum => wallet.eth.create_account(label),
     };
     wallet.persist()?;
     Ok(account_index)
@@ -132,7 +132,7 @@ pub async fn switch_account(
     let wallet = sk.wallet()?;
     match chain {
         BlockChain::Bitcoin => wallet.btc.active_account = account,
-        BlockChain::Ethereum => wallet.eth.active_account = account,
+        BlockChain::Ethereum => wallet.eth.switch_account(account)?,
     }
     wallet.persist()?;
     Ok(())
@@ -156,7 +156,7 @@ pub async fn rename_account(
     let wallet = sk.wallet()?;
     match chain {
         BlockChain::Bitcoin => wallet.btc.rename_account(account, name)?,
-        BlockChain::Ethereum => return Err("Ethereum account rename is not supported".to_string()),
+        BlockChain::Ethereum => wallet.eth.rename_account(account, name)?,
     }
     wallet.persist()?;
     Ok(())

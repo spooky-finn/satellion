@@ -5,9 +5,9 @@
 
 
 export const commands = {
-async deriveExternalAddress(label: string, index: number) : Promise<Result<string, string>> {
+async deriveExternalAddress(label: string, index: number, proposal: Proposal) : Promise<Result<string, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("derive_external_address", { label, index }) };
+    return { status: "ok", data: await TAURI_INVOKE("derive_external_address", { label, index, proposal }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -143,6 +143,7 @@ utxos_added: number;
  */
 total_value_sat: string }
 export type OutPointRef = { tx_id: string; vout: number }
+export type Proposal = "segwit" | "taproot"
 export type UtxoSelectionStrategy = { Manual: OutPointRef[] } | { Auto: number }
 export type UtxoView = { utxo_id: OutPointRef; value: string; deriv_path: string; address_label: string | null; confirmed: boolean }
 
