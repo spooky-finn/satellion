@@ -10,18 +10,26 @@ pub fn unlock(wallet: &BitcoinWallet, prk: &Prk) -> Result<BitcoinUnlock, String
     let network = wallet.config.btc.network();
     let account = wallet.active_account()?;
     Ok(BitcoinUnlock {
-        accounts: list_all_accounts(wallet),
+        accounts: list_all_accounts(wallet, prk, network)?,
         active_account: get_account_info(account, prk, network)?,
     })
 }
 
-pub fn list_all_accounts(wallet: &BitcoinWallet) -> Vec<AccountSummary> {
+pub fn list_all_accounts(
+    wallet: &BitcoinWallet,
+    prk: &Prk,
+    network: Network,
+) -> Result<Vec<AccountSummary>, String> {
     wallet
         .accounts
         .iter()
-        .map(|e| AccountSummary {
-            index: e.index,
-            name: e.name.clone(),
+        .map(|account| {
+            let (main_key, _) = account.main_key(prk, network)?;
+            Ok(AccountSummary {
+                index: account.index,
+                name: account.name.clone(),
+                address: main_key.taproot_address.to_string(),
+            })
         })
         .collect()
 }

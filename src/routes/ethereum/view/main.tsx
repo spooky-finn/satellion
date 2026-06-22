@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router'
 import { AccountSelector } from '../../../components/account_selector'
 import { CompactSrt } from '../../../components/compact_str'
 import { Navbar } from '../../../components/navbar'
+import { useKeyboardRefetch } from '../../../components/use_keyboard_refetch'
 import { route } from '../../../lib/routes'
 import { B, P, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
@@ -20,6 +21,10 @@ export const EthereumWallet = observer(() => {
   useEffect(() => {
     if (!addr) navigate(route.unlock_wallet)
   }, [addr, navigate])
+
+  useKeyboardRefetch(async () => {
+    eth.load_active_account()
+  })
 
   return (
     <Stack gap={1}>

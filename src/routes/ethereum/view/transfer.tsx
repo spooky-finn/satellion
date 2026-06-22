@@ -3,7 +3,6 @@ import { observer } from 'mobx-react-lite'
 import type { FeeMode } from '../../../bindings/eth'
 import { AddressInput } from '../../../components/address_input'
 import { SendTxButton } from '../../../components/send_tx_button'
-import { handle_err } from '../../../lib/handle_err'
 import { B, FullScreenModal, P, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
 import { OpenExplorerButton } from '../utils/shared'
@@ -32,7 +31,7 @@ const Transfer = observer(() => {
       <B
         loading={state.is_estimating}
         disabled={state.disabled}
-        onClick={() => state.estimate().catch(handle_err)}
+        onClick={() => state.estimate()}
       >
         Estimate
       </B>
@@ -84,16 +83,19 @@ const AmountInput = observer(() => {
       <Input
         placeholder="Amount"
         value={state.amount ?? ''}
-        type="number"
+        type="text"
+        inputMode="decimal"
+        error={!!state.amount_error}
         onChange={e => {
-          const num = e.target.value.trim()
-          if (num === '') {
+          const amount = e.target.value
+          if (amount === '') {
             state.set_amount(undefined)
           } else {
-            state.set_amount(parseFloat(num))
+            state.set_amount(amount)
           }
         }}
       />
+      {state.amount_error && <P color="danger">{state.amount_error}</P>}
     </Row>
   )
 })
@@ -138,7 +140,10 @@ const TransactionDetails = observer(() => {
       <P>
         Transaction hash <b>{state.tx_hash}</b>
       </P>
-      <OpenExplorerButton path={`tx/${state.tx_hash}`} />
+      <Row>
+        <OpenExplorerButton path={`tx/${state.tx_hash}`} />
+        <B onClick={() => state.reset()}>Reset</B>
+      </Row>
     </Stack>
   )
 })
@@ -148,7 +153,7 @@ const FeeModeSelect = observer(() => {
   return (
     <ToggleButtonGroup
       value={state.fee_mode}
-      onChange={(_, v) => state.set_fee_mode(v)}
+      onChange={(_, v) => v && state.set_fee_mode(v)}
     >
       <B value={'Minimal' satisfies FeeMode}>Slow</B>
       <B value={'Standard' satisfies FeeMode}>Standart</B>

@@ -40,7 +40,7 @@ export const AddressInput = observer(({ state }: { state: AddressInputVM }) => (
   <>
     <Input
       placeholder="Recipient address"
-      sx={{ maxWidth: '500px', width: 'fit-content' }}
+      sx={{ width: `${Math.max(20, state.val.length + 2)}ch` }}
       value={state.val}
       onChange={e => {
         state.set_val(e.target.value)

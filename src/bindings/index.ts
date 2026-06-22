@@ -193,7 +193,7 @@ export const MIN_PASSPHRASE_LEN = 4 as const;
 
 /** user-defined types **/
 
-export type AccountSummary = { index: number; name: string }
+export type AccountSummary = { index: number; name: string; address: string }
 export type ActiveAccountView = { index: number; 
 /**
  * main external address to accept payments
@@ -220,7 +220,7 @@ omit_passphrase_on_private_key: boolean;
  */
 session_inactivity_timeout_mins: number }
 export type CreationFlow = "Import" | "Generation"
-export type EthereumAccountSummary = { index: number; name: string }
+export type EthereumAccountSummary = { index: number; name: string; address: string }
 export type EthereumActiveAccountView = { index: number; address: string }
 export type EthereumConfig = { 
 /**

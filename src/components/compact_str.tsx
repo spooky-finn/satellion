@@ -10,11 +10,13 @@ export const CopyButton = ({ val }: { val: string }) => {
     <IconButton
       size="sm"
       sx={{ p: 0.2, minWidth: '24px', minHeight: '24px' }}
-      onClick={() => {
+      onClick={e => {
         navigator.clipboard.writeText(val)
         setCopied(true)
         notifier.ok('Copied to clipboard')
         setTimeout(() => setCopied(false), 2000)
+        e.stopPropagation()
+        e.preventDefault()
       }}
       variant="soft"
       color={copied ? 'primary' : 'neutral'}
@@ -40,7 +42,7 @@ export const CompactSrt = ({ val: address, n = 6, copy, ...props }: Props) => {
   const end = address.slice(-n)
 
   return (
-    <Row alignItems={'center'} gap={0.5}>
+    <Row alignItems={'center'} gap={0.5} onClick={props.onClick}>
       <P {...props} whiteSpace={'nowrap'} fontFamily={'monospace'}>
         {start}
         <span aria-hidden="true">…</span>

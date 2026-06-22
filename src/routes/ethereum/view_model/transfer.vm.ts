@@ -9,6 +9,9 @@ import { AddressInputVM } from '../../../components/address_input'
 import { unwrap_result } from '../../../lib/handle_err'
 import { notifier } from '../../../lib/notifier'
 
+const is_valid_amount = (amount: string | undefined) =>
+  Boolean(amount && /^\d*\.?\d+$/.test(amount) && /[1-9]/.test(amount))
+
 export class TransferVM {
   constructor() {
     makeAutoObservable(this)
@@ -23,14 +26,27 @@ export class TransferVM {
     shared_commands.validateAddress('Ethereum', addr),
   )
 
-  fee_mode: FeeMode | null = 'Standard'
-  set_fee_mode(fm: FeeMode | null) {
+  fee_mode: FeeMode = 'Minimal'
+  set_fee_mode(fm: FeeMode) {
     this.fee_mode = fm
   }
 
-  amount?: number
-  set_amount(amount?: number) {
+  amount?: string
+  set_amount(amount?: string) {
     this.amount = amount
+  }
+
+  get has_valid_amount() {
+    return is_valid_amount(this.amount)
+  }
+
+  get amount_error() {
+    if (!this.amount || /^\d+\.$/.test(this.amount)) return undefined
+    if (!/^\d*\.?\d*$/.test(this.amount)) {
+      return 'Enter a decimal amount, for example 0.01.'
+    }
+    if (!/[1-9]/.test(this.amount)) return 'Amount must be greater than zero.'
+    return undefined
   }
 
   token?: string
@@ -45,32 +61,44 @@ export class TransferVM {
     this.tx_hash = h
   }
 
+  reset() {
+    this.address.reset()
+    this.fee_mode = 'Minimal'
+    this.amount = undefined
+    this.token = undefined
+    this.estimation = undefined
+    this.tx_hash = undefined
+  }
+
   is_estimating = false
   sending = false
 
   get disabled() {
-    return (
-      !this.address || !this.address.is_valid || !this.amount || !this.token
-    )
+    return !this.address.is_valid || !this.has_valid_amount || !this.token
   }
 
   async estimate() {
-    if (!this.amount) throw Error('amount is not set')
+    const amount = this.amount
+    if (!amount || !is_valid_amount(amount)) throw Error('amount is not valid')
     if (!this.token) throw Error('token symbol not set')
 
     this.is_estimating = true
 
     const estimation = await commands
       .estimateTransfer({
-        amount: this.amount.toString(),
-        fee_mode: this.fee_mode ?? 'Standard',
+        amount,
+        fee_mode: this.fee_mode,
         recipient: this.address.val,
         token_address: this.token,
       })
       .then(res => unwrap_result(res))
+      .finally(() => {
+        runInAction(() => {
+          this.is_estimating = false
+        })
+      })
 
     runInAction(() => {
-      this.is_estimating = false
       this.estimation = estimation
     })
   }

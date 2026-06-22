@@ -59,6 +59,7 @@ pub struct DerivedAddress {
 pub struct AccountSummary {
     pub index: AccountIndex,
     pub name: String,
+    pub address: String,
 }
 
 #[derive(Serialize, specta::Type)]

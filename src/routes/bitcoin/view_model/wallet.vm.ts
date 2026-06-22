@@ -35,6 +35,7 @@ export class BitcoinWalletVM {
 
   init_with_account_info(info: BitcoinUnlock['active_account']) {
     this.address = info.address
+    this.account_selector.set_account_address(info.index, info.address)
     this.total_balance_sat = info.total_balance
   }
 

@@ -1,5 +1,5 @@
 import { Add, Edit } from '@mui/icons-material'
-import { IconButton, Input, Option, Select } from '@mui/joy'
+import { IconButton, Input, Option, Select, Stack } from '@mui/joy'
 import { makeAutoObservable, runInAction } from 'mobx'
 import { observer } from 'mobx-react-lite'
 import { type BlockChain, commands } from '../bindings'
@@ -7,10 +7,12 @@ import { unwrap_result } from '../lib/handle_err'
 import { notifier } from '../lib/notifier'
 import { P, Row } from '../shortcuts'
 import { Loader } from '../view_model/loader'
+import { CompactSrt } from './compact_str'
 
 export interface Account {
   index: number
   name: string
+  address?: string
 }
 
 class CreateAccountVM {
@@ -72,6 +74,12 @@ export class AccountSelectorVM {
   active_account: Account['index'] | null = null
   set_active_account(a: Account['index'] | null) {
     this.active_account = a
+  }
+
+  set_account_address(account: Account['index'], address: string) {
+    this.accounts = this.accounts.map(each =>
+      each.index === account ? { ...each, address } : each,
+    )
   }
 
   constructor(
@@ -214,8 +222,20 @@ export const AccountSelector = observer(({ vm }: { vm: AccountSelectorVM }) => {
             disabled={vm.account_loader.loading}
           >
             {vm.accounts.map(each => (
-              <Option value={each.index} key={each.index}>
-                <P level="body-xs">[{each.index}]</P> {each.name}
+              <Option value={each.index} key={each.index} label={each.name}>
+                <Stack gap={0.5}>
+                  <Row alignItems={'center'}>
+                    <P level="body-xs">[{each.index}]</P> {each.name}
+                  </Row>
+                  <CompactSrt
+                    copy
+                    sx={{
+                      fontSize: '.8rem',
+                      fontWeight: 700,
+                    }}
+                    val={each.address}
+                  />
+                </Stack>
               </Option>
             ))}
 

@@ -9,7 +9,7 @@ use zeroize::Zeroize;
 use crate::{
     biometric,
     chain::btc,
-    chain_trait::{AccountIndex, ChainTrait},
+    chain_trait::{AccountIndex, ChainTrait, SecureKey},
     config::{BlockChain, Config, constants},
     eth::{
         self, PriceFeed,
@@ -206,15 +206,30 @@ async fn do_unlock(
         .repository
         .load(cfg.clone(), wallet_name, passphrase)?;
 
-    let (eth_prk, btc_prk, last_used_chain) = {
+    let (eth_prk, eth_addresses, btc_prk, last_used_chain) = {
         let eth_prk = wallet.eth_prk()?;
+        let eth_addresses = wallet
+            .eth
+            .accounts
+            .iter()
+            .map(|account| {
+                wallet
+                    .eth
+                    .build_account_prkey(
+                        &wallet.mnemonic.expose_secret(),
+                        &wallet.passphrase.expose_secret(),
+                        account.index,
+                    )
+                    .map(|prk| prk.expose().address().to_string())
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         let btc_prk = wallet.btc_prk()?;
         let last_used_chain = wallet.last_used_chain;
-        (eth_prk, btc_prk, last_used_chain)
+        (eth_prk, eth_addresses, btc_prk, last_used_chain)
     };
 
     let (ethereum, bitcoin) = (
-        wallet.eth.unlock((), &eth_prk)?,
+        wallet.eth.unlock(eth_addresses, &eth_prk)?,
         btc::service::unlock(&wallet.btc, &btc_prk)?,
     );
 

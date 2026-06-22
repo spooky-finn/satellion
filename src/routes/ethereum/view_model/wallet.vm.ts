@@ -75,7 +75,10 @@ export class EthereumWalletVM {
       return
     }
 
-    runInAction(() => this.set_active_account(result.address))
+    runInAction(() => {
+      this.set_active_account(result.address)
+      this.account_selector.set_account_address(result.index, result.address)
+    })
     await this.getBalance()
   }
 

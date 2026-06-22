@@ -40,16 +40,16 @@ impl SecureKey for Prk {
 impl ChainTrait for EthereumWallet {
     type AccountState = EthereumUnlock;
     type Prk = Prk;
-    type UnlockContext = ();
+    type UnlockContext = Vec<String>;
 
     fn unlock(
         &mut self,
-        _: Self::UnlockContext,
+        addresses: Self::UnlockContext,
         prk: &Self::Prk,
     ) -> Result<Self::AccountState, String> {
         let account = self.active_account()?;
         Ok(EthereumUnlock {
-            accounts: self.account_summaries(),
+            accounts: self.account_summaries(addresses)?,
             active_account: crate::eth::dtos::EthereumActiveAccountView {
                 index: account.index,
                 address: prk.expose().address().to_string(),
@@ -81,10 +81,10 @@ impl AssetTracker<Token> for EthereumWallet {
 
 impl EthereumWallet {
     pub fn build_prk(&self, mnemonic: &str, passphrase: &str) -> Result<Prk, String> {
-        self.build_prk_for_account(mnemonic, passphrase, self.active_account)
+        self.build_account_prkey(mnemonic, passphrase, self.active_account)
     }
 
-    pub fn build_prk_for_account(
+    pub fn build_account_prkey(
         &self,
         mnemonic: &str,
         passphrase: &str,
@@ -132,12 +132,23 @@ impl EthereumWallet {
             .ok_or("account not found".to_string())
     }
 
-    pub fn account_summaries(&self) -> Vec<crate::eth::dtos::EthereumAccountSummary> {
+    pub fn account_summaries(
+        &self,
+        addresses: Vec<String>,
+    ) -> Result<Vec<crate::eth::dtos::EthereumAccountSummary>, String> {
+        if addresses.len() != self.accounts.len() {
+            return Err("account address count does not match accounts".to_string());
+        }
+
         self.accounts
             .iter()
-            .map(|account| crate::eth::dtos::EthereumAccountSummary {
-                index: account.index,
-                name: account.name.clone(),
+            .zip(addresses)
+            .map(|(account, address)| {
+                Ok(crate::eth::dtos::EthereumAccountSummary {
+                    index: account.index,
+                    name: account.name.clone(),
+                    address,
+                })
             })
             .collect()
     }
