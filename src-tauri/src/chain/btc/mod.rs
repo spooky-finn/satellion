@@ -9,6 +9,7 @@ pub mod fee_estimator;
 pub mod key_derivation;
 pub mod persistence;
 pub mod providers;
+pub mod transaction_history;
 pub mod tx_builder;
 pub mod utxo;
 pub mod wallet;

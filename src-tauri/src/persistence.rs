@@ -215,9 +215,8 @@ impl FsRepository {
 
 #[cfg(test)]
 mod tests {
-    use crate::wallet::WalletSecret;
-
     use super::*;
+    use crate::wallet::WalletSecret;
 
     #[test]
     fn test_serialication() {
