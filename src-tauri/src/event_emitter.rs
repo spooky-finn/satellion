@@ -1,9 +1,8 @@
-use mockall::{automock, predicate::*};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 use tauri_specta::{Events, collect_events};
 
-#[automock]
+#[cfg_attr(test, mockall::automock)]
 pub trait EventEmitterTrait: Send + Sync {
     fn session_expired(&self);
 }
