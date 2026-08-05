@@ -8,7 +8,6 @@ pub mod persistence;
 pub mod price_feed;
 pub mod provider;
 pub mod token;
-pub mod transaction_history;
 pub mod transfer_builder;
 pub mod wallet;
 

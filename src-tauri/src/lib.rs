@@ -13,7 +13,6 @@ pub mod repository;
 pub mod schema;
 pub mod session;
 pub mod system;
-pub mod transaction_history;
 pub mod utils;
 pub mod wallet;
 pub mod wallet_keeper;

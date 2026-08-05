@@ -14,13 +14,13 @@ use crate::{
         fee_bump::{BuildCpfpParams, build_cpfp_psbt},
         fee_estimator::estimate_fee_rate,
         key_derivation::{Change, Proposal},
-        transaction_history::BtcOutgoingTransfer,
         tx_builder::{BuildPsbtParams, build_psbt, sign_psbt},
     },
     chain_trait::SecureKey,
     config::BlockChain,
+    repository::{BtcChainData, NewTx, TxDirection, TxRepository, TxStatus},
     session::SK,
-    transaction_history::{TransactionHistoryService, WalletTxContext},
+    utils,
 };
 
 #[specta]
@@ -30,10 +30,8 @@ pub async fn account_info(sk: tauri::State<'_, SK>) -> Result<ActiveAccountView,
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let prk = wallet.btc.prk()?;
-    wallet
-        .btc
-        .active_account()?
-        .info(&prk, wallet.config.btc.network())
+    let account = wallet.btc.active_account()?;
+    account.info(&prk, wallet.config.btc.network())
 }
 
 #[specta]
@@ -317,7 +315,7 @@ pub async fn bump_fee_cpfp(
 pub async fn broadcast_tx(
     _req: BroadcastTxRequest,
     sk: tauri::State<'_, SK>,
-    tx_history: tauri::State<'_, TransactionHistoryService>,
+    tx_repository: tauri::State<'_, TxRepository>,
 ) -> Result<BroadcastTxResponse, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
@@ -339,21 +337,27 @@ pub async fn broadcast_tx(
         .await
         .map_err(|e| format!("fail to broadcast tx: {}", e))?;
 
-    tx_history.record(
-        WalletTxContext::new(
-            wallet.name.clone(),
-            BlockChain::Bitcoin,
-            wallet.btc.active_account as i32,
-        ),
-        BtcOutgoingTransfer {
-            tx_hash: tx_id.clone(),
-            recipient,
-            amount_sat: send_value_sat,
-            fee_sat: fee,
-            vsize,
-            change_value_sat: None,
-        },
-    )?;
+    let chain_data = BtcChainData {
+        vsize: Some(vsize),
+        rbf: true,
+        parent_tx_id: None,
+        change_value_sat: None,
+    };
+    let _ = tx_repository.insert(NewTx {
+        tx_hash: tx_id.clone(),
+        wallet_name: wallet.name.clone(),
+        chain: BlockChain::Bitcoin,
+        account_index: wallet.btc.active_account as i32,
+        direction: TxDirection::Outgoing,
+        status: TxStatus::Pending,
+        from_address: None,
+        to_address: recipient,
+        amount: send_value_sat as i64,
+        fee: Some(fee as i32),
+        block_height: None,
+        chain_data: serde_json::to_value(chain_data).unwrap_or_default(),
+        created_at: utils::now() as i64,
+    });
 
     {
         // save change key

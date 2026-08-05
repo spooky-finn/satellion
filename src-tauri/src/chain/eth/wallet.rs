@@ -1,9 +1,5 @@
 use std::str::FromStr;
 
-use alloy::primitives::Address;
-use alloy_signer_local::{MnemonicBuilder, PrivateKeySigner, coins_bip39::English};
-use shush_rs::ExposeSecret;
-
 use crate::{
     chain_trait::{AccountIndex, AssetTracker, SecureKey},
     config::Config,
@@ -14,6 +10,9 @@ use crate::{
     },
     wallet::Secretik,
 };
+use alloy::primitives::Address;
+use alloy_signer_local::{MnemonicBuilder, PrivateKeySigner, coins_bip39::English};
+use shush_rs::ExposeSecret;
 
 pub struct EthereumWallet {
     pub(crate) secret: Secretik,
@@ -206,13 +205,14 @@ pub fn parse_addres(addres: &str) -> Result<Address, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::EthereumWallet;
     use crate::{
         chain_trait::{AssetTracker, SecureKey},
         config::Config,
         eth::constants::ETH,
         wallet::WalletSecret,
     };
+
+    use super::EthereumWallet;
 
     const MNEMONIC: &str = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
 

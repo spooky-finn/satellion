@@ -1,7 +1,7 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
-    transactions (wallet_name, chain, tx_hash) {
+    transactions (tx_hash) {
         tx_hash -> Text,
         wallet_name -> Text,
         chain -> Text,
@@ -10,8 +10,8 @@ diesel::table! {
         status -> Text,
         from_address -> Nullable<Text>,
         to_address -> Nullable<Text>,
-        amount -> Text,
-        fee -> Nullable<Text>,
+        amount -> BigInt,
+        fee -> Nullable<Integer>,
         block_height -> Nullable<BigInt>,
         chain_data -> Text,
         created_at -> BigInt,

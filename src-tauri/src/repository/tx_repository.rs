@@ -3,7 +3,8 @@ use diesel::{prelude::*, r2d2::ConnectionManager, result::Error};
 use r2d2::Pool;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use strum::{AsRefStr, Display, EnumString, FromRepr};
+use strum::FromRepr;
+use strum::{AsRefStr, Display, EnumString};
 
 use crate::{
     config::BlockChain, repository::base_repository::BaseRepository, schema::transactions,
@@ -63,8 +64,8 @@ pub struct NewTx {
     pub status: TxStatus,
     pub from_address: Option<String>,
     pub to_address: Option<String>,
-    pub amount: String,
-    pub fee: Option<String>,
+    pub amount: i64,
+    pub fee: Option<i32>,
     pub block_height: Option<i64>,
     pub chain_data: serde_json::Value,
     pub created_at: i64,
@@ -81,8 +82,8 @@ struct NewTxRow<'a> {
     status: &'a str,
     from_address: Option<&'a str>,
     to_address: Option<&'a str>,
-    amount: &'a str,
-    fee: Option<&'a str>,
+    amount: i64,
+    fee: Option<i32>,
     block_height: Option<i64>,
     chain_data: String,
     created_at: i64,
@@ -99,8 +100,8 @@ struct TxRow {
     status: String,
     from_address: Option<String>,
     to_address: Option<String>,
-    amount: String,
-    fee: Option<String>,
+    amount: i64,
+    fee: Option<i32>,
     block_height: Option<i64>,
     chain_data: String,
     created_at: i64,
@@ -118,7 +119,7 @@ pub struct TxRecord {
     pub from_address: Option<String>,
     pub to_address: Option<String>,
     pub amount: String,
-    pub fee: Option<String>,
+    pub fee: Option<i32>,
     pub block_height: Option<String>,
     /// Chain-specific JSON payload. Stored verbatim so the frontend can decode
     /// it according to the [`chain`] discriminator.
@@ -144,7 +145,7 @@ impl TryFrom<TxRow> for TxRecord {
                 .map_err(|e| format!("unknown tx status '{}': {e}", row.status))?,
             from_address: row.from_address,
             to_address: row.to_address,
-            amount: row.amount,
+            amount: row.amount.to_string(),
             fee: row.fee,
             block_height: row.block_height.map(|h| h.to_string()),
             chain_data: row.chain_data,
@@ -186,8 +187,8 @@ impl TxRepository {
             status: tx.status.as_ref(),
             from_address: tx.from_address.as_deref(),
             to_address: tx.to_address.as_deref(),
-            amount: &tx.amount,
-            fee: tx.fee.as_deref(),
+            amount: tx.amount,
+            fee: tx.fee,
             block_height: tx.block_height,
             chain_data: chain_data_str,
             created_at: tx.created_at,
@@ -205,27 +206,6 @@ impl TxRepository {
                 other => other.to_string(),
             })?;
         TxRecord::try_from(inserted)
-    }
-
-    pub fn get(
-        &self,
-        wallet: &str,
-        chain_id: BlockChain,
-        hash: &str,
-    ) -> Result<Option<TxRecord>, String> {
-        use crate::schema::transactions::dsl::*;
-
-        let mut conn = self.base.get_conn().map_err(|e| e.to_string())?;
-        let row = transactions
-            .filter(wallet_name.eq(wallet))
-            .filter(chain.eq(chain_as_str(chain_id)))
-            .filter(tx_hash.eq(hash))
-            .select(TxRow::as_select())
-            .first::<TxRow>(&mut conn)
-            .optional()
-            .map_err(|e| e.to_string())?;
-
-        row.map(TxRecord::try_from).transpose()
     }
 
     pub fn list(&self, q: &TxQuery) -> Result<Vec<TxRecord>, String> {
@@ -341,8 +321,8 @@ mod tests {
             status: TxStatus::Pending,
             from_address: None,
             to_address: Some("bc1qabc".into()),
-            amount: "10000".into(),
-            fee: Some("250".into()),
+            amount: 10_000,
+            fee: Some(250),
             block_height: None,
             chain_data,
             created_at: 1,
@@ -378,7 +358,7 @@ mod tests {
             status: TxStatus::Pending,
             from_address: Some("0xfrom".into()),
             to_address: Some("0xto".into()),
-            amount: "1".into(),
+            amount: 1,
             fee: None,
             block_height: None,
             chain_data: serde_json::Value::Object(Default::default()),
@@ -387,48 +367,6 @@ mod tests {
         repo.insert(base.clone()).unwrap();
         let err = repo.insert(base).unwrap_err();
         assert!(err.contains("already recorded"));
-    }
-
-    #[test]
-    fn same_hash_can_exist_on_different_chains() {
-        let repo = TxRepository::new(make_pool());
-        let base = NewTx {
-            wallet_name: "alice".into(),
-            chain: BlockChain::Bitcoin,
-            account_index: 0,
-            tx_hash: "shared-hash".into(),
-            direction: TxDirection::Outgoing,
-            status: TxStatus::Pending,
-            from_address: None,
-            to_address: None,
-            amount: "1".into(),
-            fee: None,
-            block_height: None,
-            chain_data: serde_json::Value::Object(Default::default()),
-            created_at: 1,
-        };
-
-        repo.insert(base.clone()).unwrap();
-        repo.insert(NewTx {
-            chain: BlockChain::Ethereum,
-            ..base
-        })
-        .unwrap();
-
-        assert_eq!(
-            repo.get("alice", BlockChain::Bitcoin, "shared-hash")
-                .unwrap()
-                .unwrap()
-                .chain,
-            BlockChain::Bitcoin
-        );
-        assert_eq!(
-            repo.get("alice", BlockChain::Ethereum, "shared-hash")
-                .unwrap()
-                .unwrap()
-                .chain,
-            BlockChain::Ethereum
-        );
     }
 
     #[test]
@@ -445,7 +383,7 @@ mod tests {
             status: TxStatus::Pending,
             from_address: None,
             to_address: None,
-            amount: "0".into(),
+            amount: 0,
             fee: None,
             block_height: None,
             chain_data: serde_json::Value::Object(Default::default()),

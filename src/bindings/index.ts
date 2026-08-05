@@ -243,7 +243,7 @@ enabled: boolean;
  */
 socks5_proxy: string }
 export type TxDirection = "incoming" | "outgoing" | "selftransfer"
-export type TxRecord = { tx_hash: string; wallet_name: string; chain: BlockChain; account_index: number; direction: TxDirection; status: TxStatus; from_address: string | null; to_address: string | null; amount: string; fee: string | null; block_height: string | null; 
+export type TxRecord = { tx_hash: string; wallet_name: string; chain: BlockChain; account_index: number; direction: TxDirection; status: TxStatus; from_address: string | null; to_address: string | null; amount: string; fee: number | null; block_height: string | null; 
 /**
  * Chain-specific JSON payload. Stored verbatim so the frontend can decode
  * it according to the [`chain`] discriminator.

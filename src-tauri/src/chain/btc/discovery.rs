@@ -13,8 +13,8 @@
 //!   * Batch size is tuned per request from observed latency, clamped to a
 //!     bounded range.
 //!   * Per-account external and internal chains are scanned concurrently.
-//!   * Empty windows are never rescanned: once a chain reaches its gap limit we
-//!     move on.
+//!   * Empty windows are never rescanned: once a chain reaches its gap limit
+//!     we move on.
 
 use std::time::{Duration, Instant};
 
