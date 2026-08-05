@@ -14,7 +14,6 @@ export const Copyable = ({
   n = 6,
   copy,
   onClick,
-  onDoubleClick,
   sx,
   ...props
 }: Props) => {
@@ -30,10 +29,8 @@ export const Copyable = ({
 
   if (!address) return null
 
-  const handleDoubleClick: NonNullable<
-    TypographyProps['onDoubleClick']
-  > = e => {
-    onDoubleClick?.(e)
+  const handleClick: NonNullable<TypographyProps['onClick']> = e => {
+    onClick?.(e)
     if (!copy || e.defaultPrevented) return
 
     e.stopPropagation()
@@ -80,8 +77,7 @@ export const Copyable = ({
       {...props}
       whiteSpace={'nowrap'}
       fontFamily={'monospace'}
-      onClick={onClick}
-      onDoubleClick={handleDoubleClick}
+      onClick={handleClick}
       sx={mergedSx}
     >
       {value}
