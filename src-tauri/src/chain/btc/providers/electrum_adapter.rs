@@ -2,7 +2,10 @@ use std::str::FromStr;
 
 use bitcoin::{
     TxOut, Txid,
+    block::Header,
+    consensus::deserialize,
     hashes::{Hash, sha256},
+    hex::FromHex,
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -37,6 +40,21 @@ impl ElectrumAdapter {
         raw.as_f64()
             .map(|btc_per_kb| btc_per_kb * 100_000.0)
             .ok_or_else(|| "invalid fee response".to_string())
+    }
+
+    pub async fn network_status(&self) -> Result<(u32, String), String> {
+        let raw = self
+            .client
+            .request("blockchain.headers.subscribe", vec![])
+            .await?;
+        let tip: RawHeaderSubscription =
+            serde_json::from_value(raw).map_err(|e| format!("parse header subscription: {e}"))?;
+        let header_bytes =
+            Vec::<u8>::from_hex(&tip.hex).map_err(|e| format!("parse block header hex: {e}"))?;
+        let header: Header =
+            deserialize(&header_bytes).map_err(|e| format!("parse block header: {e}"))?;
+
+        Ok((tip.height, header.block_hash().to_string()))
     }
 
     /// Batch query the activity flag for the given addresses. Uses
@@ -124,6 +142,12 @@ struct RawUtxo {
     tx_pos: u32,
     value: u64,
     height: u32,
+}
+
+#[derive(Deserialize)]
+struct RawHeaderSubscription {
+    height: u32,
+    hex: String,
 }
 
 fn scripthash(address: &bitcoin::Address) -> String {

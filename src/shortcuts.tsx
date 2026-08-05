@@ -14,6 +14,15 @@ import {
 } from '@mui/joy'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
+import {
+  AccountSelector,
+  type AccountSelectorVM,
+} from './components/account_selector'
+import { Navbar } from './components/navbar'
+import {
+  NetworkStatus,
+  type NetworkStatusProps,
+} from './components/network_status'
 import { route } from './lib/routes'
 
 export const P = Typography
@@ -61,4 +70,17 @@ export const FullScreenModal = ({
       {children}
     </ModalDialog>
   </Modal>
+)
+
+export const NavbarAccountSelectorChainTip = (props: {
+  account_selector: AccountSelectorVM
+  network_status: NetworkStatusProps
+}) => (
+  <Stack gap={1}>
+    <Navbar />
+    <Row gap={3} justifyContent={'space-between'}>
+      <AccountSelector vm={props.account_selector} />
+      <NetworkStatus p={props.network_status} />
+    </Row>
+  </Stack>
 )

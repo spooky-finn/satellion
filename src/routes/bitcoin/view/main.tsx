@@ -2,15 +2,18 @@ import { Card, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { Suspense, use, useEffect } from 'react'
 import { useNavigate } from 'react-router'
-import { AccountSelector } from '../../../components/account_selector'
 import { CompactSrt } from '../../../components/compact_str'
-import { Navbar } from '../../../components/navbar'
 import { useKeyboardRefetch } from '../../../components/use_keyboard_refetch'
 import { ErrorBoundary } from '../../../lib/error_boundary'
 import { route } from '../../../lib/routes'
-import { B, P, Progress, Row } from '../../../shortcuts'
+import {
+  B,
+  NavbarAccountSelectorChainTip,
+  P,
+  Progress,
+  Row,
+} from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
-import { fmt_usd } from '../utils/amount_formatters'
 import { DisplaySat } from '../utils/display_sat'
 import { FeeBumpModal } from './fee_bump'
 import { ChildAddressesModal } from './list_childs'
@@ -29,14 +32,19 @@ const BitcoinWallet = observer(() => {
 
   useKeyboardRefetch(async () => {
     btc.account_info.refresh()
+    btc.load_chain_tip()
   })
 
   return (
     <Stack gap={1}>
-      <Navbar />
-      <Row gap={3}>
-        <AccountSelector vm={btc.account_selector} />
-      </Row>
+      <NavbarAccountSelectorChainTip
+        account_selector={btc.account_selector}
+        network_status={{
+          height: btc.chain_tip?.number,
+          hash: btc.chain_tip?.hash,
+          price: btc.usd_price,
+        }}
+      />
       <ErrorBoundary>
         <Suspense fallback={<Progress size="sm" />}>
           <BitcoinDetails />
@@ -86,9 +94,7 @@ const BitcoinDetails = observer(() => {
           )}
         </Card>
       )}
-      {btc.height && <P level="body-xs">Blockchain head at {btc.height}</P>}
       <DisplaySat satoshis={btc.total_balance_sat} usd_price={btc.usd_price} />
-      <P>Price {fmt_usd(btc.usd_price)}</P>
       <PendingTxsSection />
       <FeeBumpModal />
     </Stack>

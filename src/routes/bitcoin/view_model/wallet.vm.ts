@@ -1,6 +1,10 @@
 import { makeAutoObservable, runInAction } from 'mobx'
 import type { BitcoinUnlock, BlockChain } from '../../../bindings'
-import { commands, type DiscoveryReportView } from '../../../bindings/btc'
+import {
+  type ChainTip,
+  commands,
+  type DiscoveryReportView,
+} from '../../../bindings/btc'
 import { AccountSelectorVM } from '../../../components/account_selector'
 import { unwrap_result } from '../../../lib/handle_err'
 import { notifier } from '../../../lib/notifier'
@@ -30,6 +34,7 @@ export class BitcoinWalletVM {
   init(unlock: BitcoinUnlock) {
     this.account_selector.init(unlock.accounts, unlock.active_account.index)
     this.init_with_account_info(unlock.active_account)
+    this.load_chain_tip()
     this.account_info.refresh()
   }
 
@@ -42,11 +47,15 @@ export class BitcoinWalletVM {
   address!: string
   usd_price = 0
 
-  height?: number
+  chain_tip?: ChainTip
   total_balance_sat: string = '0'
 
   async load_account_info() {
     await this.account_info.refresh()
+  }
+
+  async load_chain_tip() {
+    this.chain_tip = await commands.chainTip().then(unwrap_result)
   }
 
   async discover_wallet() {

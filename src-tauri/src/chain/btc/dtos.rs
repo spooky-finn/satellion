@@ -48,6 +48,12 @@ pub struct BumpFeeResponse {
     pub child_fee: u32,
 }
 
+#[derive(Type, Serialize)]
+pub struct ChainTip {
+    pub number: String,
+    pub hash: String,
+}
+
 #[derive(Type, Serialize, Deserialize)]
 pub struct DerivedAddress {
     pub label: String,

@@ -66,6 +66,14 @@ async accountInfo() : Promise<Result<ActiveAccountView, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async chainTip() : Promise<Result<ChainTip, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("chain_tip") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async buildTx(req: BuildTxRequest) : Promise<Result<BuildTxResponse, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("build_tx", { req }) };
@@ -123,6 +131,7 @@ parent_tx_id: string;
  */
 target_fee_rate_sat_vb: number }
 export type BumpFeeResponse = { child_tx_id: string; child_fee: number }
+export type ChainTip = { number: string; hash: string }
 export type DerivedAddress = { label: string; path: string; address: string }
 export type DiscoveryReportView = { 
 /**

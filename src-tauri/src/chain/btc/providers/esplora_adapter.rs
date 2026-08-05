@@ -66,6 +66,13 @@ impl EsploraAdapter {
         self.client.get_fee_estimates().await
     }
 
+    pub async fn network_status(&self) -> Result<(u32, String), Error> {
+        let height = self.client.get_height().await?;
+        let hash = self.client.get_tip_hash().await?;
+
+        Ok((height, hash.to_string()))
+    }
+
     /// Returns one boolean per address indicating whether the address has any
     /// on-chain history (confirmed or in-mempool). Esplora has no native batch
     /// endpoint, so the lightweight `/address/:addr` stats requests run

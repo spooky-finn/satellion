@@ -1,6 +1,6 @@
 import LockIcon from '@mui/icons-material/Lock'
-import { Tooltip } from '@mui/joy'
-import { Link, useLocation, useNavigate } from 'react-router'
+import { ToggleButtonGroup, Tooltip } from '@mui/joy'
+import { useLocation, useNavigate } from 'react-router'
 import { type BlockChain, commands } from '../bindings'
 import { notifier } from '../lib/notifier'
 import { route } from '../lib/routes'
@@ -8,24 +8,32 @@ import { SettingsLink } from '../routes/settings'
 import { B, Row } from '../shortcuts'
 import { ThemeSwitcher } from './theme_switcher'
 
+const blockchains: {
+  chain: BlockChain
+  to: string
+  src: string
+}[] = [
+  {
+    chain: 'Bitcoin',
+    to: route.bitcoin,
+    src: new URL('/bitcoin.webp', import.meta.url).toString(),
+  },
+  {
+    chain: 'Ethereum',
+    to: route.ethereum,
+    src: new URL('/ethereum.webp', import.meta.url).toString(),
+  },
+]
+
 export const Navbar = ({ hideLedgers }: { hideLedgers?: boolean }) => {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const activeBlockchain =
+    blockchains.find(({ to }) => pathname.startsWith(to))?.chain ?? null
+
   return (
     <Row justifyContent={'space-between'} width={'100%'}>
-      {hideLedgers !== true && (
-        <Row gap={1}>
-          <BlockchainLink
-            to={route.bitcoin}
-            src={new URL('/bitcoin.webp', import.meta.url).toString()}
-            chain="Bitcoin"
-          />
-          <BlockchainLink
-            to={route.ethereum}
-            src={new URL('/ethereum.webp', import.meta.url).toString()}
-            chain="Ethereum"
-          />
-        </Row>
-      )}
+      {hideLedgers !== true && <BlockchainToggle value={activeBlockchain} />}
       <Row ml="auto" gap={0}>
         <ThemeSwitcher />
         <SettingsLink />
@@ -43,30 +51,41 @@ export const Navbar = ({ hideLedgers }: { hideLedgers?: boolean }) => {
   )
 }
 
-const BlockchainLink = (props: {
-  to: string
-  src: string
-  chain: BlockChain
-}) => {
-  const { pathname } = useLocation()
-  const active = pathname.startsWith(props.to)
+const BlockchainToggle = ({ value }: { value: BlockChain | null }) => {
+  const navigate = useNavigate()
+
   return (
-    <Link to={props.to}>
-      <B
-        color={active ? 'primary' : 'neutral'}
-        variant={active ? 'solid' : 'soft'}
-        startDecorator={
-          <img src={props.src} alt={props.chain} width={'auto'} height={22} />
+    <ToggleButtonGroup
+      value={value}
+      variant="plain"
+      size="sm"
+      sx={{ overflow: 'hidden', borderRadius: '20px' }}
+      onChange={async (_, chain: BlockChain | null) => {
+        if (!chain) return
+
+        const res = await commands.switchBlockchain(chain)
+        if (res.status === 'error') {
+          notifier.err(res.error)
+          return
         }
-        onClick={async () => {
-          const res = await commands.switchBlockchain(props.chain)
-          if (res.status === 'error') {
-            notifier.err(res.error)
+
+        navigate(
+          blockchains.find(each => each.chain === chain)?.to ?? route.bitcoin,
+        )
+      }}
+    >
+      {blockchains.map(({ chain, src }) => (
+        <B
+          key={chain}
+          value={chain}
+          color={chain === value ? 'primary' : 'neutral'}
+          startDecorator={
+            <img src={src} alt={chain} width={'auto'} height={22} />
           }
-        }}
-      >
-        {props.chain}
-      </B>
-    </Link>
+        >
+          {chain}
+        </B>
+      ))}
+    </ToggleButtonGroup>
   )
 }

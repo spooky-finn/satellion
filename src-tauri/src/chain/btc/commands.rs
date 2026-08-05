@@ -8,8 +8,8 @@ use crate::{
         discovery::WalletDiscoverer,
         dtos::{
             ActiveAccountView, BroadcastTxRequest, BroadcastTxResponse, BuildTxRequest,
-            BuildTxResponse, BumpFeeRequest, BumpFeeResponse, DerivedAddress, DiscoveryReportView,
-            UtxoView,
+            BuildTxResponse, BumpFeeRequest, BumpFeeResponse, ChainTip, DerivedAddress,
+            DiscoveryReportView, UtxoView,
         },
         fee_bump::{BuildCpfpParams, build_cpfp_psbt},
         fee_estimator::estimate_fee_rate,
@@ -34,6 +34,20 @@ pub async fn account_info(sk: tauri::State<'_, SK>) -> Result<ActiveAccountView,
         .btc
         .active_account()?
         .info(&prk, wallet.config.btc.network())
+}
+
+#[specta]
+#[tauri::command]
+#[tracing::instrument(name = "chain_tip", skip_all, err)]
+pub async fn chain_tip(sk: tauri::State<'_, SK>) -> Result<ChainTip, String> {
+    let mut sk = sk.lock().await;
+    let wallet = sk.wallet()?;
+    let (height, hash) = wallet.btc.server.network_status().await?;
+
+    Ok(ChainTip {
+        number: height.to_string(),
+        hash: hash,
+    })
 }
 
 #[specta]

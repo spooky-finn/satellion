@@ -63,4 +63,11 @@ impl BtcNode {
                 .map_err(|e| e.to_string()),
         }
     }
+
+    pub async fn network_status(&self) -> Result<(u32, String), String> {
+        match self {
+            BtcNode::Electrum(e) => e.network_status().await,
+            BtcNode::Esplora(e) => e.network_status().await.map_err(|e| e.to_string()),
+        }
+    }
 }

@@ -2,12 +2,10 @@ import { Card, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
-import { AccountSelector } from '../../../components/account_selector'
 import { CompactSrt } from '../../../components/compact_str'
-import { Navbar } from '../../../components/navbar'
 import { useKeyboardRefetch } from '../../../components/use_keyboard_refetch'
 import { route } from '../../../lib/routes'
-import { B, P, Row } from '../../../shortcuts'
+import { B, NavbarAccountSelectorChainTip, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
 import { OpenExplorerButton } from '../utils/shared'
 import { BalanceCard } from './balances'
@@ -28,10 +26,14 @@ export const EthereumWallet = observer(() => {
 
   return (
     <Stack gap={1}>
-      <Navbar />
-      <Row gap={3}>
-        <AccountSelector vm={eth.account_selector} />
-      </Row>
+      <NavbarAccountSelectorChainTip
+        account_selector={eth.account_selector}
+        network_status={{
+          height: eth.chainInfo?.block_number,
+          hash: eth.chainInfo?.block_hash,
+          price: eth.usd_price,
+        }}
+      />
       {eth && (
         <>
           {addr && (
@@ -52,12 +54,6 @@ export const EthereumWallet = observer(() => {
           )}
 
           <BalanceCard />
-
-          <Stack py={2}>
-            <P>Ether price ${eth.usd_price}</P>
-            <P>Block Height: {eth.chainInfo?.block_number}</P>
-            <P>Block Hash: {eth.chainInfo?.block_hash}</P>
-          </Stack>
         </>
       )}
     </Stack>
