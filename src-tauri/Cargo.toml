@@ -1,6 +1,6 @@
 [package]
 name = "satellion"
-version = "0.1.0"
+version = "0.2.0"
 description = "Another Bitcoin & Ethereum light wallet"
 authors = ["Fin"]
 edition = "2024"
@@ -74,10 +74,9 @@ security-framework-sys = "2.17"
 core-foundation = "0.10"
 core-foundation-sys = "0.8"
 # Testing
-mockall = "0.14" 
+mockall = "0.14"
 objc2-local-authentication = { version = "0.3.2", default-features = false, features = ["std", "LAContext", "LAError", "block2"] }
 
 [dev-dependencies]
 corepc-client = "0.10.0"
 corepc-node = "0.10.1"
-
