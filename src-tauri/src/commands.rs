@@ -7,7 +7,6 @@ use tokio::sync::Mutex;
 use zeroize::Zeroize;
 
 use crate::{
-    biometric,
     chain::btc,
     chain_trait::AccountIndex,
     config::{BlockChain, Config, constants},
@@ -18,6 +17,7 @@ use crate::{
     mnemonic,
     repository::{TxQuery, TxRecord, TxRepository},
     session::{SK, Session},
+    system::biometric,
     wallet_keeper::{CreationFlow, WalletKeeper},
 };
 

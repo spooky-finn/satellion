@@ -1,4 +1,3 @@
-pub mod biometric;
 pub mod chain;
 pub mod chain_trait;
 pub mod codegen;
