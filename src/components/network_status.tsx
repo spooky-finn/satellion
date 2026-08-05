@@ -1,6 +1,6 @@
 import LayersRoundedIcon from '@mui/icons-material/LayersRounded'
 import { P, Row } from '../shortcuts'
-import { CompactSrt } from './compact_str'
+import { Copyable } from './copyable'
 
 export interface NetworkStatusProps {
   height?: number | string | null
@@ -19,7 +19,7 @@ export const NetworkStatus = ({ p }: { p: NetworkStatusProps }) => {
       {hash && (
         <P level="body-xs" display={'flex'} alignItems={'baseline'}>
           hash =
-          <CompactSrt val={hash} level="body-xs" copy />
+          <Copyable val={hash} level="body-xs" copy />
         </P>
       )}
       {price && <P level="body-xs">price = ${price}</P>}

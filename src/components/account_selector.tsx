@@ -7,7 +7,7 @@ import { unwrap_result } from '../lib/handle_err'
 import { notifier } from '../lib/notifier'
 import { P, Row } from '../shortcuts'
 import { Loader } from '../view_model/loader'
-import { CompactSrt } from './compact_str'
+import { Copyable } from './copyable'
 
 export interface Account {
   index: number
@@ -227,7 +227,7 @@ export const AccountSelector = observer(({ vm }: { vm: AccountSelectorVM }) => {
                   <Row alignItems={'center'}>
                     <P level="body-xs">[{each.index}]</P> {each.name}
                   </Row>
-                  <CompactSrt
+                  <Copyable
                     copy
                     sx={{
                       fontSize: '.8rem',

@@ -9,7 +9,7 @@ import {
 } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
-import { CompactSrt } from '../../../components/compact_str'
+import { Copyable } from '../../../components/copyable'
 import { NumberInput } from '../../../components/number_input'
 import { B, P, Row } from '../../../shortcuts'
 import { Proposal } from '../proposal'
@@ -65,7 +65,7 @@ export const DeriveChildAddress = observer((props: { refetch: () => void }) => {
             Derive
           </B>
           <Divider />
-          {state.address && <CompactSrt copy val={state.address} />}
+          {state.address && <Copyable copy val={state.address} />}
         </ModalDialog>
       </Modal>
     </Row>

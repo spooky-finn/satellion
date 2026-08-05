@@ -1,6 +1,6 @@
 import { Stack, Table } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
-import { CompactSrt } from '../../../components/compact_str'
+import { Copyable } from '../../../components/copyable'
 import { FullScreenModal, P, Progress, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
 import { DeriveChildAddress } from './derive_child'
@@ -53,7 +53,7 @@ const ChildAddresses = observer(() => {
                     </P>
                   </td>
                   <td>
-                    <CompactSrt val={addr.address} copy />
+                    <Copyable val={addr.address} copy />
                   </td>
                 </tr>
               ))}

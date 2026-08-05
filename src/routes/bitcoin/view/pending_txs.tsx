@@ -1,6 +1,6 @@
 import { Card, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
-import { CompactSrt } from '../../../components/compact_str'
+import { Copyable } from '../../../components/copyable'
 import { B, P, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
 import { DisplaySat } from '../utils/display_sat'
@@ -25,7 +25,7 @@ export const PendingTxsSection = observer(() => {
             alignItems={'center'}
           >
             <Stack gap={0.25}>
-              <CompactSrt
+              <Copyable
                 copy
                 val={p.parent_tx_id}
                 fontFamily={'monospace'}

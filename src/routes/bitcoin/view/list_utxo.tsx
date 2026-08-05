@@ -1,7 +1,7 @@
 import { Chip, Stack, Table } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { Suspense, use } from 'react'
-import { CompactSrt } from '../../../components/compact_str'
+import { Copyable } from '../../../components/copyable'
 import { ErrorBoundary } from '../../../lib/error_boundary'
 import { FullScreenModal, P, Progress, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
@@ -99,7 +99,7 @@ const TableBody = observer(() => {
               <P>{utxo.address_label}</P>
             </td>
             <td>
-              <CompactSrt copy val={utxo.utxo_id.tx_id} />
+              <Copyable copy val={utxo.utxo_id.tx_id} />
             </td>
             <td>
               <P sx={{ fontFamily: 'monospace' }}>{display_sat(utxo.value)}</P>

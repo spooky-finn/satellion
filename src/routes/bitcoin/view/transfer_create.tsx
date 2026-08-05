@@ -1,7 +1,7 @@
 import { Card, Divider, Stack, ToggleButtonGroup } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { AddressInput } from '../../../components/address_input'
-import { CompactSrt } from '../../../components/compact_str'
+import { Copyable } from '../../../components/copyable'
 import { NumberInput } from '../../../components/number_input'
 import { B, P, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
@@ -53,7 +53,7 @@ const SelectedInputsSummary = observer(() => {
           {utxo_list.selected_utxo.map(each => (
             <Row key={each.utxo_id.tx_id}>
               <Row flexWrap={'nowrap'}>
-                <CompactSrt
+                <Copyable
                   level="body-xs"
                   val={`${each.utxo_id.tx_id}_${each.utxo_id.vout}`}
                 />

@@ -1,6 +1,6 @@
 import { Divider, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
-import { CompactSrt } from '../../../components/compact_str'
+import { Copyable } from '../../../components/copyable'
 import { NumberInput } from '../../../components/number_input'
 import { B, FullScreenModal, P, Row } from '../../../shortcuts'
 import { root_store } from '../../../view_model/root'
@@ -44,7 +44,7 @@ const InputView = observer(() => {
     <>
       <Stack gap={0.5}>
         <P level="body-sm">Parent transaction</P>
-        <CompactSrt
+        <Copyable
           copy
           val={parent_id}
           fontFamily={'monospace'}
@@ -95,7 +95,7 @@ const ResultView = observer(() => {
       <P>Child transaction broadcast</P>
       <Stack gap={0.5}>
         <P level="body-sm">Child txid</P>
-        <CompactSrt
+        <Copyable
           copy
           val={child.child_tx_id}
           fontFamily={'monospace'}

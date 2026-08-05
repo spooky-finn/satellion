@@ -2,7 +2,7 @@ import { Card, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
-import { CompactSrt } from '../../../components/compact_str'
+import { Copyable } from '../../../components/copyable'
 import { useKeyboardRefetch } from '../../../components/use_keyboard_refetch'
 import { route } from '../../../lib/routes'
 import { B, NavbarAccountSelectorChainTip, Row } from '../../../shortcuts'
@@ -38,7 +38,7 @@ export const EthereumWallet = observer(() => {
         <>
           {addr && (
             <Card size="sm" variant="soft">
-              <CompactSrt sx={{ fontWeight: 600 }} val={addr} copy />
+              <Copyable sx={{ fontWeight: 600 }} val={addr} copy />
               <Row>
                 <OpenExplorerButton path={`address/${addr}`} />
                 <B

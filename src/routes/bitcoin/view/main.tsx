@@ -2,7 +2,7 @@ import { Card, Stack } from '@mui/joy'
 import { observer } from 'mobx-react-lite'
 import { Suspense, use, useEffect } from 'react'
 import { useNavigate } from 'react-router'
-import { CompactSrt } from '../../../components/compact_str'
+import { Copyable } from '../../../components/copyable'
 import { useKeyboardRefetch } from '../../../components/use_keyboard_refetch'
 import { ErrorBoundary } from '../../../lib/error_boundary'
 import { route } from '../../../lib/routes'
@@ -61,7 +61,7 @@ const BitcoinDetails = observer(() => {
     <Stack gap={1}>
       {btc.address && (
         <Card size="sm" variant="soft">
-          <CompactSrt copy val={btc.address} sx={{ fontWeight: 600 }} />
+          <Copyable copy val={btc.address} sx={{ fontWeight: 600 }} />
           <Row>
             <B variant="soft" onClick={() => btc.child_list.set_open(true)}>
               Child addresses
