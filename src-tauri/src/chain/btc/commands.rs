@@ -44,7 +44,7 @@ pub async fn chain_tip(sk: tauri::State<'_, SK>) -> Result<ChainTip, String> {
 
     Ok(ChainTip {
         number: height.to_string(),
-        hash: hash,
+        hash,
     })
 }
 
@@ -313,20 +313,14 @@ pub async fn broadcast_tx(
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
 
-    let tx_build_res = wallet.btc.pending_tx.take().expect("pending tx not found");
-    let fee = tx_build_res.fee;
-    let recipient = tx_build_res.recipient.clone();
-    let send_value_sat = tx_build_res.send_value_sat;
-    let psbt = tx_build_res.psbt;
-
-    let prk = wallet.btc.prk()?;
-    let tx = sign_psbt(psbt, &prk)?;
-    let vsize = tx.vsize() as u32;
+    let tx = wallet.btc.pending_tx.take().expect("pending tx not found");
+    let signed_tx = sign_psbt(tx.psbt, &wallet.btc.prk()?)?;
+    let vsize = signed_tx.vsize() as u32;
 
     let tx_id = wallet
         .btc
         .server
-        .broadcast_tx(&tx)
+        .broadcast_tx(&signed_tx)
         .await
         .map_err(|e| format!("fail to broadcast tx: {}", e))?;
 
@@ -344,9 +338,9 @@ pub async fn broadcast_tx(
         direction: TxDirection::Outgoing,
         status: TxStatus::Pending,
         from_address: None,
-        to_address: recipient,
-        amount: send_value_sat as i64,
-        fee: Some(fee as i32),
+        to_address: tx.recipient.clone(),
+        amount: tx.send_value_sat as i64,
+        fee: Some(tx.fee as i32),
         block_height: None,
         chain_data: serde_json::to_value(chain_data).unwrap_or_default(),
         created_at: utils::now() as i64,
@@ -355,7 +349,7 @@ pub async fn broadcast_tx(
     {
         // save change key
         let account = wallet.btc.get_active_account_mut()?;
-        account.keychain.push(tx_build_res.change_key_path);
+        account.keychain.push(tx.change_key_path);
         wallet.persist()?;
     }
 

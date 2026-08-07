@@ -313,11 +313,13 @@ impl BitcoinWallet {
             for u in da.utxos {
                 let op = u.outpoint();
 
-                if !account.utxo_set.entries.contains_key(&op) {
+                if let std::collections::hash_map::Entry::Vacant(entry) =
+                    account.utxo_set.entries.entry(op)
+                {
                     report.total_value_sat = report
                         .total_value_sat
                         .saturating_add(u.output.value.to_sat());
-                    account.utxo_set.entries.insert(op, u);
+                    entry.insert(u);
                     report.utxos_added += 1;
                 }
             }

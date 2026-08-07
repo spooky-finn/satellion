@@ -10,6 +10,9 @@ use objc2_local_authentication::{LAContext, LAPolicy};
 
 use super::BiometricError;
 
+type PromptResult = Result<(), BiometricError>;
+type PromptPair = Arc<(Mutex<Option<PromptResult>>, Condvar)>;
+
 pub fn is_supported() -> bool {
     unsafe {
         let ctx = LAContext::new();
@@ -25,8 +28,7 @@ pub fn prompt(reason: &str) -> Result<(), BiometricError> {
     let ctx = unsafe { LAContext::new() };
     let reason_ns = NSString::from_str(reason);
 
-    let pair: Arc<(Mutex<Option<Result<(), BiometricError>>>, Condvar)> =
-        Arc::new((Mutex::new(None), Condvar::new()));
+    let pair: PromptPair = Arc::new((Mutex::new(None), Condvar::new()));
     let pair_cb = Arc::clone(&pair);
 
     let block = StackBlock::new(move |success: Bool, error: *mut NSError| {

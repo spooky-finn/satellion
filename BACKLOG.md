@@ -1,10 +1,10 @@
 # Tasks
-- [x] btc: fix: persist change address only after transaction send, not when i build
 - [ ] btc: implement auto utxo selection algo
 - [ ] btc: select estimated coins delivery time
 - [ ] btc: solve overpay issue – very high fee rate
 - [ ] btc: after tx send - show link to the explorer
 - [ ] btc: replace tx by fee
+- [x] btc: fix: persist change address only after transaction send, not when i build
 - [x] btc: initial scan for derived addresses and accounts.
 - [x] Lock the application when the computer enters sleep mode. (implemented for mac os only)
 - [x] btc: transaction history (postponed)
