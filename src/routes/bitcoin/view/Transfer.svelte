@@ -5,14 +5,13 @@
     UtxoSelectionMethodKind,
   } from '../view_model/transfer.vm.svelte'
   import { display_sat } from '../utils/amount_formatters'
-  import { openUrl } from '@tauri-apps/plugin-opener'
-  import { handle_err } from '../../../lib/handle_err'
   import Modal from '../../../components/Modal.svelte'
   import AddressInput from '../../../components/AddressInput.svelte'
-  import HoldToSend from '../../../components/HoldToSend.svelte'
   import Copyable from '../../../components/Copyable.svelte'
   import DisplaySat from '../../../components/DisplaySat.svelte'
   import UtxoList from './UtxoList.svelte'
+  import TransferResult from './TransferResult.svelte'
+  import TransferReview from './TransferReview.svelte'
 
   let { btc }: { btc: BitcoinWalletVM } = $props()
 
@@ -47,66 +46,9 @@
   onclose={() => t.set_open(false)}
 >
   {#if t.state === TransferState.Result}
-    <h2 class="review-title">Transaction sent</h2>
-    {#if t.broadcast_result}
-      <Copyable value={t.broadcast_result.tx_id} label="Copy transaction ID" />
-      <button
-        class="btn preset-tonal-primary"
-        onclick={() =>
-          openUrl(
-            `https://mempool.space/tx/${t.broadcast_result!.tx_id}`,
-          ).catch(handle_err)}
-      >
-        Open explorer
-      </button>
-    {/if}
-    <button class="btn btn-plain" onclick={() => t.reset()}>
-      Send another
-    </button>
+    <TransferResult {t} />
   {:else if t.state === TransferState.Sending}
-    <h2 class="review-title">Verify transfer</h2>
-    <div class="stack gap-1">
-      <p class="text-sm">Recipient</p>
-      <p class="mono">{t.address.val}</p>
-    </div>
-    <div class="stack gap-1">
-      <p class="text-sm">Amount</p>
-      <DisplaySat
-        value={t.transfer_amount ?? 0}
-        price={btc.usd_price}
-        label=""
-        digits={2}
-      />
-    </div>
-    <div class="stack gap-1">
-      <p class="text-sm">Network fee</p>
-      <DisplaySat
-        value={t.estimateion?.fee ?? 0}
-        price={btc.usd_price}
-        label=""
-        digits={2}
-      />
-    </div>
-    <hr>
-    <div class="stack gap-1">
-      <p class="text-sm">Total</p>
-      <DisplaySat
-        value={(t.transfer_amount ?? 0) + (t.estimateion?.fee ?? 0)}
-        price={btc.usd_price}
-        label=""
-        digits={2}
-      />
-    </div>
-    <div class="row">
-      <button
-        class="btn btn-plain"
-        disabled={t.busy}
-        onclick={() => t.back_to_estimate()}
-      >
-        Back
-      </button>
-      <HoldToSend busy={t.busy} onsend={send} />
-    </div>
+    <TransferReview {btc} onsend={send} />
   {:else}
     <form
       class="stack"
@@ -234,12 +176,6 @@
 </Modal>
 
 <style>
-  .review-title {
-    font-size: 16px;
-    font-weight: 500;
-    letter-spacing: 0;
-  }
-
   .input-summary {
     width: fit-content;
     max-width: 100%;

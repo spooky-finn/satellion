@@ -19,6 +19,15 @@ as a whole use `$state.raw`. There is no external state management library.
 state lives in `src/view_model/`, reusable controls in `src/components/`, and
 request, routing, and theme helpers in `src/lib/`.
 
+Route components compose domain sections and dialogs. Wallet creation and unlock
+steps live in `src/routes/wallet/`, settings controls in `src/routes/settings/`,
+and chain operations beside their wallet screens. Pass view models and callbacks
+to these components; keep access to `root_store` at the route boundary.
+
+Route-local reactive classes own workflow state and expose cleanup explicitly.
+Creation clears recovery secrets on unmount; unlock ignores completion after
+the route is disposed. Nested dialogs stay inside their parent's focus scope.
+
 Separate imports, state, methods, and request phases with a blank line. Keep
 related state fields together, and use short comments to explain request guards,
 cleanup, or transaction review requirements.

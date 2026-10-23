@@ -3,136 +3,37 @@
   import { root_store } from '../view_model/root.svelte'
   import { router } from '../lib/router.svelte'
   import { route } from '../lib/routes'
-  import { handle_err } from '../lib/handle_err'
   import Loading from '../components/Loading.svelte'
-  import ThemeSwitcher from '../components/ThemeSwitcher.svelte'
   import Icon from '../components/Icon.svelte'
+  import { UnlockPage } from './wallet/unlock/unlock_page.svelte'
+  import WalletPicker from './wallet/unlock/WalletPicker.svelte'
+  import PassphraseForm from './wallet/unlock/PassphraseForm.svelte'
 
   const { unlock, biometric, wallet } = root_store
-  let loading = $state(true)
-  let error = $state('')
-  let disposed = false
-
-  async function load() {
-    loading = true
-    error = ''
-
-    try {
-      const selected = unlock.target_wallet
-      const wallets = await unlock.load_available_wallets()
-
-      if (unlock.target_wallet && !wallets.includes(unlock.target_wallet))
-        unlock.target_wallet = null
-      if (unlock.target_wallet !== selected) unlock.set_passphrase('')
-      if (disposed) return
-
-      if (!wallets.length) {
-        router.navigate(route.create_wallet, true)
-
-        return
-      }
-
-      await biometric.load_for(wallets)
-
-      if (disposed) return
-
-      loading = false
-      await autoPrompt()
-    } catch (cause) {
-      error = String(cause)
-    } finally {
-      loading = false
-    }
-  }
-
-  function complete(chain: string) {
-    if (disposed) return
-
-    unlock.set_passphrase('')
-    root_store.on_unlock()
-    router.navigate(chain === 'Bitcoin' ? route.bitcoin : route.ethereum, true)
-  }
-
-  async function passwordUnlock() {
-    if (!unlock.target_wallet || !unlock.passphrase || unlock.loader.loading)
-      return
-
-    try {
-      complete(await unlock.unlock_wallet(wallet))
-    } catch (cause) {
-      error = String(cause)
-    }
-  }
-
-  async function biometricUnlock() {
-    const target = unlock.target_wallet
-
-    if (!target || unlock.loader.loading) return
-
-    unlock.loader.start()
-
-    try {
-      const result = await biometric.attempt_unlock(target)
-
-      if (result && !disposed) {
-        wallet.init(target, result)
-        unlock.set_isunlocked(true)
-        complete(result.last_used_chain)
-      }
-    } catch (cause) {
-      error = String(cause)
-    } finally {
-      unlock.loader.stop()
-    }
-  }
-
-  async function autoPrompt() {
-    const target = unlock.target_wallet
-
-    if (
-      biometric.should_auto_prompt_for(
-        target,
-        !unlock.loader.loading && !unlock.is_unlocked,
-      ) &&
-      target
-    ) {
-      biometric.mark_auto_attempted(target)
-      await biometricUnlock()
-    }
-  }
-
-  function selectWallet(name: string) {
-    unlock.set_target_wallet(name)
-    error = ''
-    autoPrompt().catch(handle_err)
-  }
-
-  function keyboard(event: KeyboardEvent) {
-    const refresh =
-      event.key === 'F5' ||
-      ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'r')
-
-    if (!refresh) return
-
-    event.preventDefault()
-
-    if (!loading && !unlock.loader.loading) load().catch(handle_err)
-  }
+  const page = new UnlockPage(
+    unlock,
+    biometric,
+    wallet,
+    chain => {
+      root_store.on_unlock()
+      router.navigate(
+        chain === 'Bitcoin' ? route.bitcoin : route.ethereum,
+        true,
+      )
+    },
+    () => router.navigate(route.create_wallet, true),
+  )
+  const loading = $derived(page.loading)
+  const error = $derived(page.error)
 
   onMount(() => {
-    wallet.reset()
-    unlock.reset()
-    biometric.reset()
-    load().catch(handle_err)
+    page.start()
 
-    return () => {
-      disposed = true
-      unlock.set_passphrase('')
-    }
+    return () => page.dispose()
   })
 </script>
 
-<svelte:window onkeydown={keyboard} />
+<svelte:window onkeydown={(event) => page.keyboard(event)} />
 
 <section class="login-page">
   <div class="login-content stack">
@@ -150,40 +51,12 @@
       <Loading label="Inspecting blockchain…" />
     {:else if unlock.target_wallet}
       {#key unlock.target_wallet}
-        <form
-          class="stack items-center"
-          onsubmit={(event) => {
-            event.preventDefault()
-            passwordUnlock()
-          }}
-        >
-          <label class="field">
-            <span class="sr-only">Passphrase</span>
-            <input
-              class="input input-soft login-passphrase"
-              type="password"
-              placeholder="Passphrase"
-              autocomplete="off"
-              bind:value={unlock.passphrase}
-              {@attach (element) => {
-                element.focus()
-              }}
-            >
-          </label>
-          <button
-            type="submit"
-            class="sr-only"
-            tabindex="-1"
-            disabled={!unlock.passphrase}
-          >
-            Unlock wallet
-          </button>
-        </form>
+        <PassphraseForm {unlock} onsubmit={() => page.passwordUnlock()} />
       {/key}
       {#if biometric.is_enabled_for(unlock.target_wallet)}
         <button
           class="btn btn-sm preset-tonal-surface"
-          onclick={biometricUnlock}
+          onclick={() => page.biometricUnlock()}
         >
           <Icon name="fingerprint" />
           Use Touch ID
@@ -192,39 +65,21 @@
     {/if}
     {#if error}
       <p role="alert" class="error">{error}</p>
-      <button class="btn btn-sm preset-tonal-surface" onclick={() => load()}>
+      <button
+        class="btn btn-sm preset-tonal-surface"
+        onclick={() => page.load()}
+      >
         Reload wallets
       </button>
     {/if}
   </div>
-  <nav class="login-wallets row" aria-label="Wallets">
-    {#each unlock.available_wallets as name (name)}
-      <button
-        class={[
-          'btn btn-sm',
-          unlock.target_wallet === name
-            ? 'preset-filled-surface-500'
-            : 'preset-outlined-surface-500',
-        ]}
-        title={name}
-        aria-pressed={unlock.target_wallet === name}
-        disabled={loading || unlock.loader.loading}
-        onclick={() => selectWallet(name)}
-      >
-        {name}
-      </button>
-    {/each}
-    <button
-      class="btn-icon"
-      aria-label="Add a wallet"
-      title="Add a wallet"
-      disabled={loading || unlock.loader.loading}
-      onclick={() => router.navigate(route.create_wallet)}
-    >
-      <Icon name="plus" />
-    </button>
-    <ThemeSwitcher iconOnly />
-  </nav>
+  <WalletPicker
+    wallets={unlock.available_wallets}
+    selected={unlock.target_wallet}
+    disabled={loading || unlock.loader.loading}
+    onselect={(name) => page.selectWallet(name)}
+    onadd={() => router.navigate(route.create_wallet)}
+  />
 </section>
 
 <style>
@@ -254,27 +109,6 @@
     flex-shrink: 0;
     color: var(--app-icon);
     height: 64px;
-  }
-
-  .login-passphrase {
-    width: 200px;
-  }
-
-  .login-wallets {
-    position: fixed;
-    inset-inline: 0;
-    bottom: 16px;
-    justify-content: center;
-    padding-inline: 16px;
-    max-height: 35dvh;
-    overflow-y: auto;
-  }
-
-  .login-wallets .btn {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: block;
   }
 
   @media (max-height: 450px) {

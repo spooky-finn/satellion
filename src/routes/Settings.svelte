@@ -1,15 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { Switch } from '@skeletonlabs/skeleton-svelte'
   import { root_store } from '../view_model/root.svelte'
   import { router } from '../lib/router.svelte'
   import { route } from '../lib/routes'
-  import { handle_err } from '../lib/handle_err'
-  import { notifier } from '../lib/notifier'
   import ConfigForm from '../components/ConfigForm.svelte'
   import Loading from '../components/Loading.svelte'
-  import Modal from '../components/Modal.svelte'
   import Icon from '../components/Icon.svelte'
+  import BiometricSetting from './settings/BiometricSetting.svelte'
+  import WalletSettings from './settings/WalletSettings.svelte'
+  import ForgetWallet from './settings/ForgetWallet.svelte'
 
   const { settings: s, wallet } = root_store
   let loading = $state(true)
@@ -86,23 +85,7 @@
       }}
     >
       {#if s.biometric_supported}
-        <div class="row between">
-          <div>
-            <div class="row">
-              <Icon name="fingerprint" />
-              <p>Unlock with Touch ID</p>
-            </div>
-            <p class="muted">Store your passphrase in the macOS Keychain.</p>
-          </div>
-          <Switch
-            checked={s.biometric_enabled}
-            disabled={s.biometric_busy}
-            onCheckedChange={(event) =>
-              s.toggle_biometric(event.checked).catch(handle_err)}
-            ><Switch.Control><Switch.Thumb /></Switch.Control>
-            <Switch.HiddenInput aria-label="Unlock with Touch ID" /></Switch
-          >
-        </div>
+        <BiometricSetting {s} />
       {/if}
       {#if s.config && s.schema}
         <ConfigForm
@@ -124,87 +107,20 @@
         {saving ? 'Saving…' : 'Save'}
       </button>
     </form>
-    <div class="stack">
-      <p class="eyebrow">Wallet</p>
-      <form
-        class="row items-end"
-        onsubmit={(event) => {
-          event.preventDefault()
-          s.rename_wallet()
-            .then((ok) => {
-              if (ok) notifier.ok('Wallet renamed')
-            })
-            .catch(handle_err)
-        }}
-      >
-        <label class="field flex-1"
-          >Wallet name<input
-            class="input input-sm"
-            bind:value={s.rename_draft}
-            required
-          ></label
-        ><button
-          class="btn preset-filled-primary-500"
-          disabled={!s.rename_draft.trim() ||
-            s.rename_draft.trim() === wallet.name}
-        >
-          Rename
-        </button>
-      </form>
-      <div class="row between forget-row">
-        <div class="forget-copy">
-          <p>Forget wallet</p>
-          <p class="muted">
-            Remove this wallet from the device. Your funds are safe as long as
-            you have the seed phrase.
-          </p>
-        </div>
-        <button
-          class="btn preset-tonal-error"
-          onclick={(event) => {
-            event.currentTarget.focus()
-            forgetting = true
-          }}
-        >
-          Forget
-        </button>
-      </div>
-    </div>
+    <WalletSettings {s} {wallet} onforget={() => { forgetting = true }} />
   {/if}
   {#if error}
     <p role="alert" class="error">{error}</p>
   {/if}
 </section>
-<Modal
+
+<ForgetWallet
   open={forgetting}
-  title="Forget wallet?"
   busy={saving}
-  onclose={() => {
-    forgetting = false
-  }}
->
-  <p>
-    Remove {wallet.name} from this device? You need your recovery phrase and
-    passphrase to restore access.
-  </p>
-  <div class="row">
-    <button
-      class="btn preset-tonal-surface"
-      disabled={saving}
-      onclick={() => {
-        forgetting = false
-      }}
-    >
-      Cancel
-    </button><button
-      class="btn preset-filled-error-500"
-      disabled={saving}
-      onclick={forget}
-    >
-      Forget wallet
-    </button>
-  </div>
-</Modal>
+  name={wallet.name}
+  onclose={() => { forgetting = false }}
+  onforget={forget}
+/>
 
 <style>
   .settings-page {
@@ -226,14 +142,6 @@
 
   .settings-form {
     gap: 24px;
-  }
-
-  .forget-row {
-    flex-wrap: nowrap;
-  }
-
-  .forget-copy {
-    flex: 1;
   }
 
   .settings-save {
