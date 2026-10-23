@@ -1,5 +1,6 @@
 type BigDecimalValue = string | number | BigDecimal
 
+/** Decimal arithmetic backed by a BigInt scaled to 18 fractional digits. */
 export class BigDecimal {
   static DECIMALS: number = 18 // Number of decimals on all instances
   static ROUNDED: boolean = true // Numbers are truncated (false) or rounded (true)
@@ -12,14 +13,19 @@ export class BigDecimal {
   constructor(value: BigDecimalValue | bigint, convert?: symbol) {
     if (value instanceof BigDecimal) {
       this.n = value.n
+
       return
     }
+
     if (convert === BigDecimal.fromBigInt) {
       // Can only be used within this class
       this.n = value as bigint
+
       return
     }
+
     const [ints, decis] = String(value).split('.').concat('')
+
     this.n =
       BigInt(
         ints +
@@ -61,13 +67,17 @@ export class BigDecimal {
     if (exponent === 0) {
       return new BigDecimal(1)
     }
+
     if (exponent < 0) {
       throw new Error('Negative exponent not supported')
     }
+
     let result = new BigDecimal(this)
+
     for (let i = 1; i < exponent; i++) {
       result = result.multiply(this)
     }
+
     return result
   }
 
@@ -80,6 +90,7 @@ export class BigDecimal {
     }
 
     const paddedDec = decPart.padEnd(precision, '0').slice(0, precision)
+
     return `${intPart}.${paddedDec}`
   }
 
@@ -88,11 +99,13 @@ export class BigDecimal {
       .toString()
       .replace('-', '')
       .padStart(BigDecimal.DECIMALS + 1, '0')
+
     s = (
       s.slice(0, -BigDecimal.DECIMALS) +
       '.' +
       s.slice(-BigDecimal.DECIMALS)
     ).replace(/(\.0*|0+)$/, '')
+
     return this.n < 0 ? `-${s}` : s
   }
 }

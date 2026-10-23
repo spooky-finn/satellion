@@ -1,0 +1,80 @@
+/* Satellion's original warm palette, exposed as a Skeleton theme. */
+[data-theme='satellion'] {
+  --radius-base: 6px;
+  --radius-container: 6px;
+
+  --typo-base--font-family:
+    Inter, -apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+  --typo-base--font-size: 16px;
+  --typo-base--line-height: 1.5;
+  --typo-base--color-light: #1e130a;
+  --typo-base--color-dark: #f0e8dd;
+
+  --color-primary-50: #fff8e7;
+  --color-primary-100: #fdedc8;
+  --color-primary-200: #fbd98e;
+  --color-primary-300: #f8c154;
+  --color-primary-400: #f5a623;
+  --color-primary-500: #e8900a;
+  --color-primary-600: #c47408;
+  --color-primary-700: #9a5a06;
+  --color-primary-800: #704104;
+  --color-primary-900: #4a2b02;
+  --color-primary-950: #2d1a01;
+
+  --color-surface-50: #faf5ee;
+  --color-surface-100: #e8e0d5;
+  --color-surface-200: #d0c4b5;
+  --color-surface-300: #b5a594;
+  --color-surface-400: #9a8878;
+  --color-surface-500: #7d6e60;
+  --color-surface-600: #61554a;
+  --color-surface-700: #473e35;
+  --color-surface-800: #302a23;
+  --color-surface-900: #241f1b;
+  --color-surface-950: #1c1916;
+
+  --color-root-bg-light: #faf5ee;
+  --color-root-bg-dark: #1c1916;
+  --color-brand-light: #c47408;
+  --color-brand-dark: #e8900a;
+
+  /* Semantic colors shared by controls in both light and dark modes. */
+  --app-bg: light-dark(#faf5ee, #1c1916);
+  --app-popup: light-dark(#fff, #241f1b);
+  --app-text: light-dark(#4a3628, #c4b5a8);
+  --app-heading: light-dark(#1e130a, #f0e8dd);
+  --app-secondary: light-dark(#4a3828, #c4b5a8);
+  --app-muted: light-dark(#7a6555, #8a7a6e);
+  --app-icon: light-dark(#7a6555, #8a7a6e);
+  --app-border: light-dark(rgba(100, 80, 65, 0.3), rgba(200, 180, 160, 0.28));
+  --app-divider: light-dark(rgba(100, 75, 55, 0.15), rgba(200, 175, 150, 0.14));
+  --app-focus: light-dark(rgba(196, 116, 8, 0.65), rgba(232, 144, 10, 0.65));
+  --app-primary-solid: light-dark(#c47408, #e8900a);
+  --app-primary-solid-hover: light-dark(#9a5a06, #c47408);
+  --app-primary-plain: light-dark(#9a5a06, #f5a623);
+  --app-primary-soft: light-dark(
+    rgba(196, 116, 8, 0.12),
+    rgba(232, 144, 10, 0.15)
+  );
+  --app-primary-soft-hover: light-dark(
+    rgba(196, 116, 8, 0.2),
+    rgba(232, 144, 10, 0.25)
+  );
+  --app-primary-soft-text: light-dark(#704104, #f8c154);
+  --app-neutral-solid: light-dark(#6e5c4f, #47403a);
+  --app-neutral-solid-hover: light-dark(#5a4a3e, #5a524b);
+  --app-neutral-soft: light-dark(
+    rgba(100, 80, 65, 0.1),
+    rgba(255, 235, 200, 0.08)
+  );
+  --app-neutral-hover: light-dark(
+    rgba(100, 80, 65, 0.16),
+    rgba(255, 235, 200, 0.14)
+  );
+  --app-warning-soft: light-dark(#fdf0e1, #492b08);
+  --app-warning-text: light-dark(#9a5a06, #f8c154);
+  --app-danger: light-dark(#a51818, #f09898);
+  --app-danger-soft: light-dark(#fce4e4, #451818);
+}

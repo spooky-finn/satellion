@@ -7,41 +7,31 @@
   "scripts": {
     "prepare": "husky",
     "dev": "vite",
-    "check": "tsc --noEmit",
-    "build": "tsc && vite build",
+    "check": "svelte-check --tsconfig ./tsconfig.json && tsc -p tsconfig.node.json --noEmit",
+    "build": "pnpm check && vite build",
     "fix": "pnpm exec biome check --write",
-    "fmt": "pnpm exec biome format --write",
+    "fmt": "biome format --write .",
+    "fmt:check": "biome format .",
     "preview": "vite preview",
     "tauri": "tauri"
   },
   "dependencies": {
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.1",
-    "@mui/icons-material": "^7.3.6",
-    "@mui/joy": "5.0.0-beta.52",
-    "@mui/material": "npm:@mui/joy@5.0.0-beta.52",
     "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/plugin-opener": "^2.5.2",
-    "mobx": "^6.15.0",
-    "mobx-react-lite": "^4.1.1",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
-    "react-router": "^7.10.1"
+    "svelte": "^5.0.0",
+    "@skeletonlabs/skeleton": "^5.0.1",
+    "@skeletonlabs/skeleton-svelte": "^5.0.1"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.13",
-    "@react-router/dev": "^7.14.2",
     "@tauri-apps/cli": "^2.9.6",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^4.7.0",
     "typescript": "~6.0.2",
     "vite": "^7.2.7",
-    "husky": "^9.1.7"
-  },
-  "pnpm": {
-    "overrides": {
-      "chokidar": "3.5.3"
-    }
+    "husky": "^9.1.7",
+    "@sveltejs/vite-plugin-svelte": "^6.0.0",
+    "svelte-check": "^4.0.0",
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/node": "^24.0.0"
   }
 }

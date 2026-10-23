@@ -1,0 +1,482 @@
+@import 'tailwindcss';
+@import '@skeletonlabs/skeleton';
+@import '@skeletonlabs/skeleton-svelte';
+@import './theme.css';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  font-family:
+    Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
+    Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100dvh;
+  margin: 0;
+  background: var(--app-bg);
+  color: var(--app-text);
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--app-focus);
+  outline-offset: 2px;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--app-heading);
+  font-weight: 600;
+  line-height: 1.3334;
+}
+
+h1 {
+  font-weight: 700;
+  font-size: 30px;
+  letter-spacing: -0.025em;
+}
+
+h2 {
+  font-size: 24px;
+  letter-spacing: -0.025em;
+}
+
+h3 {
+  font-size: 18px;
+}
+
+.app-shell {
+  width: 100%;
+  min-height: 100dvh;
+  padding: 16px;
+}
+
+/* Let Tailwind utilities override these shared layout defaults. */
+@layer components {
+  .stack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+  }
+
+  .compact {
+    gap: 8px;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .between {
+    justify-content: space-between;
+  }
+}
+
+.panel,
+.soft-card {
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: var(--app-neutral-soft);
+}
+
+.outlined-card {
+  background: transparent;
+  border-color: var(--app-border);
+}
+
+.warning-card {
+  background: var(--app-warning-soft);
+}
+
+.muted {
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--app-muted);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  min-width: 0;
+}
+
+.error {
+  color: var(--app-danger);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.notice {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--app-warning-soft);
+  color: var(--app-warning-text);
+  font-size: 14px;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+.table-wrap {
+  overflow: auto;
+  min-width: 0;
+}
+
+.table {
+  width: 100%;
+  text-align: left;
+  font-size: 16px;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 6px 8px;
+  vertical-align: middle;
+}
+
+.table th {
+  color: var(--app-secondary);
+  font-weight: 600;
+  background: var(--app-bg);
+}
+
+.table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.table tr {
+  border-bottom: 1px solid var(--app-divider);
+}
+
+.table tbody tr:last-child {
+  border: 0;
+}
+
+.auth {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* Skeleton controls use the original wallet's sizing and color variants. */
+.btn,
+.btn-icon {
+  min-height: 32px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 18px;
+  width: fit-content;
+  flex-shrink: 0;
+  gap: 6px;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.btn:hover,
+.btn-icon:hover {
+  filter: none;
+}
+
+.btn-icon {
+  width: 32px;
+  height: 32px;
+  padding: 6px;
+  color: var(--app-icon);
+}
+
+.btn > svg,
+.btn-icon > svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.btn-icon:hover:not(:disabled),
+.btn-plain:hover:not(:disabled) {
+  background: var(--app-neutral-hover);
+}
+
+.btn-plain {
+  color: var(--app-primary-plain);
+}
+
+.btn-neutral {
+  color: var(--app-secondary);
+}
+
+.preset-filled-primary-500,
+.preset-filled-warning-500 {
+  background: var(--app-primary-solid);
+  color: #fff;
+}
+
+.preset-filled-primary-500:hover:not(:disabled),
+.preset-filled-warning-500:hover:not(:disabled) {
+  background: var(--app-primary-solid-hover);
+}
+
+.preset-filled-surface-500 {
+  background: var(--app-neutral-solid);
+  color: #fff;
+}
+
+.preset-filled-surface-500:hover:not(:disabled) {
+  background: var(--app-neutral-solid-hover);
+}
+
+.preset-tonal-primary {
+  background: var(--app-primary-soft);
+  color: var(--app-primary-soft-text);
+}
+
+.preset-tonal-primary:hover:not(:disabled) {
+  background: var(--app-primary-soft-hover);
+}
+
+.preset-tonal-surface {
+  background: var(--app-neutral-soft);
+  color: var(--app-secondary);
+}
+
+.preset-tonal-surface:hover:not(:disabled) {
+  background: var(--app-neutral-hover);
+}
+
+.preset-outlined-surface-500 {
+  border-color: var(--app-border);
+  color: var(--app-secondary);
+}
+
+.preset-outlined-surface-500:hover:not(:disabled) {
+  background: var(--app-neutral-hover);
+}
+
+.preset-tonal-error {
+  background: var(--app-danger-soft);
+  color: var(--app-danger);
+}
+
+.preset-filled-error-500 {
+  background: var(--app-danger);
+  color: #fff;
+}
+
+.preset-tonal-warning {
+  background: var(--app-warning-soft);
+  color: var(--app-warning-text);
+}
+
+.preset-filled-success-500 {
+  background: light-dark(#1f7a40, #276e46);
+  color: #fff;
+}
+
+.input,
+.select {
+  min-width: 0;
+  min-height: 36px;
+  padding: 5px 12px;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+  color: var(--app-text);
+  background-color: transparent;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.08);
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--app-muted);
+  opacity: 0.8;
+}
+
+.input:focus,
+.select:focus {
+  border-color: var(--color-primary-500);
+  box-shadow: inset 0 0 0 1px var(--color-primary-500);
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--app-danger);
+}
+
+.input-sm,
+.select-sm {
+  min-height: 32px;
+  font-size: 14px;
+  line-height: 20px;
+  padding: 5px 8px;
+}
+
+.select {
+  width: fit-content;
+  padding-right: 30px;
+}
+
+.input-soft {
+  background: var(--app-primary-soft);
+  color: var(--app-primary-soft-text);
+  border-color: transparent;
+}
+
+.input-soft::placeholder {
+  color: var(--app-primary-soft-text);
+  opacity: 0.64;
+}
+
+.segmented {
+  display: inline-flex;
+  align-items: stretch;
+  width: fit-content;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.segmented .btn {
+  border-radius: 0;
+  margin: 0;
+  background: var(--app-neutral-soft);
+  color: var(--app-secondary);
+}
+
+.segmented .btn + .btn {
+  border-left: 1px solid var(--app-border);
+}
+
+.segmented .btn[aria-pressed='true'] {
+  background: var(--app-primary-soft);
+  color: var(--app-primary-soft-text);
+}
+
+.segmented .btn:hover:not(:disabled) {
+  background: var(--app-neutral-hover);
+}
+
+.input-unit {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: fit-content;
+}
+
+.input-unit .input {
+  padding-right: 52px;
+  width: 150px;
+}
+
+.input-unit > span {
+  position: absolute;
+  right: 12px;
+  pointer-events: none;
+}
+
+.badge {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--app-divider);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-shell {
+    padding: 12px;
+  }
+}
+
+[data-scope='switch'][data-part='root'] {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+[data-scope='switch'][data-part='label'] {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+[data-scope='switch'][data-part='control'] {
+  width: 32px;
+  height: 20px;
+  padding: 3px;
+  border: 0;
+  background: var(--app-neutral-solid);
+}
+
+[data-scope='switch'][data-part='control'][data-state='checked'] {
+  background: var(--app-primary-solid);
+}
+
+[data-scope='switch'][data-part='thumb'] {
+  width: 14px;
+  height: 14px;
+  background: #fff;
+}
+
+[data-scope='switch'][data-part='thumb'][data-state='checked'] {
+  transform: translateX(12px);
+}
