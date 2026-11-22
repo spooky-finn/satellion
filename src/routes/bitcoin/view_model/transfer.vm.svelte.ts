@@ -2,6 +2,7 @@ import {
   commands,
   type BroadcastTxResponse,
   type BuildTxResponse,
+  type TxRecord,
   type UtxoView,
 } from '../../../bindings/btc'
 import { commands as shared_commands } from '../../../bindings'
@@ -17,7 +18,6 @@ export enum TransferState {
   Estimate,
   Sending,
   Result,
-  Error,
 }
 
 /** Builds a Bitcoin transaction for review before allowing it to be broadcast. */
@@ -31,8 +31,43 @@ export class TransferVM {
   state = $state(TransferState.Estimate)
   broadcast_result = $state.raw<BroadcastTxResponse | undefined>(undefined)
   error = $state<string | undefined>(undefined)
-  estimateion = $state.raw<BuildTxResponse | undefined>(undefined)
+  draft = $state.raw<BuildTxResponse | undefined>(undefined)
   busy = $state(false)
+  recovery = $state.raw<
+    | { status: 'idle' | 'loading' }
+    | { status: 'failed'; error: string }
+    | { status: 'ready'; attempts: TxRecord[] }
+  >({ status: 'idle' })
+  private revision = 0
+
+  open() {
+    this.reset()
+    this.is_open = true
+    return this.load_unresolved()
+  }
+
+  async load_unresolved() {
+    if (this.recovery.status === 'loading') return
+    const revision = this.revision
+    this.recovery = { status: 'loading' }
+    try {
+      const attempts = await commands
+        .listUnresolvedBtcBroadcasts()
+        .then(unwrap_result)
+      if (revision === this.revision)
+        this.recovery = { status: 'ready', attempts }
+    } catch (error) {
+      if (revision === this.revision)
+        this.recovery = { status: 'failed', error: String(error) }
+    }
+  }
+
+  async retry(txid: string) {
+    if (this.busy || this.recovery.status !== 'ready') return false
+    return this.submit(() =>
+      commands.retryBtcBroadcast(txid).then(unwrap_result),
+    )
+  }
 
   set_open(open: boolean) {
     if (!this.busy) this.is_open = open
@@ -67,7 +102,7 @@ export class TransferVM {
   }
 
   async estimate(selected: UtxoView[]) {
-    if (!this.valid || this.busy) return
+    if (!this.valid || this.busy || this.recovery.status !== 'ready') return
 
     if (this.show_utxo_select_button && !selected.length) {
       this.error = 'Select at least one input.'
@@ -75,11 +110,12 @@ export class TransferVM {
       return
     }
 
+    const revision = this.revision
     this.busy = true
     this.error = undefined
 
     try {
-      this.estimateion = await commands
+      const draft = await commands
         .buildTx({
           value: String(this.transfer_amount),
           recipient: this.address.val,
@@ -88,37 +124,54 @@ export class TransferVM {
             : { Auto: this.transfer_amount! },
         })
         .then(unwrap_result)
+      if (revision !== this.revision) return
+      this.draft = draft
       this.state = TransferState.Sending
     } catch (error) {
-      this.error = String(error)
+      if (revision === this.revision) this.error = String(error)
     } finally {
-      this.busy = false
+      if (revision === this.revision) this.busy = false
     }
   }
 
   /** Discard the reviewed transaction whenever its inputs change. */
   back_to_estimate() {
-    this.estimateion = undefined
+    this.draft = undefined
     this.error = undefined
     this.state = TransferState.Estimate
   }
 
   async execute() {
-    if (this.busy || this.state !== TransferState.Sending || !this.estimateion)
-      return
+    const draft = this.draft
+    if (this.busy || this.state !== TransferState.Sending || !draft)
+      return false
+    return this.submit(() =>
+      commands
+        .broadcastTx({ draft_tx_id: draft.draft_tx_id })
+        .then(unwrap_result),
+    )
+  }
 
+  private async submit(send: () => Promise<BroadcastTxResponse>) {
+    const revision = this.revision
     this.busy = true
     this.error = undefined
 
     try {
-      this.broadcast_result = await commands.broadcastTx({}).then(unwrap_result)
+      const result = await send()
+      if (revision !== this.revision) return false
+      this.broadcast_result = result
       this.state = TransferState.Result
+      return true
     } catch (error) {
-      this.error = String(error)
-      this.back_to_estimate()
-      this.error = String(error)
+      if (revision === this.revision) {
+        this.back_to_estimate()
+        this.error = String(error)
+        await this.load_unresolved()
+      }
+      return false
     } finally {
-      this.busy = false
+      if (revision === this.revision) this.busy = false
     }
   }
 
@@ -127,6 +180,10 @@ export class TransferVM {
     this.transfer_amount = undefined
     this.utxo_selection_method = UtxoSelectionMethodKind.Auto
     this.broadcast_result = undefined
+    this.revision++
+    this.recovery = { status: 'idle' }
+    this.is_open = false
+    this.busy = false
     this.back_to_estimate()
   }
 }

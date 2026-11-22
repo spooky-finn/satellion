@@ -53,6 +53,8 @@ pub fn handlers() -> tauri_specta::Builder {
                 btc::commands::chain_tip,
                 btc::commands::build_tx,
                 btc::commands::broadcast_tx,
+                btc::commands::retry_btc_broadcast,
+                btc::commands::list_unresolved_btc_broadcasts,
                 btc::commands::bump_fee_cpfp,
             ])
             .export(lang.clone(), "../src/bindings/btc.ts")
@@ -108,6 +110,8 @@ pub fn handlers() -> tauri_specta::Builder {
         btc::commands::chain_tip,
         btc::commands::build_tx,
         btc::commands::broadcast_tx,
+        btc::commands::retry_btc_broadcast,
+        btc::commands::list_unresolved_btc_broadcasts,
         btc::commands::bump_fee_cpfp,
         //
         eth::commands::ethereum_account_info,

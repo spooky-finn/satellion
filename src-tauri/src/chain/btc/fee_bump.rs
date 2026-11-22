@@ -116,10 +116,11 @@ pub fn build_cpfp_psbt(p: &BuildCpfpParams) -> Result<BuildTxResult, String> {
     Ok(BuildTxResult {
         fee: fee as u32,
         psbt,
-        change_key_path: LabeledKeyDerivationPath {
+        change_key_path: Some(LabeledKeyDerivationPath {
             label: "Change".to_string(),
             path: change_key_path,
-        },
+        }),
+        change_value_sat: Some(output_value),
         recipient: None,
         send_value_sat: 0,
     })

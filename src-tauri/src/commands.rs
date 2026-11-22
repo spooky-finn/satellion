@@ -131,7 +131,10 @@ pub async fn switch_account(
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     match chain {
-        BlockChain::Bitcoin => wallet.btc.active_account = account,
+        BlockChain::Bitcoin => {
+            wallet.btc.get_account(account)?;
+            wallet.btc.switch_account(account);
+        }
         BlockChain::Ethereum => wallet.eth.switch_account(account)?,
     }
     wallet.persist()?;
@@ -301,15 +304,31 @@ pub async fn rename_wallet(
     new_name: String,
     wallet_keeper: tauri::State<'_, WalletKeeper>,
     sk: tauri::State<'_, SK>,
+    tx_repository: tauri::State<'_, TxRepository>,
 ) -> Result<String, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
     let old_name = wallet.name.clone();
+    let broadcast_key = wallet.btc.prk()?.broadcast_key();
     let passphrase: biometric::Passphrase = SecretBox::new(Box::new(
         wallet.btc.with_secret(|secret| secret.passphrase.clone()),
     ));
     wallet_keeper.repository.rename(wallet, &new_name)?;
     let actual_name = wallet.name.clone();
+    if old_name != actual_name {
+        if let Err(e) =
+            tx_repository.rename_btc_broadcast_records(&old_name, &actual_name, &broadcast_key)
+        {
+            return match wallet_keeper.repository.rename(wallet, &old_name) {
+                Ok(()) => Err(format!(
+                    "Wallet rename was reverted because transaction history could not be moved: {e}"
+                )),
+                Err(rollback) => Err(format!(
+                    "Wallet was renamed to {actual_name}, but transaction history remains under {old_name}: {e}. Reverting the rename failed: {rollback}"
+                )),
+            };
+        }
+    }
     let _ = biometric::migrate(&old_name, &actual_name, &passphrase);
     Ok(actual_name)
 }

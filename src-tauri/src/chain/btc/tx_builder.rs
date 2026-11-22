@@ -36,7 +36,8 @@ pub struct BuildPsbtParams<'a> {
 #[derive(Debug, Clone)]
 pub struct BuildTxResult {
     pub psbt: Psbt,
-    pub change_key_path: LabeledKeyDerivationPath,
+    pub change_key_path: Option<LabeledKeyDerivationPath>,
+    pub change_value_sat: Option<u64>,
     pub fee: u32,
     /// Resolved recipient address (None for CPFP-style txs with no external
     /// payee).
@@ -147,10 +148,11 @@ pub fn build_psbt(p: &BuildPsbtParams) -> Result<BuildTxResult, String> {
     Ok(BuildTxResult {
         fee: amounts.fee,
         psbt,
-        change_key_path: LabeledKeyDerivationPath {
+        change_key_path: amounts.has_change.then_some(LabeledKeyDerivationPath {
             label: "Change".to_string(),
             path: change_key_path,
-        },
+        }),
+        change_value_sat: amounts.has_change.then_some(amounts.change_value_sat),
         recipient: Some(p.recipient.to_string()),
         send_value_sat: amounts.send_value_sat,
     })

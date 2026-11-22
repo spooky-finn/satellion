@@ -22,6 +22,14 @@ pub struct Prk {
     xpriv: Xpriv,
 }
 
+impl Prk {
+    pub(crate) fn broadcast_key(&self) -> String {
+        use bitcoin::hashes::{Hash, sha256};
+        let xpub = bip32::Xpub::from_priv(&bitcoin::secp256k1::Secp256k1::new(), &self.xpriv);
+        sha256::Hash::hash(&xpub.encode()).to_string()
+    }
+}
+
 impl Drop for Prk {
     fn drop(&mut self) {
         self.xpriv.private_key.non_secure_erase();
@@ -136,7 +144,10 @@ impl BitcoinWallet {
     }
 
     pub fn switch_account(&mut self, account: AccountIndex) {
-        self.active_account = account;
+        if self.active_account != account {
+            self.pending_tx = None;
+            self.active_account = account;
+        }
     }
 
     pub fn rename_account(&mut self, account: AccountIndex, name: String) -> Result<(), String> {

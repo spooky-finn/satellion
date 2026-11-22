@@ -57,3 +57,38 @@ connectivity.
 
 `src/bindings/` contains generated Tauri command types and should not be edited
 manually. Vite keeps the desktop app's fixed port and HMR configuration.
+
+## Bitcoin broadcast recovery
+
+The application records a signed Bitcoin transaction, its inputs, and an
+`unknown` status before broadcasting it. It reserves those inputs per network
+so they cannot be selected for another outgoing transaction on this installation.
+An acknowledged transaction is marked `pending`; a missing response does not
+mean that the transaction was rejected. The send dialog lists unresolved
+attempts for the active account and can retry the exact saved transaction.
+While a payment is unresolved, the account blocks a new payment of the same
+amount to the same recipient, even when other inputs are available. The
+reservation applies to this installation. Other installations have their own
+broadcast records.
+
+If an input remains reserved after a rejection or eviction, there is currently
+no automatic release. A server reporting that it cannot find a transaction does
+not prove that the transaction cannot still propagate. Investigate the input and
+transaction status before taking further action. Attempts created before this
+recovery feature do not have saved signed transactions or input reservations.
+
+The local database stores signed transactions for retry; anyone with access to
+that data can broadcast them. Release builds write transaction IDs, input
+outpoints, amounts, fees, and errors to `~/.satellion/logs/satellion.log`.
+Treat both the database and log as sensitive wallet metadata.
+
+To exercise the broadcast and identical retry against isolated local regtest
+instances of Bitcoin Core and Electrum, build `electrs/target/release/electrs`,
+install `bitcoind` and `bitcoin-cli`, and run:
+
+```bash
+python3 scripts/test-bitcoin-regtest.py
+```
+
+The test creates temporary chain and wallet data and does not use the local
+Satellion wallet.

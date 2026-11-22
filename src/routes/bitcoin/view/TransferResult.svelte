@@ -20,7 +20,7 @@
     Open explorer
   </button>
 {/if}
-<button class="btn btn-plain" onclick={() => t.reset()}>Send another</button>
+<button class="btn btn-plain" onclick={() => t.open()}>Send another</button>
 
 <style>
   .review-title {

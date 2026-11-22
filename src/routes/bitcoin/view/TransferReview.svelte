@@ -26,7 +26,7 @@
 <div class="stack gap-1">
   <p class="text-sm">Network fee</p>
   <DisplaySat
-    value={t.estimateion?.fee ?? 0}
+    value={t.draft?.fee ?? 0}
     price={btc.usd_price}
     label=""
     digits={2}
@@ -36,7 +36,7 @@
 <div class="stack gap-1">
   <p class="text-sm">Total</p>
   <DisplaySat
-    value={(t.transfer_amount ?? 0) + (t.estimateion?.fee ?? 0)}
+    value={(t.transfer_amount ?? 0) + (t.draft?.fee ?? 0)}
     price={btc.usd_price}
     label=""
     digits={2}

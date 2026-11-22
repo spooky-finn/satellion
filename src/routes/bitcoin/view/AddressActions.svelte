@@ -32,12 +32,11 @@
       </button>
       <button
         class="btn preset-filled-primary-500"
-        disabled={btc.account_selector.account_loader.loading}
+        disabled={btc.account_selector.account_loader.loading || btc.account_selector.active_account === null}
         onclick={(event) => {
             event.currentTarget.focus()
-            btc.transfer.reset()
             btc.utxo_list.reset()
-            btc.transfer.set_open(true)
+            btc.transfer.open()
           }}
       >
         Send

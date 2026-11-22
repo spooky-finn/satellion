@@ -28,13 +28,18 @@
     if (method === UtxoSelectionMethodKind.Manual) selecting = true
   }
 
-  async function send() {
-    await t.execute()
+  async function refresh_after_send(sent: boolean) {
+    if (!sent) return
+    btc.utxo_list.reset()
+    await btc.load_account_info()
+  }
 
-    if (t.state === TransferState.Result) {
-      btc.utxo_list.reset()
-      await btc.load_account_info()
-    }
+  async function send() {
+    await refresh_after_send(await t.execute())
+  }
+
+  async function retry(txid: string) {
+    await refresh_after_send(await t.retry(txid))
   }
 </script>
 
@@ -50,6 +55,46 @@
   {:else if t.state === TransferState.Sending}
     <TransferReview {btc} onsend={send} />
   {:else}
+    {#if t.recovery.status === 'loading'}
+      <p role="status">Checking previous transactions…</p>
+    {:else if t.recovery.status === 'failed'}
+      <p role="alert" class="error">
+        Could not check previous transactions. {t.recovery.error}
+      </p>
+      <button
+        type="button"
+        class="btn btn-plain"
+        onclick={() => t.load_unresolved()}
+      >
+        Retry checking previous transactions
+      </button>
+    {/if}
+    {#if t.recovery.status === 'ready' && t.recovery.attempts.length}
+      <div class="soft-card outlined-card stack compact">
+        <p role="status">
+          These transactions may already have been sent. Retrying a saved
+          transaction keeps the same transaction ID.
+        </p>
+        {#each t.recovery.attempts as tx (tx.tx_hash)}
+          {#if tx.to_address}
+            <p>{display_sat(tx.amount)} to {tx.to_address}</p>
+          {:else}
+            <p>Fee bump</p>
+          {/if}
+          <div class="row">
+            <Copyable value={tx.tx_hash} label="Copy transaction ID" small />
+            <button
+              type="button"
+              class="btn btn-plain"
+              disabled={t.busy}
+              onclick={() => retry(tx.tx_hash)}
+            >
+              Retry same transaction
+            </button>
+          </div>
+        {/each}
+      </div>
+    {/if}
     <form
       class="stack"
       onsubmit={(event) => {
@@ -145,6 +190,7 @@
         class="btn preset-filled-primary-500"
         disabled={!t.valid ||
           t.busy ||
+          t.recovery.status !== 'ready' ||
           (t.show_utxo_select_button && !btc.utxo_list.selected_utxo.length)}
       >
         {t.busy ? 'Estimating…' : 'Estimate'}

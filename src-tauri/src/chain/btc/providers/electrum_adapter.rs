@@ -126,14 +126,61 @@ impl ElectrumAdapter {
 
     pub async fn broadcast_tx(&self, tx: &bitcoin::Transaction) -> Result<String, String> {
         let hex = bitcoin::consensus::encode::serialize_hex(tx);
-        let raw = self
+        let expected = tx.compute_txid();
+        let txid = expected.to_string();
+        let result = self
             .client
             .request("blockchain.transaction.broadcast", vec![json!(hex)])
-            .await?;
-        raw.as_str()
-            .map(|s| s.to_string())
-            .ok_or_else(|| "unexpected broadcast response".to_string())
+            .await;
+        let error = match result {
+            Ok(raw) if raw.as_str() == Some(txid.as_str()) => return Ok(txid),
+            Ok(raw) => match raw.as_str().and_then(|value| value.parse::<Txid>().ok()) {
+                Some(actual) => format!("broadcast returned mismatched transaction ID {actual}"),
+                None => "broadcast response did not contain a transaction ID".to_string(),
+            },
+            Err(error) => broadcast_diagnostic(&error, &hex),
+        };
+        tracing::warn!(%txid, error = %error, "Broadcast response inconclusive; checking transaction on Electrum");
+        match self
+            .client
+            .request("blockchain.transaction.get", vec![json!(txid)])
+            .await
+        {
+            Ok(raw) => {
+                let found = raw
+                    .as_str()
+                    .and_then(|hex| Vec::<u8>::from_hex(hex).ok())
+                    .and_then(|bytes| deserialize::<bitcoin::Transaction>(&bytes).ok());
+                if found
+                    .as_ref()
+                    .is_some_and(|found| found.compute_txid() == expected)
+                {
+                    tracing::info!(%txid, "Electrum confirms transaction is available");
+                    return Ok(txid);
+                }
+                Err(format!(
+                    "{error}; transaction lookup returned an invalid or mismatched transaction"
+                ))
+            }
+            Err(lookup_error) => {
+                let lookup_error = broadcast_diagnostic(&lookup_error, &hex);
+                Err(format!(
+                    "{error}; transaction lookup failed: {lookup_error}"
+                ))
+            }
+        }
     }
+}
+
+// Error strings are supplied by the server and may echo the request.
+fn broadcast_diagnostic(error: &str, signed_hex: &str) -> String {
+    error
+        .replace(signed_hex, "[signed transaction]")
+        .replace(&signed_hex.to_ascii_uppercase(), "[signed transaction]")
+        .chars()
+        .filter(|c| !c.is_control())
+        .take(300)
+        .collect()
 }
 
 #[derive(Deserialize)]
@@ -155,4 +202,99 @@ fn scripthash(address: &bitcoin::Address) -> String {
     let mut hash = sha256::Hash::hash(script.as_bytes()).to_byte_array();
     hash.reverse();
     hash.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+    #[tokio::test]
+    async fn inconclusive_broadcast_is_reconciled_by_transaction_lookup() {
+        let tx = bitcoin::Transaction {
+            version: bitcoin::transaction::Version::TWO,
+            lock_time: bitcoin::absolute::LockTime::ZERO,
+            input: vec![bitcoin::TxIn::default()],
+            output: vec![],
+        };
+        let txid = tx.compute_txid().to_string();
+        let hex = bitcoin::consensus::encode::serialize_hex(&tx);
+        let (client, server) = tokio::io::duplex(8192);
+        let adapter = ElectrumAdapter {
+            client: ElectrumClient::from_test_stream(client),
+        };
+        let task = tokio::spawn(async move {
+            let (reader, mut writer) = tokio::io::split(server);
+            let mut reader = BufReader::new(reader);
+            let mut line = String::new();
+            reader.read_line(&mut line).await.unwrap();
+            let request: serde_json::Value = serde_json::from_str(&line).unwrap();
+            assert_eq!(request["method"], "blockchain.transaction.broadcast");
+            writer
+                .write_all(b"{\"id\":1,\"result\":[]}\n")
+                .await
+                .unwrap();
+            line.clear();
+            reader.read_line(&mut line).await.unwrap();
+            let request: serde_json::Value = serde_json::from_str(&line).unwrap();
+            assert_eq!(request["method"], "blockchain.transaction.get");
+            let response = format!("{}\n", serde_json::json!({"id": 2, "result": hex}));
+            writer.write_all(response.as_bytes()).await.unwrap();
+        });
+        assert_eq!(adapter.broadcast_tx(&tx).await.unwrap(), txid);
+        task.await.unwrap();
+    }
+    #[tokio::test]
+    async fn lookup_of_wrong_transaction_does_not_confirm_broadcast() {
+        let tx = bitcoin::Transaction {
+            version: bitcoin::transaction::Version::TWO,
+            lock_time: bitcoin::absolute::LockTime::ZERO,
+            input: vec![bitcoin::TxIn::default()],
+            output: vec![],
+        };
+        let mut other = tx.clone();
+        other.lock_time = bitcoin::absolute::LockTime::from_consensus(1);
+        let hex = bitcoin::consensus::encode::serialize_hex(&other);
+        let (client, server) = tokio::io::duplex(8192);
+        let adapter = ElectrumAdapter {
+            client: ElectrumClient::from_test_stream(client),
+        };
+        let task = tokio::spawn(async move {
+            let (reader, mut writer) = tokio::io::split(server);
+            let mut reader = BufReader::new(reader);
+            let mut line = String::new();
+            reader.read_line(&mut line).await.unwrap();
+            writer
+                .write_all(b"{\"id\":1,\"result\":[]}\n")
+                .await
+                .unwrap();
+            line.clear();
+            reader.read_line(&mut line).await.unwrap();
+            let response = format!("{}\n", serde_json::json!({"id": 2, "result": hex}));
+            writer.write_all(response.as_bytes()).await.unwrap();
+        });
+        assert!(
+            adapter
+                .broadcast_tx(&tx)
+                .await
+                .unwrap_err()
+                .contains("mismatched transaction")
+        );
+        task.await.unwrap();
+    }
+    /// Run with an isolated regtest Electrum server and a signed transaction.
+    #[tokio::test]
+    #[ignore = "requires SATELLION_TEST_ELECTRUM and SATELLION_TEST_TX_HEX"]
+    async fn regtest_broadcast_and_retry_same_transaction() {
+        let addr = std::env::var("SATELLION_TEST_ELECTRUM").unwrap();
+        let hex = std::env::var("SATELLION_TEST_TX_HEX").unwrap();
+        let tx: bitcoin::Transaction = deserialize(&Vec::<u8>::from_hex(&hex).unwrap()).unwrap();
+        let stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        let adapter = ElectrumAdapter {
+            client: ElectrumClient::from_test_stream(stream),
+        };
+        let expected = tx.compute_txid().to_string();
+        assert_eq!(adapter.broadcast_tx(&tx).await.unwrap(), expected);
+        assert_eq!(adapter.broadcast_tx(&tx).await.unwrap(), expected);
+    }
 }

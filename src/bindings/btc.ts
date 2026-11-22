@@ -90,6 +90,25 @@ async broadcastTx(req: BroadcastTxRequest) : Promise<Result<BroadcastTxResponse,
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Rebroadcast only the exact signed bytes saved for this wallet and account.
+ */
+async retryBtcBroadcast(txId: string) : Promise<Result<BroadcastTxResponse, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("retry_btc_broadcast", { txId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async listUnresolvedBtcBroadcasts() : Promise<Result<TxRecord[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_unresolved_btc_broadcasts") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async bumpFeeCpfp(req: BumpFeeRequest) : Promise<Result<BumpFeeResponse, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("bump_fee_cpfp", { req }) };
@@ -115,10 +134,11 @@ export type ActiveAccountView = { index: number;
  * main external address to accept payments
  */
 address: string; total_balance: string; utxo: UtxoView[] }
-export type BroadcastTxRequest = Record<string, never>
+export type BlockChain = "Bitcoin" | "Ethereum"
+export type BroadcastTxRequest = { draft_tx_id: string }
 export type BroadcastTxResponse = { tx_id: string }
 export type BuildTxRequest = { value: string; recipient: string; utxo_selection_method: UtxoSelectionStrategy }
-export type BuildTxResponse = { fee: number }
+export type BuildTxResponse = { fee: number; draft_tx_id: string }
 export type BumpFeeRequest = { 
 /**
  * Txid of the unconfirmed transaction whose fee we're bumping.
@@ -153,6 +173,14 @@ utxos_added: number;
 total_value_sat: string }
 export type OutPointRef = { tx_id: string; vout: number }
 export type Proposal = "segwit" | "taproot"
+export type TxDirection = "incoming" | "outgoing" | "selftransfer"
+export type TxRecord = { tx_hash: string; wallet_name: string; chain: BlockChain; account_index: number; direction: TxDirection; status: TxStatus; from_address: string | null; to_address: string | null; amount: string; fee: number | null; block_height: string | null;
+/**
+ * Chain-specific JSON payload. Stored verbatim so the frontend can decode
+ * it according to the [`chain`] discriminator.
+ */
+chain_data: string; created_at: string; confirmed_at: string | null }
+export type TxStatus = "unknown" | "pending" | "confirmed" | "failed"
 export type UtxoSelectionStrategy = { Manual: OutPointRef[] } | { Auto: number }
 export type UtxoView = { utxo_id: OutPointRef; value: string; deriv_path: string; address_label: string | null; confirmed: boolean }
 

@@ -249,7 +249,7 @@ export type TxRecord = { tx_hash: string; wallet_name: string; chain: BlockChain
  * it according to the [`chain`] discriminator.
  */
 chain_data: string; created_at: string; confirmed_at: string | null }
-export type TxStatus = "pending" | "confirmed" | "failed"
+export type TxStatus = "unknown" | "pending" | "confirmed" | "failed"
 export type UnlockDto = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock; last_used_chain: BlockChain }
 export type UtxoView = { utxo_id: OutPointRef; value: string; deriv_path: string; address_label: string | null; confirmed: boolean }
 

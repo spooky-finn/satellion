@@ -18,3 +18,25 @@ diesel::table! {
         confirmed_at -> Nullable<BigInt>,
     }
 }
+
+diesel::table! {
+    btc_broadcast_inputs (network, outpoint) {
+        network -> Text,
+        outpoint -> Text,
+        txid -> Text,
+        created_at -> BigInt,
+    }
+}
+
+diesel::table! {
+    btc_broadcast_payloads (wallet_name, account_index, network, txid) {
+        txid -> Text,
+        wallet_name -> Text,
+        account_index -> Integer,
+        network -> Text,
+        raw_transaction -> Text,
+        wallet_key -> Text,
+    }
+}
+
+diesel::allow_tables_to_appear_in_same_query!(transactions, btc_broadcast_payloads);

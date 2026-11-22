@@ -13,7 +13,7 @@ pub enum BtcNode {
 }
 
 pub fn select_btc_server(config: &Config) -> BtcNode {
-    if config.tor.enabled {
+    if config.tor.enabled && !config.btc.regtest {
         BtcNode::Electrum(ElectrumAdapter::new_tor(&config.tor.socks5_proxy))
     } else {
         BtcNode::Electrum(ElectrumAdapter::new(config.btc.clone()))

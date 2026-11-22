@@ -22,10 +22,13 @@ pub struct BuildTxRequest {
 #[derive(Type, Serialize)]
 pub struct BuildTxResponse {
     pub fee: u32,
+    pub draft_tx_id: String,
 }
 
 #[derive(Type, Deserialize)]
-pub struct BroadcastTxRequest {}
+pub struct BroadcastTxRequest {
+    pub draft_tx_id: String,
+}
 
 #[derive(Type, Serialize)]
 pub struct BroadcastTxResponse {

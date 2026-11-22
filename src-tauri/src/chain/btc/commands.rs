@@ -1,10 +1,12 @@
 use std::str::FromStr;
 
-use bitcoin::{Address, Txid};
+use bitcoin::{Address, Transaction, Txid};
 use specta::specta;
 
 use crate::{
     chain::btc::{
+        Prk,
+        account::UtxoSelectionStrategy,
         discovery::WalletDiscoverer,
         dtos::{
             ActiveAccountView, BroadcastTxRequest, BroadcastTxResponse, BuildTxRequest,
@@ -14,13 +16,16 @@ use crate::{
         fee_bump::{BuildCpfpParams, build_cpfp_psbt},
         fee_estimator::estimate_fee_rate,
         key_derivation::{Change, Proposal},
-        tx_builder::{BuildPsbtParams, build_psbt, sign_psbt},
+        tx_builder::{BuildPsbtParams, BuildTxResult, build_psbt, sign_psbt},
     },
     chain_trait::SecureKey,
     config::BlockChain,
-    repository::{BtcChainData, NewTx, TxDirection, TxRepository, TxStatus},
+    repository::{
+        BtcBroadcastScope, BtcChainData, NewTx, TxDirection, TxRecord, TxRepository, TxStatus,
+    },
     session::SK,
     utils,
+    wallet::Wallet,
 };
 
 #[specta]
@@ -223,10 +228,40 @@ pub async fn sync_utxos(sk: tauri::State<'_, SK>) -> Result<Vec<UtxoView>, Strin
 pub async fn build_tx(
     req: BuildTxRequest,
     sk: tauri::State<'_, SK>,
+    tx_repository: tauri::State<'_, TxRepository>,
 ) -> Result<BuildTxResponse, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
-    let account = wallet.btc.active_account()?;
+    wallet.btc.pending_tx = None;
+    let mut account = wallet.btc.active_account()?.clone();
+    let reserved = tx_repository.reserved_btc_inputs(wallet.config.btc.network())?;
+    if let UtxoSelectionStrategy::Manual(selected) = &req.utxo_selection_method {
+        let mut seen = std::collections::HashSet::new();
+        for item in selected {
+            let outpoint: bitcoin::OutPoint = item.clone().try_into()?;
+            if !seen.insert(outpoint) {
+                return Err(format!("Input {outpoint} was selected more than once."));
+            }
+            if let Some(txid) = reserved.get(&outpoint) {
+                return Err(format!(
+                    "Input {outpoint} is reserved by transaction {txid}. Check that transaction before retrying."
+                ));
+            }
+            if !account.utxo_set.entries.contains_key(&outpoint) {
+                return Err(format!(
+                    "Selected input {outpoint} is no longer available. Refresh the wallet and try again."
+                ));
+            }
+        }
+    }
+    let had_inputs = !account.utxo_set.entries.is_empty();
+    account
+        .utxo_set
+        .entries
+        .retain(|outpoint, _| !reserved.contains_key(outpoint));
+    if had_inputs && account.utxo_set.entries.is_empty() {
+        return Err("No available Bitcoin inputs: one or more outputs are reserved by earlier transactions. Check transaction status before retrying.".to_string());
+    }
     let prk = wallet.btc.prk()?;
     let xpriv = prk.expose();
 
@@ -247,15 +282,18 @@ pub async fn build_tx(
         utxo_selection_method: req.utxo_selection_method,
         miner_fee_vbytes,
         config: wallet.config.btc.clone(),
-        account,
+        account: &account,
         xpriv,
     })
     .map_err(|e| format!("failed to build PSBT: {e}"))?;
 
-    let fee = pending_tx.fee;
+    let response = BuildTxResponse {
+        fee: pending_tx.fee,
+        draft_tx_id: pending_tx.psbt.unsigned_tx.compute_txid().to_string(),
+    };
     wallet.btc.pending_tx = Some(pending_tx);
 
-    Ok(BuildTxResponse { fee })
+    Ok(response)
 }
 
 #[specta]
@@ -264,6 +302,7 @@ pub async fn build_tx(
 pub async fn bump_fee_cpfp(
     req: BumpFeeRequest,
     sk: tauri::State<'_, SK>,
+    tx_repository: tauri::State<'_, TxRepository>,
 ) -> Result<BumpFeeResponse, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
@@ -278,23 +317,9 @@ pub async fn bump_fee_cpfp(
         account: wallet.btc.active_account()?,
         xpriv: prk.expose(),
     })?;
-    let change_key_path = built.change_key_path.clone();
     let fee = built.fee;
-
-    let tx = sign_psbt(built.psbt, &prk)?;
-    let child_tx_id = wallet
-        .btc
-        .server
-        .broadcast_tx(&tx)
-        .await
-        .map_err(|e| format!("fail to broadcast cpfp tx: {e}"))?;
-
-    wallet
-        .btc
-        .get_active_account_mut()?
-        .keychain
-        .push(change_key_path);
-    wallet.persist()?;
+    let child_tx_id =
+        broadcast_new(wallet, &tx_repository, &prk, built, Some(parent_tx_id)).await?;
 
     Ok(BumpFeeResponse {
         child_tx_id,
@@ -306,52 +331,157 @@ pub async fn bump_fee_cpfp(
 #[tauri::command]
 #[tracing::instrument(name = "broadcast_tx", skip_all, err)]
 pub async fn broadcast_tx(
-    _req: BroadcastTxRequest,
+    req: BroadcastTxRequest,
     sk: tauri::State<'_, SK>,
     tx_repository: tauri::State<'_, TxRepository>,
 ) -> Result<BroadcastTxResponse, String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
-
-    let tx = wallet.btc.pending_tx.take().expect("pending tx not found");
-    let signed_tx = sign_psbt(tx.psbt, &wallet.btc.prk()?)?;
-    let vsize = signed_tx.vsize() as u32;
-
-    let tx_id = wallet
+    let draft = wallet
         .btc
-        .server
-        .broadcast_tx(&signed_tx)
-        .await
-        .map_err(|e| format!("fail to broadcast tx: {}", e))?;
+        .pending_tx
+        .as_ref()
+        .ok_or("No reviewed transaction. Rebuild it before sending.")?;
+    if draft.psbt.unsigned_tx.compute_txid().to_string() != req.draft_tx_id {
+        return Err("The transaction draft changed. Review it again before sending.".into());
+    }
+    let draft = wallet
+        .btc
+        .pending_tx
+        .take()
+        .ok_or("No reviewed transaction")?;
+    let prk = wallet.btc.prk()?;
+    let tx_id = broadcast_new(wallet, &tx_repository, &prk, draft, None).await?;
+    Ok(BroadcastTxResponse { tx_id })
+}
 
-    let chain_data = BtcChainData {
-        vsize: Some(vsize),
-        rbf: true,
-        parent_tx_id: None,
-        change_value_sat: None,
-    };
-    let _ = tx_repository.insert(NewTx {
-        tx_hash: tx_id.clone(),
-        wallet_name: wallet.name.clone(),
-        chain: BlockChain::Bitcoin,
-        account_index: wallet.btc.active_account as i32,
-        direction: TxDirection::Outgoing,
-        status: TxStatus::Pending,
-        from_address: None,
-        to_address: tx.recipient.clone(),
-        amount: tx.send_value_sat as i64,
-        fee: Some(tx.fee as i32),
-        block_height: None,
-        chain_data: serde_json::to_value(chain_data).unwrap_or_default(),
-        created_at: utils::now() as i64,
-    });
-
-    {
-        // save change key
-        let account = wallet.btc.get_active_account_mut()?;
-        account.keychain.push(tx.change_key_path);
-        wallet.persist()?;
+async fn broadcast_new(
+    wallet: &mut Wallet,
+    repository: &TxRepository,
+    prk: &Prk,
+    draft: BuildTxResult,
+    parent_tx_id: Option<Txid>,
+) -> Result<String, String> {
+    let tx = sign_psbt(draft.psbt, prk)?;
+    let txid = tx.compute_txid().to_string();
+    let account = wallet.btc.get_active_account_mut()?;
+    for input in &tx.input {
+        if !account
+            .utxo_set
+            .entries
+            .contains_key(&input.previous_output)
+        {
+            return Err(format!(
+                "Input {} is no longer available. Refresh the wallet and review the transaction again.",
+                input.previous_output
+            ));
+        }
     }
 
+    // Persist the change path before saving any transaction that could be retried.
+    if let Some(change) = draft.change_key_path {
+        if account.keychain.contains_path(change.path.clone()) {
+            return Err(
+                "The change address in this draft is already in use. Review a new draft.".into(),
+            );
+        }
+        account.keychain.push(change);
+        if let Err(error) = wallet.persist() {
+            wallet.btc.get_active_account_mut()?.keychain.paths.pop();
+            return Err(error);
+        }
+    }
+
+    let key = prk.broadcast_key();
+    let scope = broadcast_scope(wallet, &key);
+    let chain_data = BtcChainData {
+        vsize: Some(tx.vsize() as u32),
+        rbf: tx.is_explicitly_rbf(),
+        parent_tx_id: parent_tx_id.map(|txid| txid.to_string()),
+        change_value_sat: draft.change_value_sat,
+    };
+    let record = NewTx {
+        tx_hash: txid.clone(),
+        wallet_name: scope.wallet_name.to_owned(),
+        chain: BlockChain::Bitcoin,
+        account_index: scope.account_index,
+        direction: TxDirection::Outgoing,
+        status: TxStatus::Unknown,
+        from_address: None,
+        to_address: draft.recipient,
+        amount: draft.send_value_sat as i64,
+        fee: Some(i32::try_from(draft.fee).map_err(|_| "Bitcoin fee exceeds the history limit")?),
+        block_height: None,
+        chain_data: serde_json::to_value(chain_data).map_err(|e| e.to_string())?,
+        created_at: utils::now() as i64,
+    };
+    tracing::info!(%txid, amount_sat = record.amount, fee_sat = draft.fee, ?parent_tx_id, "Saving Bitcoin broadcast attempt");
+    repository
+        .record_btc_attempt(&scope, &tx, record)
+        .map_err(|e| format!("Transaction {txid} was not broadcast: {e}"))?;
+    broadcast_saved(wallet, repository, &scope, &tx).await
+}
+
+fn broadcast_scope<'a>(wallet: &'a Wallet, key: &'a str) -> BtcBroadcastScope<'a> {
+    BtcBroadcastScope {
+        wallet_name: &wallet.name,
+        account_index: wallet.btc.active_account as i32,
+        network: wallet.config.btc.network(),
+        wallet_key: key,
+    }
+}
+
+async fn broadcast_saved(
+    wallet: &Wallet,
+    repository: &TxRepository,
+    scope: &BtcBroadcastScope<'_>,
+    tx: &Transaction,
+) -> Result<String, String> {
+    let txid = tx.compute_txid().to_string();
+    let inputs: Vec<_> = tx.input.iter().map(|input| input.previous_output).collect();
+    tracing::info!(%txid, ?inputs, network = %scope.network, "Broadcasting saved Bitcoin transaction");
+    let returned = wallet.btc.server.broadcast_tx(tx).await.map_err(|error| {
+        format!("Broadcast outcome for transaction {txid} is unknown: {error}. Check its status or retry the saved transaction.")
+    })?;
+    if returned != txid {
+        return Err(format!(
+            "Broadcast outcome for transaction {txid} is unknown: response transaction ID did not match."
+        ));
+    }
+    if let Err(error) = repository.acknowledge_btc_attempt(scope, &txid) {
+        tracing::error!(%txid, %error, "Broadcast acknowledged but transaction status could not be updated");
+    }
+    tracing::info!(%txid, "Bitcoin broadcast acknowledged");
+    Ok(txid)
+}
+
+/// Rebroadcast only the exact signed bytes saved for this wallet and account.
+#[specta]
+#[tauri::command]
+#[tracing::instrument(name = "retry_btc_broadcast", skip_all, err)]
+pub async fn retry_btc_broadcast(
+    tx_id: String,
+    sk: tauri::State<'_, SK>,
+    tx_repository: tauri::State<'_, TxRepository>,
+) -> Result<BroadcastTxResponse, String> {
+    let mut sk = sk.lock().await;
+    let wallet = sk.wallet()?;
+    let key = wallet.btc.prk()?.broadcast_key();
+    let scope = broadcast_scope(wallet, &key);
+    let tx = tx_repository.btc_attempt_payload(&scope, &tx_id)?;
+    let tx_id = broadcast_saved(wallet, &tx_repository, &scope, &tx).await?;
     Ok(BroadcastTxResponse { tx_id })
+}
+
+#[specta]
+#[tauri::command]
+#[tracing::instrument(name = "list_unresolved_btc_broadcasts", skip_all, err)]
+pub async fn list_unresolved_btc_broadcasts(
+    sk: tauri::State<'_, SK>,
+    tx_repository: tauri::State<'_, TxRepository>,
+) -> Result<Vec<TxRecord>, String> {
+    let mut sk = sk.lock().await;
+    let wallet = sk.wallet()?;
+    let key = wallet.btc.prk()?.broadcast_key();
+    tx_repository.unresolved_btc_attempts(&broadcast_scope(wallet, &key))
 }
