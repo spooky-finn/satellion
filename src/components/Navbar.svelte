@@ -24,7 +24,8 @@
     }
   }
 
-  function lock() {
+  async function lock() {
+    await commands.lockWallet().then(unwrap_result)
     root_store.wallet.reset()
     root_store.unlock.reset()
     router.navigate(route.unlock_wallet, true)
@@ -74,7 +75,7 @@
       class="btn-icon"
       aria-label="Lock wallet"
       title="Lock wallet"
-      onclick={lock}
+      onclick={() => lock().catch(handle_err)}
     >
       <Icon name="lock" />
     </button>

@@ -7,6 +7,7 @@ pub mod db;
 pub mod encryptor;
 pub mod event_emitter;
 pub mod mnemonic;
+mod native_approval;
 pub mod persistence;
 pub mod repository;
 pub mod schema;

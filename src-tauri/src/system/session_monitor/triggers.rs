@@ -5,23 +5,26 @@ use tokio::sync::Mutex;
 
 use crate::{
     event_emitter::{EventEmitter, EventEmitterTrait},
-    session::SessionKeeper,
+    session::{SessionKeeper, SessionRevocation},
     system::session_monitor,
 };
 
 pub fn init_session_triggers(
     app_handle: &tauri::AppHandle,
     sk: Arc<Mutex<SessionKeeper>>,
+    revocation: SessionRevocation,
     event_emitter: Arc<EventEmitter>,
 ) {
     // Listener for session lock
     {
         let sk = sk.clone();
+        let em = event_emitter.clone();
         app_handle.listen(session_monitor::SYS_SESSION_LOCKED_EVENT, move |_| {
+            revocation.revoke();
+            em.session_expired();
             let sk = sk.clone();
             tauri::async_runtime::spawn(async move {
-                let mut sk = sk.lock().await;
-                sk.soft_terminate();
+                sk.lock().await.drop_revoked();
             });
         });
     }

@@ -50,6 +50,14 @@
         >
           Send
         </button>
+        <button
+          type="button"
+          class="btn preset-tonal-primary"
+          disabled={eth.account_selector.account_loader.loading}
+          onclick={() => root_store.wallet.walletconnect.show(eth.address)}
+        >
+          WalletConnect
+        </button>
       </div>
     </div>
   {/if}

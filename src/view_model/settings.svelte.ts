@@ -74,9 +74,7 @@ export class SettingsVM {
   }
 
   async request_config() {
-    const config = await commands.getConfig().then(unwrap_result)
-
-    this.config = config
+    this.config = await commands.getConfig().then(unwrap_result)
   }
 
   async save() {
@@ -90,6 +88,9 @@ export class SettingsVM {
       return
     }
 
+    if (res.data !== 'unchanged') {
+      this.wallet.walletconnect.reset(res.data === 'reset_and_notify')
+    }
     this.restart_hint = true
   }
 

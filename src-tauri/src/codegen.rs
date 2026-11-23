@@ -18,6 +18,7 @@ pub fn handlers() -> tauri_specta::Builder {
                 commands::create_wallet,
                 commands::get_wallets,
                 commands::unlock_wallet,
+                commands::lock_wallet,
                 commands::unlock_wallet_with_biometric,
                 commands::is_biometric_unlock_supported,
                 commands::is_biometric_unlock_enabled,
@@ -68,6 +69,12 @@ pub fn handlers() -> tauri_specta::Builder {
                 eth::commands::track_token,
                 eth::commands::untrack_token,
                 eth::commands::anvil_set_initial_balances,
+                eth::walletconnect::walletconnect_settings,
+                eth::walletconnect::walletconnect_authorize,
+                eth::walletconnect::walletconnect_disconnect,
+                eth::walletconnect::walletconnect_prepare,
+                eth::walletconnect::walletconnect_reject,
+                eth::walletconnect::walletconnect_approve,
             ])
             .export(lang, "../src/bindings/eth.ts")
             .expect("Failed to export TypeScript bindings");
@@ -80,6 +87,7 @@ pub fn handlers() -> tauri_specta::Builder {
         commands::create_wallet,
         commands::get_wallets,
         commands::unlock_wallet,
+        commands::lock_wallet,
         commands::unlock_wallet_with_biometric,
         commands::is_biometric_unlock_supported,
         commands::is_biometric_unlock_enabled,
@@ -118,5 +126,11 @@ pub fn handlers() -> tauri_specta::Builder {
         eth::commands::track_token,
         eth::commands::untrack_token,
         eth::commands::anvil_set_initial_balances,
+        eth::walletconnect::walletconnect_settings,
+        eth::walletconnect::walletconnect_authorize,
+        eth::walletconnect::walletconnect_disconnect,
+        eth::walletconnect::walletconnect_prepare,
+        eth::walletconnect::walletconnect_reject,
+        eth::walletconnect::walletconnect_approve,
     ])
 }

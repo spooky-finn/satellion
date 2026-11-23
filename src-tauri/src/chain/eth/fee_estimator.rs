@@ -152,8 +152,8 @@ mod tests {
 
     fn get_config() -> EthereumConfig {
         EthereumConfig {
-            rpc_url: "https://ethereum-rpc.publicnode.com".to_string(),
             anvil: true,
+            ..Default::default()
         }
     }
 

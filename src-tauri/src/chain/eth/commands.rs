@@ -1,13 +1,16 @@
 use alloy::{
     eips::{BlockId, BlockNumberOrTag},
-    primitives::utils::{format_units, parse_units},
+    primitives::{
+        Address, B256,
+        utils::{format_units, parse_units},
+    },
     providers::Provider,
 };
 use alloy_provider::{DynProvider, ext::AnvilApi};
 use specta::specta;
 
 use crate::{
-    chain_trait::{AssetTracker, SecureKey},
+    chain_trait::{AccountIndex, AssetTracker, SecureKey},
     config::BlockChain,
     eth::{
         self, PriceFeed,
@@ -17,11 +20,13 @@ use crate::{
             TransferEstimation, TransferRequest, WalletBalance,
         },
         erc20_retriver::Erc20Retriever,
+        submission::submit_transaction,
         transfer_builder::TransferPayload,
         wallet::parse_addres,
     },
+    native_approval,
     repository::{EthChainData, NewTx, TxDirection, TxRepository, TxStatus},
-    session::SK,
+    session::{SK, SessionAccess},
     utils,
 };
 
@@ -185,15 +190,28 @@ pub async fn estimate_transfer(
 #[tauri::command]
 #[tracing::instrument(name = "execute_transfer", skip_all, err)]
 pub async fn execute_transfer(
+    app: tauri::AppHandle,
     builder: tauri::State<'_, tokio::sync::Mutex<eth::TxBuilder>>,
     sk: tauri::State<'_, SK>,
     tx_repository: tauri::State<'_, TxRepository>,
 ) -> Result<String, String> {
-    let mut sk = sk.lock().await;
-    let wallet = sk.wallet()?;
     let mut builder = builder.try_lock().map_err(|e| e.to_string())?;
-    let prk = wallet.eth.prk()?;
-    let hash = builder.sign_and_send_tx(prk.expose()).await?;
+    let (sender, details) = builder.review_pending()?;
+    let access = sk.lock().await.unexpired_session()?.access().clone();
+    if let Err(error) =
+        native_approval::confirm(&app, "Send Ethereum transaction", &details, "Send", || {
+            if access.is_cancelled() {
+                return Err("The wallet locked before approval".into());
+            }
+            Ok(())
+        })
+        .await
+    {
+        builder.discard_pending();
+        return Err(error);
+    }
+    let (hash, (wallet_name, account)) =
+        submit_transfer(&mut builder, sender, &sk, &access).await?;
     let hash_str = hash.to_string();
 
     if let Some(meta) = builder.take_pending_meta() {
@@ -208,9 +226,9 @@ pub async fn execute_transfer(
         };
         let fee_wei = meta.metadata_estimated_gas as u128 * meta.metadata_max_fee_per_gas;
         let _ = tx_repository.insert(NewTx {
-            wallet_name: wallet.name.clone(),
+            wallet_name,
             chain: BlockChain::Ethereum,
-            account_index: wallet.eth.active_account as i32,
+            account_index: account as i32,
             tx_hash: hash_str.clone(),
             direction: TxDirection::Outgoing,
             status: TxStatus::Pending,
@@ -227,6 +245,30 @@ pub async fn execute_transfer(
     }
 
     Ok(hash_str)
+}
+
+pub(super) async fn submit_transfer(
+    builder: &mut eth::TxBuilder,
+    sender: Address,
+    sk: &SK,
+    access: &SessionAccess,
+) -> Result<(B256, (String, AccountIndex)), String> {
+    submit_transaction(access, None, async {
+        let nonce = builder.pending_nonce(sender).await?;
+        let (signed, context) = sk.lock().await.with_current_session(access, |session| {
+            let key = session.wallet.eth.prk()?;
+            let signed = builder.sign_pending_tx(key.expose(), nonce)?;
+            Ok((
+                signed,
+                (
+                    session.wallet.name.clone(),
+                    session.wallet.eth.active_account,
+                ),
+            ))
+        })?;
+        Ok((builder.provider().clone(), signed, context))
+    })
+    .await
 }
 
 #[specta]

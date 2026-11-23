@@ -20,7 +20,11 @@
     "@tauri-apps/plugin-opener": "^2.5.2",
     "svelte": "^5.0.0",
     "@skeletonlabs/skeleton": "^5.0.1",
-    "@skeletonlabs/skeleton-svelte": "^5.0.1"
+    "@skeletonlabs/skeleton-svelte": "^5.0.1",
+    "@reown/walletkit": "^1.6.0",
+    "@walletconnect/core": "^2.25.0",
+    "@walletconnect/keyvaluestorage": "^1.1.1",
+    "@walletconnect/utils": "^2.25.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.13",

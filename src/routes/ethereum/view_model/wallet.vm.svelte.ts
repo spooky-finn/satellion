@@ -17,12 +17,15 @@ export class EthereumWalletVM {
   readonly balance = new Loader<WalletBalance>()
   readonly transfer = new TransferVM()
   readonly account_selector = new AccountSelectorVM(this.chain, async _ => {
+    this.on_account_changed()
     this.address = ''
     this.balance.reset()
     this.balance_error = ''
     this.transfer.reset()
     await this.load_active_account()
   })
+
+  constructor(private readonly on_account_changed: () => void) {}
 
   init(unlock: EthereumUnlock) {
     this.account_selector.init(unlock.accounts, unlock.active_account.index)
