@@ -45,6 +45,14 @@ async unlockWallet(walletName: string, passphrase: string) : Promise<Result<Unlo
     else return { status: "error", error: e  as any };
 }
 },
+async lockWallet() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("lock_wallet") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async unlockWalletWithBiometric(walletName: string) : Promise<Result<UnlockDto, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("unlock_wallet_with_biometric", { walletName }) };
@@ -117,7 +125,7 @@ async getConfigSchema() : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async setConfig(input: Config) : Promise<Result<null, string>> {
+async setConfig(input: Config) : Promise<Result<WalletConnectConfigChange, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("set_config", { input }) };
 } catch (e) {
@@ -226,7 +234,15 @@ export type EthereumConfig = {
 /**
  * Ethereum JSON-RPC endpoint URL
  */
-rpc_url: string; anvil: boolean }
+rpc_url: string; anvil: boolean;
+/**
+ * Leave empty to use Satellion's built-in WalletConnect project.
+ */
+walletconnect_project_id: string;
+/**
+ * Connect to Sepolia and Base Sepolia for WalletConnect testing.
+ */
+walletconnect_testnets: boolean }
 export type EthereumUnlock = { accounts: EthereumAccountSummary[]; active_account: EthereumActiveAccountView }
 export type ListTransactionsRequest = { chain: BlockChain; account_index: number; limit: number | null }
 export type OutPointRef = { tx_id: string; vout: number }
@@ -252,6 +268,7 @@ chain_data: string; created_at: string; confirmed_at: string | null }
 export type TxStatus = "pending" | "confirmed" | "failed"
 export type UnlockDto = { ethereum: EthereumUnlock; bitcoin: BitcoinUnlock; last_used_chain: BlockChain }
 export type UtxoView = { utxo_id: OutPointRef; value: string; deriv_path: string; address_label: string | null; confirmed: boolean }
+export type WalletConnectConfigChange = "unchanged" | "reset_and_notify" | "reset_offline"
 
 /** tauri-specta globals **/
 

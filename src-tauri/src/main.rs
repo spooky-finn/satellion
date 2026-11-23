@@ -4,8 +4,15 @@
 use std::time::Duration;
 
 use satellion_lib::{
-    chain::eth, codegen, config::Config, db, event_emitter::EventEmitter, repository::TxRepository,
-    session::SessionKeeper, system, utils, wallet_keeper::WalletKeeper,
+    chain::eth,
+    codegen,
+    config::Config,
+    db,
+    event_emitter::EventEmitter,
+    repository::TxRepository,
+    session::{SessionKeeper, SessionRevocation},
+    system, utils,
+    wallet_keeper::WalletKeeper,
 };
 use tauri::Manager;
 use tokio::sync::Mutex;
@@ -40,11 +47,17 @@ pub async fn main() {
         .manage(Mutex::new(tx_builder))
         .setup(move |app| {
             let event_emitter = EventEmitter::new(app.handle().clone());
-            let sk = SessionKeeper::new(Some(event_emitter.clone()), Some(Duration::from_mins(1)));
+            let revocation = SessionRevocation::default();
+            let sk = SessionKeeper::with_revocation(
+                Some(event_emitter.clone()),
+                Some(Duration::from_mins(1)),
+                revocation.clone(),
+            );
             app.manage(sk.clone());
+            app.manage(revocation.clone());
 
             let app_handle = app.handle();
-            system::session_monitor::init(app_handle, sk, event_emitter.into());
+            system::session_monitor::init(app_handle, sk, revocation, event_emitter.into());
 
             #[cfg(debug_assertions)]
             if enable_devtools() {

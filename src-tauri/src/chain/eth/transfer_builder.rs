@@ -9,7 +9,7 @@ use alloy::{
     network::{TransactionBuilder, TxSignerSync},
     primitives::{
         Address, FixedBytes, U256,
-        utils::{format_units, parse_ether, parse_units},
+        utils::{format_ether, format_units, parse_ether, parse_units},
     },
     providers::Provider,
     rpc::types::TransactionRequest,
@@ -18,8 +18,10 @@ use alloy_provider::{DynProvider, utils::Eip1559Estimation};
 use alloy_signer_local::PrivateKeySigner;
 
 use crate::eth::{
+    constants::ETH,
     erc20_retriver::new_contract_api,
     fee_estimator::{FeeEstimator, FeeMode},
+    provider::broadcast_signed,
     token::Token,
 };
 
@@ -146,6 +148,7 @@ impl TxBuilder {
     async fn get_tx_count(&self, address: Address) -> Result<u64, TransferBuilderError> {
         self.provider
             .get_transaction_count(address)
+            .pending()
             .await
             .map_err(|e| TransferBuilderError::NodeQuery(e.to_string()))
     }
@@ -194,6 +197,50 @@ impl TxBuilder {
         &mut self,
         signer: &PrivateKeySigner,
     ) -> Result<FixedBytes<32>, String> {
+        let nonce = self.pending_nonce(signer.address()).await?;
+        let envelope = self.sign_pending_tx(signer, nonce)?;
+        broadcast_signed(&self.provider, envelope).await
+    }
+
+    pub(crate) fn review_pending(&self) -> Result<(Address, String), String> {
+        let tx = self.pending_tx.as_ref().ok_or("Transaction not prepared")?;
+        let meta = self
+            .pending_meta
+            .as_ref()
+            .ok_or("Transaction details are unavailable")?;
+        let chain = tx.chain_id.ok_or("Transaction network is unavailable")?;
+        let fee = format_ether(
+            U256::from(tx.gas.unwrap_or_default())
+                * U256::from(tx.max_fee_per_gas.unwrap_or_default()),
+        );
+        let asset = if meta.payload.token.address == ETH.address {
+            "ETH".into()
+        } else {
+            format!("token at {}", meta.payload.token.address.to_checksum(None))
+        };
+        Ok((
+            meta.payload.sender,
+            format!(
+                "Network chain ID: {chain}\nFrom: {}\nTo: {}\nSend: {} {asset}\nExecution fee cap: {fee} ETH",
+                meta.payload.sender.to_checksum(None),
+                meta.payload.recipient.to_checksum(None),
+                meta.payload.raw_amount,
+            ),
+        ))
+    }
+
+    pub(crate) async fn pending_nonce(&self, sender: Address) -> Result<u64, String> {
+        if self.pending_tx.is_none() {
+            return Err("Transaction not prepared".into());
+        }
+        self.get_tx_count(sender).await.map_err(|e| e.to_string())
+    }
+
+    pub(crate) fn sign_pending_tx(
+        &mut self,
+        signer: &PrivateKeySigner,
+        nonce: u64,
+    ) -> Result<TxEnvelope, String> {
         let tx = self.pending_tx.take().ok_or("Transaction not prepared")?;
         // Check if the transaction is complete and return an error if not
         let is_complete = tx.complete_1559();
@@ -201,21 +248,23 @@ impl TxBuilder {
             let messages = err.to_vec().join(", ");
             return Err(format!("Transaction is incomplete: {}", messages));
         }
-        let mut tx_eip1559 = tx.build_1559().map_err(|e| e.to_string())?;
+        let sender = signer.address();
+        if tx.from != Some(sender) || tx.nonce != Some(nonce) {
+            return Err(
+                "The active account or nonce changed. Estimate the transfer again.".to_string(),
+            );
+        }
 
+        let mut tx_eip1559 = tx.build_1559().map_err(|e| e.to_string())?;
         let signature = signer
             .sign_transaction_sync(&mut tx_eip1559)
             .map_err(|e| format!("Failed to sign transaction: {e}"))?;
 
-        let tx_envelope = TxEnvelope::Eip1559(tx_eip1559.into_signed(signature));
-        let pending_tx = self
-            .provider
-            .send_tx_envelope(tx_envelope)
-            .await
-            .map_err(|e| format!("Failed to send transaction: {e}"))?;
+        Ok(TxEnvelope::Eip1559(tx_eip1559.into_signed(signature)))
+    }
 
-        self.pending_tx = None;
-        Ok(*pending_tx.tx_hash())
+    pub(super) fn provider(&self) -> &DynProvider {
+        &self.provider
     }
 
     pub fn discard_pending(&mut self) {
@@ -494,6 +543,7 @@ mod tests {
         EthereumConfig {
             rpc_url: "".to_string(),
             anvil: true,
+            ..Default::default()
         }
     }
 

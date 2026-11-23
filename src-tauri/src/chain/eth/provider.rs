@@ -1,10 +1,47 @@
 use std::time::Duration;
 
-use alloy::{providers::RootProvider, rpc::client::RpcClient};
+use alloy::{
+    consensus::TxEnvelope, primitives::B256, providers::RootProvider, rpc::client::RpcClient,
+};
 use alloy_provider::{DynProvider, Provider, ProviderBuilder};
 use tauri::Url;
 
 use crate::{config::Config, eth::config::EthereumConfig};
+
+pub(super) async fn broadcast_signed(
+    provider: &DynProvider,
+    tx: TxEnvelope,
+) -> Result<B256, String> {
+    let expected = *tx.tx_hash();
+    let pending = provider.send_tx_envelope(tx).await.map_err(|_| {
+        format!("RPC did not confirm broadcast. Check transaction {expected} before retrying.")
+    })?;
+    if pending.tx_hash() != &expected {
+        return Err(format!(
+            "RPC returned an unexpected hash. Check transaction {expected} before retrying."
+        ));
+    }
+    Ok(expected)
+}
+
+pub(super) async fn checked_http_provider(url: &str, chain: u32) -> Result<DynProvider, String> {
+    let url = Url::parse(url).map_err(|_| "Invalid Ethereum RPC URL")?;
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(12))
+        .build()
+        .map_err(|_| "Could not start the Ethereum RPC client")?;
+    let provider = RootProvider::new(RpcClient::new_http_with_client(client, url)).erased();
+    let actual_chain = provider
+        .get_chain_id()
+        .await
+        .map_err(|_| "Could not verify the network of the Ethereum RPC")?;
+    if actual_chain != u64::from(chain) {
+        return Err(format!(
+            "Ethereum RPC reports chain {actual_chain}; expected {chain}"
+        ));
+    }
+    Ok(provider)
+}
 
 pub fn select_provider(config: Config) -> DynProvider {
     if config.eth.anvil {

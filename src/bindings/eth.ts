@@ -68,6 +68,54 @@ async anvilSetInitialBalances(address: string) : Promise<Result<string, string>>
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async walletconnectSettings() : Promise<Result<WalletConnectSettings, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("walletconnect_settings") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async walletconnectAuthorize(grant: WalletConnectGrant) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("walletconnect_authorize", { grant }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async walletconnectDisconnect(topic: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("walletconnect_disconnect", { topic }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async walletconnectPrepare(request: WalletConnectRequest) : Promise<Result<WalletConnectReview, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("walletconnect_prepare", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async walletconnectReject(topic: string, id: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("walletconnect_reject", { topic, id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async walletconnectApprove(topic: string, id: string) : Promise<Result<string | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("walletconnect_approve", { topic, id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -90,6 +138,12 @@ export type TrackedTokenInfo = { chain: BlockChain; symbol: string; decimals: nu
 export type TransferEstimation = { estimated_gas: string; max_fee_per_gas: string; fee_ceiling: string; fee_in_usd: number }
 export type TransferRequest = { token_address: string; amount: string; recipient: string; fee_mode: FeeMode }
 export type WalletBalance = { wei: string; tokens: TokenBalance[] }
+export type WalletConnectChain = { id: number; name: string }
+export type WalletConnectChainGrant = { id: number; methods: string[] }
+export type WalletConnectGrant = { topic: string; address: string; chains: WalletConnectChainGrant[] }
+export type WalletConnectRequest = { topic: string; id: string; chain: number; method: string; params_json: string; expires_at: number }
+export type WalletConnectReview = { title: string; target: string | null; value_eth: string | null; fee_eth: string | null; spender: string | null; allowance: string | null; details: string | null; switch_chain: number | null; fields: ([string, string])[] }
+export type WalletConnectSettings = { project_id: string; disabled_reason: string | null; chains: WalletConnectChain[]; methods: string[] }
 
 /** tauri-specta globals **/
 

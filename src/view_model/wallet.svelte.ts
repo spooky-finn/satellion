@@ -2,10 +2,12 @@ import { commands, type UnlockDto } from '../bindings'
 import { unwrap_result } from '../lib/handle_err'
 import { BitcoinWalletVM } from '../routes/bitcoin/view_model/wallet.vm.svelte'
 import { EthereumWalletVM } from '../routes/ethereum/view_model/wallet.vm.svelte'
+import { WalletConnectVM } from '../routes/ethereum/view_model/walletconnect.svelte'
 
 /** Owns the unlocked wallet and its Bitcoin and Ethereum view models. */
 export class Wallet {
-  eth = $state.raw(new EthereumWalletVM())
+  readonly walletconnect = new WalletConnectVM()
+  eth = $state.raw(new EthereumWalletVM(() => this.walletconnect.reset()))
   btc = $state.raw(new BitcoinWalletVM())
   name = $state<string | undefined>(undefined)
 
@@ -22,8 +24,9 @@ export class Wallet {
 
   /** Replace chain models so pending requests can only update discarded state. */
   reset() {
+    this.walletconnect.reset()
     this.name = undefined
-    this.eth = new EthereumWalletVM()
+    this.eth = new EthereumWalletVM(() => this.walletconnect.reset())
     this.btc = new BitcoinWalletVM()
   }
 }

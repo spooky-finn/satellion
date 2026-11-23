@@ -4,7 +4,10 @@ use std::sync::Arc;
 
 use tokio::sync::Mutex;
 
-use crate::{event_emitter::EventEmitter, session::SessionKeeper};
+use crate::{
+    event_emitter::EventEmitter,
+    session::{SessionKeeper, SessionRevocation},
+};
 
 pub const SYS_SESSION_LOCKED_EVENT: &str = "system:session-locked";
 pub const SYS_SESSION_UNLOCKED_EVENT: &str = "system:session-unlocked";
@@ -15,9 +18,10 @@ mod macos;
 pub fn init(
     app: &tauri::AppHandle,
     sk: Arc<Mutex<SessionKeeper>>,
+    revocation: SessionRevocation,
     event_emitter: Arc<EventEmitter>,
 ) {
     #[cfg(target_os = "macos")]
     macos::init_session_events(app.clone());
-    triggers::init_session_triggers(app, sk, event_emitter);
+    triggers::init_session_triggers(app, sk, revocation, event_emitter);
 }

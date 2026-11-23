@@ -18,7 +18,7 @@
       }
     ],
     "security": {
-      "csp": null,
+      "csp": "default-src 'self' https://verify.walletconnect.com https://verify.walletconnect.org; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost wss://relay.walletconnect.org https://verify.walletconnect.com https://verify.walletconnect.org; object-src 'none'; worker-src 'none'; media-src 'none'; base-uri 'none'; form-action 'none'",
       "pattern": {
         "use": "isolation",
         "options": {

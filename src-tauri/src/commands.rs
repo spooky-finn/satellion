@@ -13,10 +13,11 @@ use crate::{
     eth::{
         self, PriceFeed,
         constants::{BTC_USD_PRICE_FEED, ETH_USD_PRICE_FEED},
+        walletconnect::{WalletConnectConfig, WalletConnectConfigChange},
     },
     mnemonic,
     repository::{TxQuery, TxRecord, TxRepository},
-    session::{SK, Session},
+    session::{SK, Session, SessionRevocation},
     system::biometric,
     wallet_keeper::{CreationFlow, WalletKeeper},
 };
@@ -116,7 +117,11 @@ pub async fn add_account(
         BlockChain::Bitcoin => wallet.btc.create_account(label),
         BlockChain::Ethereum => wallet.eth.create_account(label),
     };
-    wallet.persist()?;
+    let result = wallet.persist();
+    if chain == BlockChain::Ethereum {
+        sk.clear_walletconnect();
+    }
+    result?;
     Ok(account_index)
 }
 
@@ -130,12 +135,16 @@ pub async fn switch_account(
 ) -> Result<(), String> {
     let mut sk = sk.lock().await;
     let wallet = sk.wallet()?;
+    let eth_account_changed = chain == BlockChain::Ethereum && wallet.eth.active_account != account;
     match chain {
         BlockChain::Bitcoin => wallet.btc.active_account = account,
         BlockChain::Ethereum => wallet.eth.switch_account(account)?,
     }
-    wallet.persist()?;
-    Ok(())
+    let result = wallet.persist();
+    if eth_account_changed {
+        sk.clear_walletconnect();
+    }
+    result
 }
 
 #[specta]
@@ -200,6 +209,7 @@ async fn do_unlock(
     wallet_keeper: &WalletKeeper,
     sk: &SK,
     config: &Mutex<Config>,
+    generation: u64,
 ) -> Result<UnlockDto, String> {
     let cfg = config.lock().await.clone();
     let mut wallet = wallet_keeper
@@ -210,7 +220,7 @@ async fn do_unlock(
     let (ethereum, bitcoin) = (wallet.eth.unlock()?, wallet.btc.unlock()?);
 
     let session = Session::new(wallet, cfg.session_inactivity_timeout());
-    sk.lock().await.set(session);
+    sk.lock().await.set_at(session, generation)?;
 
     Ok(UnlockDto {
         ethereum,
@@ -228,6 +238,7 @@ pub async fn unlock_wallet(
     wallet_keeper: tauri::State<'_, WalletKeeper>,
     sk: tauri::State<'_, SK>,
     config: tauri::State<'_, Mutex<Config>>,
+    revocation: tauri::State<'_, SessionRevocation>,
 ) -> Result<UnlockDto, String> {
     let result = do_unlock(
         &wallet_name,
@@ -235,10 +246,25 @@ pub async fn unlock_wallet(
         wallet_keeper.inner(),
         sk.inner(),
         config.inner(),
+        revocation.generation(),
     )
     .await;
     passphrase.zeroize();
     result
+}
+
+#[specta]
+#[tauri::command]
+pub async fn lock_wallet(
+    sk: tauri::State<'_, SK>,
+    revocation: tauri::State<'_, SessionRevocation>,
+) -> Result<(), String> {
+    revocation.revoke();
+    let sk = sk.inner().clone();
+    tauri::async_runtime::spawn(async move {
+        sk.lock().await.drop_revoked();
+    });
+    Ok(())
 }
 
 #[specta]
@@ -249,7 +275,9 @@ pub async fn unlock_wallet_with_biometric(
     wallet_keeper: tauri::State<'_, WalletKeeper>,
     sk: tauri::State<'_, SK>,
     config: tauri::State<'_, Mutex<Config>>,
+    revocation: tauri::State<'_, SessionRevocation>,
 ) -> Result<UnlockDto, String> {
+    let generation = revocation.generation();
     let passphrase = biometric::prompt_unlock(&wallet_name).await?;
     do_unlock(
         &wallet_name,
@@ -257,6 +285,7 @@ pub async fn unlock_wallet_with_biometric(
         wallet_keeper.inner(),
         sk.inner(),
         config.inner(),
+        generation,
     )
     .await
 }
@@ -349,10 +378,16 @@ pub async fn get_config_schema() -> Result<String, String> {
 pub async fn set_config(
     input: Config,
     config: tauri::State<'_, Mutex<Config>>,
-) -> Result<(), String> {
+    sk: tauri::State<'_, SK>,
+) -> Result<WalletConnectConfigChange, String> {
+    let mut config = config.lock().await;
     input.save()?;
-    *config.lock().await = input;
-    Ok(())
+    let change = WalletConnectConfig::from(&*config).change_to(&WalletConnectConfig::from(&input));
+    if change != WalletConnectConfigChange::Unchanged {
+        sk.lock().await.clear_walletconnect();
+    }
+    *config = input;
+    Ok(change)
 }
 
 #[specta]

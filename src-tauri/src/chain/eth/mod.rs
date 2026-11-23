@@ -7,9 +7,11 @@ pub mod fee_estimator;
 pub mod persistence;
 pub mod price_feed;
 pub mod provider;
+mod submission;
 pub mod token;
 pub mod transfer_builder;
 pub mod wallet;
+pub mod walletconnect;
 
 pub use erc20_retriver::Erc20Retriever;
 pub use price_feed::PriceFeed;

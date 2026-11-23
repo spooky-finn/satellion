@@ -12,6 +12,7 @@
   import Settings from './routes/Settings.svelte'
   import BitcoinWallet from './routes/bitcoin/view/Main.svelte'
   import EthereumWallet from './routes/ethereum/view/Main.svelte'
+  import WalletConnect from './routes/ethereum/view/WalletConnect.svelte'
   import Notifications from './components/Notifications.svelte'
   import ThemeSwitcher from './components/ThemeSwitcher.svelte'
   import Navbar from './components/Navbar.svelte'
@@ -102,4 +103,7 @@
     <UnlockWallet />
   {/if}
 </div>
+{#if desktop && authenticated}
+  <WalletConnect vm={root_store.wallet.walletconnect} />
+{/if}
 <Notifications />
